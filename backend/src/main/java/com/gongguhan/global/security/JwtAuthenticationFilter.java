@@ -1,5 +1,7 @@
 package com.gongguhan.global.security;
 
+import com.gongguhan.domain.account.entity.User;
+import com.gongguhan.domain.account.repository.UserRepository;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -25,9 +27,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String PREFIX = "Bearer ";
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final UserRepository userRepository;
 
-    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider) {
+    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, UserRepository userRepository) {
         this.jwtTokenProvider = jwtTokenProvider;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -35,20 +39,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         String token = resolveToken(request);
-        if (token != null && jwtTokenProvider.isValid(token)) {
+        if (token != null && jwtTokenProvider.isValidAccessToken(token)) {
             Claims claims = jwtTokenProvider.parseClaims(token);
             Long userId = Long.valueOf(claims.getSubject());
             String role = claims.get("role", String.class);
-            boolean isSeller = Boolean.TRUE.equals(claims.get("isSeller", Boolean.class));
 
-            List<GrantedAuthority> authorities = isSeller
-                    ? List.of(new SimpleGrantedAuthority("ROLE_" + role), new SimpleGrantedAuthority("ROLE_SELLER"))
-                    : List.of(new SimpleGrantedAuthority("ROLE_" + role));
-
-            var authentication = new UsernamePasswordAuthenticationToken(userId, null, authorities);
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            userRepository.findById(userId)
+                    .filter(user -> "ACTIVE".equals(user.getStatus()))
+                    .ifPresent(user -> authenticate(user, role));
         }
         filterChain.doFilter(request, response);
+    }
+
+    private void authenticate(User user, String role) {
+        List<GrantedAuthority> authorities = user.isSeller()
+                ? List.of(new SimpleGrantedAuthority("ROLE_" + role), new SimpleGrantedAuthority("ROLE_SELLER"))
+                : List.of(new SimpleGrantedAuthority("ROLE_" + role));
+
+        var authentication = new UsernamePasswordAuthenticationToken(user.getUserId(), null, authorities);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 
     private String resolveToken(HttpServletRequest request) {
