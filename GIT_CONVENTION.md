@@ -9,7 +9,9 @@
 S15P21B205/
 ├── backend/     # 백엔드 서버 코드
 ├── frontend/    # 프론트엔드 코드
-├── .claude/     # Claude Code 설정
+├── ai/          # AI 상품 식별 및 정보 검색 서비스
+├── docs/        # 기획 및 설계 문서
+├── .claude/
 ├── README.md
 ├── CLAUDE.md
 ├── AGENT.md
