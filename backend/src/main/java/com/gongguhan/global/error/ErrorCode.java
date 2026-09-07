@@ -11,6 +11,7 @@ public enum ErrorCode {
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "필수값 누락 또는 형식이 올바르지 않습니다."),
     AUTHENTICATION_REQUIRED(HttpStatus.UNAUTHORIZED, "인증 토큰이 없거나 만료되었습니다."),
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 올바르지 않습니다."),
+    ACCOUNT_NOT_ACTIVE(HttpStatus.FORBIDDEN, "활성 상태가 아닌 계정입니다."),
     EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 가입된 이메일입니다."),
     ROLE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "해당 역할에서 접근할 수 없는 API입니다."),
     RESOURCE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "본인 소유의 자원이 아닙니다."),

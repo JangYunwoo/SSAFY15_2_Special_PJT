@@ -13,6 +13,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class JwtTokenProvider {
 
+    private static final String TOKEN_TYPE_CLAIM = "tokenType";
+    private static final String ACCESS_TOKEN_TYPE = "ACCESS";
+    private static final String REFRESH_TOKEN_TYPE = "REFRESH";
+
     private final SecretKey key;
     private final long accessTokenExpireSeconds;
     private final long refreshTokenExpireSeconds;
@@ -24,11 +28,11 @@ public class JwtTokenProvider {
     }
 
     public String createAccessToken(Long userId, String role, boolean isSeller) {
-        return createToken(userId, role, isSeller, accessTokenExpireSeconds);
+        return createToken(userId, role, isSeller, ACCESS_TOKEN_TYPE, accessTokenExpireSeconds);
     }
 
     public String createRefreshToken(Long userId, String role, boolean isSeller) {
-        return createToken(userId, role, isSeller, refreshTokenExpireSeconds);
+        return createToken(userId, role, isSeller, REFRESH_TOKEN_TYPE, refreshTokenExpireSeconds);
     }
 
     public long getAccessTokenExpireSeconds() {
@@ -43,21 +47,30 @@ public class JwtTokenProvider {
                 .getPayload();
     }
 
-    public boolean isValid(String token) {
+    public boolean isValidAccessToken(String token) {
+        return isValidTokenType(token, ACCESS_TOKEN_TYPE);
+    }
+
+    public boolean isValidRefreshToken(String token) {
+        return isValidTokenType(token, REFRESH_TOKEN_TYPE);
+    }
+
+    private boolean isValidTokenType(String token, String expectedType) {
         try {
-            parseClaims(token);
-            return true;
+            return expectedType.equals(parseClaims(token).get(TOKEN_TYPE_CLAIM, String.class));
         } catch (JwtException | IllegalArgumentException e) {
             return false;
         }
     }
 
-    private String createToken(Long userId, String role, boolean isSeller, long expireSeconds) {
+    private String createToken(
+            Long userId, String role, boolean isSeller, String tokenType, long expireSeconds) {
         Instant now = Instant.now();
         return Jwts.builder()
                 .subject(String.valueOf(userId))
                 .claim("role", role)
                 .claim("isSeller", isSeller)
+                .claim(TOKEN_TYPE_CLAIM, tokenType)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusSeconds(expireSeconds)))
                 .signWith(key)

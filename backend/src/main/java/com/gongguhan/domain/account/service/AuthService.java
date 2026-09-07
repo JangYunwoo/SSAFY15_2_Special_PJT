@@ -13,6 +13,7 @@ import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
 import com.gongguhan.global.security.JwtTokenProvider;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,7 +49,11 @@ public class AuthService {
                 passwordEncoder.encode(request.password()),
                 request.nickname(),
                 request.phone());
-        userRepository.save(user);
+        try {
+            userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS);
+        }
 
         SignupRequest.AddressRequest address = request.defaultAddress();
         userAddressRepository.save(UserAddress.createDefault(
@@ -68,6 +73,10 @@ public class AuthService {
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
+        }
+
+        if (!"ACTIVE".equals(user.getStatus())) {
+            throw new BusinessException(ErrorCode.ACCOUNT_NOT_ACTIVE);
         }
 
         String accessToken = jwtTokenProvider.createAccessToken(user.getUserId(), DEFAULT_ROLE, user.isSeller());
