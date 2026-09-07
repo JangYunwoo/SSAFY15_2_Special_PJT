@@ -1,0 +1,23 @@
+# 공구한 문서
+
+세 문서(API 명세서, DB 스키마, 요구사항 명세서)가 서로 충돌하면 아래 우선순위로 판단한다.
+
+**API 명세서 > DB 스키마 > 요구사항 명세서**
+
+(배경은 [api/공구한_API_명세서_v1.md](./api/공구한_API_명세서_v1.md) 0장 "작성 기준과 선결 검토사항" 참고)
+
+## 폴더
+
+| 폴더 | 내용 |
+| --- | --- |
+| [requirements/](./requirements) | 요구사항 명세서 v4 (원본 PDF) |
+| [api/](./api) | API 명세서 v1 - 엔드포인트, 요청/응답 예시, 에러 코드, 상태 전이 규칙 |
+| [database/](./database) | DB 스키마(DDL) v2, ERD 이미지 |
+| [external/](./external) | SSAFY 교육용 금융망 API 연동 자료 (플로우, 인터페이스 예제) |
+| [market-research/](./market-research) | 시장조사 |
+| [team/](./team) | 백엔드 역할 분담. 브랜치/커밋/PR 규칙은 루트 [GIT_CONVENTION.md](../GIT_CONVENTION.md) 참고 |
+
+## 코드와의 연결
+
+- DB 스키마는 `backend/src/main/resources/db/migration/V1__init_schema.sql`에 Flyway 마이그레이션으로 그대로 반영되어 있다. 스키마를 바꿀 때는 `docs/database/공구한_schema_v2.sql`과 새 마이그레이션 파일(`V2__...`)을 함께 추가한다 - 이미 적용된 `V1`은 수정하지 않는다.
+- API 명세서의 도메인 구분은 `backend/src/main/java/com/gongguhan/domain/*` 패키지와 1:1로 대응한다. 각 패키지의 `package-info.java`에 담당자와 관련 API ID가 적혀 있다.
