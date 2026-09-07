@@ -33,6 +33,25 @@
 | 결제 전략 인터페이스 | `PaymentGateway`(prepare/approve/cancel 등) 시그니처가 안 맞으면 세 결제수단 구현이 서로 어긋난다 | 코드 작성 전에 30분~1시간 짧은 회의로 메서드 시그니처만 합의. 구현은 각자. |
 | DB 스키마 | 이미 고정 소스(`V1__init_schema.sql`)라 걸림돌 아님 | 변경이 필요하면 임의 수정 금지, 합의 후 `V2__...` 마이그레이션 추가 |
 
+## 동시성·트랜잭션 챌린지
+
+세 명 모두 트랜잭션/동시성 문제를 실제로 겪어보고 싶다고 해서 정리한다. 스키마 자체에
+이미 제어 장치(버전 컬럼, partial unique index, CHECK 제약)가 설계돼 있어서, 지금 도메인
+분담 그대로도 아래처럼 겹치지 않게 하나씩 배분된다.
+
+| 담당자 | 문제 | 관련 스키마/제약 | 선택지 |
+| --- | --- | --- | --- |
+| 카드 담당 | `PAY-01` 슬롯 선점 - 정원 초과(오버부킹) 방지 | `group_buys.version`, `payments.uk_payments_slot(group_buy_id, user_id, slot_marker)`, `ck_group_buys_slots` | 비관적 락(`SELECT ... FOR UPDATE`) vs 낙관적 락(`version` + 재시도) vs 유니크 제약 위반 캐치 |
+| 카드 담당 + 카카오 담당 | 반품 신청(`RTN-02`, 카카오)과 구매확정(`CFM-01`, 카드)의 동시 실행 | `participations` (버전 컬럼 없음 → 행 잠금 필요) | 두 도메인이 동일 참여 행에 대한 잠금 전략을 반드시 합의 |
+| 카카오 담당 | `GRP-07` 모집조건 수정과 참여 동시 진행 | `group_buys.version` | 낙관적 락 |
+| 코인 담당 | Quote 중복 사용 방지 | `crypto_quotes.used`, `expires_at` | Quote claim의 원자성(락 또는 조건부 UPDATE) |
+| 코인 담당 | 체인 스캔 중복 입금 기록 | `crypto_deposits` UNIQUE(`tx_hash`, `log_index`) | 스캔 스케줄러 중복 실행 방지 |
+| 코인 담당 | 정산 배치 중복 실행/중복 포함 | `settlement_items` UNIQUE(`participation_id`) | 배치 재실행 멱등성 |
+| 코인 담당 | 판매자 위반 누적(`penalty_count`) 증가 | `seller_profiles.penalty_count` (버전 컬럼 없음) | read-modify-write 대신 원자적 UPDATE(`SET penalty_count = penalty_count + 1`) |
+
+각자 고른 락/트랜잭션 전략과 그 이유를 PR 설명에 한두 줄만 남겨도, 서로 코드리뷰할 때
+"왜 이 방식을 택했는지"를 배우는 재료가 된다.
+
 ## 로드맵
 
 ### 0단계 - 착수 준비 (다 같이, 반나절)
