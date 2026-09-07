@@ -1,7 +1,9 @@
 package com.gongguhan.global.config;
 
+import com.gongguhan.global.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -11,8 +13,6 @@ import org.springframework.security.web.SecurityFilterChain;
 
 /**
  * server.servlet.context-path=/api/v1 이므로 아래 경로는 컨텍스트 패스를 제외한 상대 경로다.
- * JWT 인증 필터(JwtAuthenticationFilter)는 domain.account 담당자가 global.security에
- * 구현한 뒤 이 필터체인에 addFilterBefore로 등록한다.
  */
 @Configuration
 @EnableWebSecurity
@@ -24,6 +24,12 @@ public class SecurityConfig {
             "/group-buys",
             "/group-buys/*"
     };
+
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+    }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -39,7 +45,8 @@ public class SecurityConfig {
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .anyRequest().authenticated()
-                );
+                )
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }
