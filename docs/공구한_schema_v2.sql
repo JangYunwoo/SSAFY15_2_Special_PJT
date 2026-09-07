@@ -1,13 +1,17 @@
 -- =====================================================================
--- 공구한 (Gonggu-han) Database Schema v1.0  (2026-09-01 개정)
--- MySQL 8.0 / InnoDB / utf8mb4  |  30 tables
+-- 공구한 (Gonggu-han) Database Schema v2.0  (2026-09-07 개정)
+-- MySQL 8.0 / InnoDB / utf8mb4  |  31 tables
 --
 -- 기준 문서
 --   - 요구사항 명세서 v4.0
 --   - 팀 의사결정 목록
+--   - 최신 ERDCloud (2oNmPznY5vTrAMDCi)
 --   - SSAFY 교육용 금융망 API 명세
 --
 -- 개정 내용
+--   - buyers/sellers 분리 계정을 users + seller_profiles로 통합
+--   - buyer_addresses를 user_addresses로 변경
+--   - seller_verifications 추가
 --   - ai_extractions 삭제 (AI 결과는 products에 저장, 동기 호출)
 --   - slot_reservations 삭제 → payments의 PROCESSING 상태로 통합
 --
@@ -25,29 +29,31 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- 1. 계정
 -- =====================================================================
 
-CREATE TABLE buyers (
-    buyer_id         BIGINT       NOT NULL AUTO_INCREMENT,
+CREATE TABLE users (
+    user_id          BIGINT       NOT NULL AUTO_INCREMENT,
     email            VARCHAR(255) NOT NULL,
     password_hash    VARCHAR(255) NOT NULL,
     nickname         VARCHAR(50)  NOT NULL,
     phone            VARCHAR(20)  NULL,
+    phone_verified   BOOLEAN      NOT NULL DEFAULT FALSE,
     ssafy_user_key   VARCHAR(60)  NULL COMMENT 'SSAFY member 생성 응답 userKey',
     ssafy_account_no VARCHAR(16)  NULL COMMENT '카드 취소 불가 시 환불 수취 계좌',
     wallet_address   VARCHAR(42)  NULL COMMENT '최근 사용 MetaMask 주소',
+    is_seller        BOOLEAN      NOT NULL DEFAULT FALSE COMMENT '판매자 여부 캐시',
     status           VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE'
                      COMMENT 'ACTIVE / DORMANT / WITHDRAWN',
     created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
                      ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (buyer_id),
-    UNIQUE KEY uk_buyers_email (email)
+    PRIMARY KEY (user_id),
+    UNIQUE KEY uk_users_email (email)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
-  COMMENT = '구매자 계정 (판매자와 분리)';
+  COMMENT = '통합 사용자 계정';
 
 
-CREATE TABLE buyer_addresses (
+CREATE TABLE user_addresses (
     address_id      BIGINT       NOT NULL AUTO_INCREMENT,
-    buyer_id        BIGINT       NOT NULL,
+    user_id         BIGINT       NOT NULL,
     alias           VARCHAR(50)  NULL,
     recipient_name  VARCHAR(50)  NOT NULL,
     recipient_phone VARCHAR(20)  NOT NULL,
@@ -59,35 +65,56 @@ CREATE TABLE buyer_addresses (
     updated_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
                     ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (address_id),
-    KEY idx_buyer_addresses_buyer (buyer_id, is_default),
-    CONSTRAINT fk_buyer_addresses_buyer
-        FOREIGN KEY (buyer_id) REFERENCES buyers (buyer_id)
+    KEY idx_user_addresses_user (user_id, is_default),
+    CONSTRAINT fk_user_addresses_user
+        FOREIGN KEY (user_id) REFERENCES users (user_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
-  COMMENT = '구매자 배송지';
+  COMMENT = '사용자 배송지';
 
 
-CREATE TABLE sellers (
-    seller_id        BIGINT       NOT NULL AUTO_INCREMENT,
-    email            VARCHAR(255) NOT NULL,
-    password_hash    VARCHAR(255) NOT NULL,
+CREATE TABLE seller_profiles (
+    seller_id        BIGINT       NOT NULL COMMENT 'users.user_id와 동일',
     business_name    VARCHAR(100) NOT NULL,
-    phone            VARCHAR(20)  NULL,
-    ssafy_user_key   VARCHAR(60)  NULL,
+    business_phone   VARCHAR(20)  NULL,
     ssafy_account_no VARCHAR(16)  NULL COMMENT '정산 수취 계좌',
     account_holder   VARCHAR(50)  NULL,
+    account_verified BOOLEAN      NOT NULL DEFAULT FALSE COMMENT '1원 인증 완료 여부',
     return_zipcode   CHAR(5)      NULL COMMENT '반품 수취 주소',
     return_address1  VARCHAR(255) NULL,
     return_address2  VARCHAR(255) NULL,
     penalty_count    INT          NOT NULL DEFAULT 0 COMMENT '3회 누적 시 정지',
     status           VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE'
                      COMMENT 'ACTIVE / WARNED / SUSPENDED',
+    verified_at      DATETIME     NOT NULL COMMENT '판매자 인증 완료일시',
     created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
                      ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (seller_id),
-    UNIQUE KEY uk_sellers_email (email)
+    CONSTRAINT fk_seller_profiles_user
+        FOREIGN KEY (seller_id) REFERENCES users (user_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
-  COMMENT = '판매자 계정';
+  COMMENT = '판매자 전환 프로필';
+
+
+CREATE TABLE seller_verifications (
+    verification_id  BIGINT       NOT NULL AUTO_INCREMENT,
+    user_id           BIGINT       NOT NULL,
+    verification_type VARCHAR(20)  NOT NULL COMMENT 'PHONE / ACCOUNT_1WON',
+    target_value      VARCHAR(50)  NOT NULL COMMENT '휴대폰 번호 또는 계좌번호',
+    code_hash         VARCHAR(255) NULL COMMENT '인증코드 해시',
+    ssafy_auth_id     VARCHAR(60)  NULL COMMENT '1원 인증 authId',
+    attempt_count     INT          NOT NULL DEFAULT 0,
+    status            VARCHAR(20)  NOT NULL DEFAULT 'REQUESTED'
+                      COMMENT 'REQUESTED / VERIFIED / EXPIRED / FAILED',
+    expires_at        DATETIME     NOT NULL,
+    verified_at       DATETIME     NULL,
+    created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (verification_id),
+    KEY idx_seller_verifications_user (user_id, status),
+    CONSTRAINT fk_seller_verifications_user
+        FOREIGN KEY (user_id) REFERENCES users (user_id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+  COMMENT = '판매자 전환용 휴대폰·계좌 인증 이력';
 
 
 CREATE TABLE admins (
@@ -165,7 +192,7 @@ CREATE TABLE products (
     KEY idx_products_category (category_id, status),
     KEY idx_products_restriction (restriction_review_status),
     CONSTRAINT fk_products_seller
-        FOREIGN KEY (seller_id) REFERENCES sellers (seller_id),
+        FOREIGN KEY (seller_id) REFERENCES seller_profiles (seller_id),
     CONSTRAINT fk_products_category
         FOREIGN KEY (category_id) REFERENCES categories (category_id),
     CONSTRAINT fk_products_restriction_reason
@@ -254,7 +281,7 @@ CREATE TABLE group_buys (
     CONSTRAINT fk_group_buys_product
         FOREIGN KEY (product_id) REFERENCES products (product_id),
     CONSTRAINT fk_group_buys_seller
-        FOREIGN KEY (seller_id) REFERENCES sellers (seller_id),
+        FOREIGN KEY (seller_id) REFERENCES seller_profiles (seller_id),
     CONSTRAINT ck_group_buys_target CHECK (target_participants >= 2),
     CONSTRAINT ck_group_buys_slots
         CHECK (current_participants + reserved_slots <= target_participants)
@@ -265,7 +292,7 @@ CREATE TABLE group_buys (
 CREATE TABLE participations (
     participation_id         BIGINT       NOT NULL AUTO_INCREMENT,
     group_buy_id             BIGINT       NOT NULL,
-    buyer_id                 BIGINT       NOT NULL,
+    user_id                  BIGINT       NOT NULL,
     share_amount             BIGINT       NOT NULL COMMENT '분담금 스냅샷',
     shipping_fee             BIGINT       NOT NULL COMMENT '배송비 스냅샷',
     total_amount             BIGINT       NOT NULL COMMENT '개인 결제금액',
@@ -293,15 +320,15 @@ CREATE TABLE participations (
     updated_at               DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
                              ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (participation_id),
-    UNIQUE KEY uk_participation_active (group_buy_id, buyer_id, active_marker),
+    UNIQUE KEY uk_participation_active (group_buy_id, user_id, active_marker),
     KEY idx_participation_group (group_buy_id, status),
-    KEY idx_participation_buyer (buyer_id, status),
+    KEY idx_participation_user (user_id, status),
     KEY idx_participation_autoconfirm (status, confirm_hold, withdrawal_period_end_at),
     KEY idx_participation_settle (status, settled, settlement_eligible_at),
     CONSTRAINT fk_participation_group_buy
         FOREIGN KEY (group_buy_id) REFERENCES group_buys (group_buy_id),
-    CONSTRAINT fk_participation_buyer
-        FOREIGN KEY (buyer_id) REFERENCES buyers (buyer_id)
+    CONSTRAINT fk_participation_user
+        FOREIGN KEY (user_id) REFERENCES users (user_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
   COMMENT = '공동구매 참여';
 
@@ -337,7 +364,7 @@ CREATE TABLE ssafy_api_logs (
 CREATE TABLE payments (
     payment_id       BIGINT       NOT NULL AUTO_INCREMENT,
     group_buy_id     BIGINT       NOT NULL,
-    buyer_id         BIGINT       NOT NULL,
+    user_id          BIGINT       NOT NULL,
     participation_id BIGINT       NULL COMMENT '결제 완료 후 연결',
     method           VARCHAR(20)  NOT NULL COMMENT 'CARD / KAKAOPAY / CRYPTO',
     krw_amount       BIGINT       NOT NULL COMMENT 'KRW 기준 거래가치',
@@ -356,14 +383,14 @@ CREATE TABLE payments (
     PRIMARY KEY (payment_id),
     UNIQUE KEY uk_payments_idempotency (idempotency_key),
     UNIQUE KEY uk_payments_participation (participation_id),
-    UNIQUE KEY uk_payments_slot (group_buy_id, buyer_id, slot_marker),
+    UNIQUE KEY uk_payments_slot (group_buy_id, user_id, slot_marker),
     KEY idx_payments_slot_expire (status, slot_expires_at),
     KEY idx_payments_group (group_buy_id, status),
-    KEY idx_payments_buyer (buyer_id, status),
+    KEY idx_payments_user (user_id, status),
     CONSTRAINT fk_payments_group_buy
         FOREIGN KEY (group_buy_id) REFERENCES group_buys (group_buy_id),
-    CONSTRAINT fk_payments_buyer
-        FOREIGN KEY (buyer_id) REFERENCES buyers (buyer_id),
+    CONSTRAINT fk_payments_user
+        FOREIGN KEY (user_id) REFERENCES users (user_id),
     CONSTRAINT fk_payments_participation
         FOREIGN KEY (participation_id) REFERENCES participations (participation_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
@@ -677,7 +704,7 @@ CREATE TABLE settlements (
     CONSTRAINT fk_settlements_group_buy
         FOREIGN KEY (group_buy_id) REFERENCES group_buys (group_buy_id),
     CONSTRAINT fk_settlements_seller
-        FOREIGN KEY (seller_id) REFERENCES sellers (seller_id)
+        FOREIGN KEY (seller_id) REFERENCES seller_profiles (seller_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
   COMMENT = '판매자 정산. 플랫폼 계좌 → 판매자 계좌 SSAFY 이체';
 
@@ -759,7 +786,7 @@ CREATE TABLE seller_penalties (
     KEY idx_penalties_seller (seller_id, status),
     KEY idx_penalties_status (status, detected_at),
     CONSTRAINT fk_penalties_seller
-        FOREIGN KEY (seller_id) REFERENCES sellers (seller_id),
+        FOREIGN KEY (seller_id) REFERENCES seller_profiles (seller_id),
     CONSTRAINT fk_penalties_group_buy
         FOREIGN KEY (group_buy_id) REFERENCES group_buys (group_buy_id),
     CONSTRAINT fk_penalties_admin
