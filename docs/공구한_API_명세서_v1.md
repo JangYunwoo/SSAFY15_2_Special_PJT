@@ -2,15 +2,15 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 문서 버전 | v1.1-draft |
+| 문서 버전 | v1.2 |
 | 기준 요구사항 | 공구한 요구사항 명세서 v4.0 |
-| 최우선 기준 | 공구한 ERD 설계서 v2, 30개 테이블 |
+| 최우선 기준 | 최신 ERDCloud, 31개 테이블 (`2oNmPznY5vTrAMDCi`) |
 | API 형식 | REST / JSON / UTF-8 |
 | Base URL | `/api/v1` |
 
 ## 0. 작성 기준과 선결 검토사항
 
-본 명세서는 요구사항 명세서 v4.0의 사용자 동작을 API로 변환하되, 두 문서가 충돌하면 최신 문서인 ERD v2의 정책과 데이터 구조를 우선한다.
+본 명세서는 요구사항 명세서 v4.0의 사용자 동작을 API로 변환하되, 문서가 충돌하면 최신 ERDCloud의 정책과 데이터 구조를 우선한다.
 
 다음 차이는 ERD v2 기준으로 확정하여 반영한다.
 
@@ -22,6 +22,8 @@
 | 구매확정 후 반품 | 선환불·차기 정산 상계·회수 채권 지원 | 상계·채권 테이블 제거 | 배송 완료 7일 전까지 관리자 검토로 처리하며 정산은 `settlement_eligible_at` 이후에만 실행 |
 | 도서산간 추가금 | 별도 우편번호·추가금 정책 요구 | 전용 컬럼·테이블 없음 | MVP API와 금액 계산에서 제외 |
 
+계정은 `users`로 통합한다. 모든 사용자는 구매에 참여할 수 있고, 판매를 원하는 사용자는 휴대폰·1원 계좌 인증을 완료한 뒤 `seller_profiles`를 생성해 판매자 권한을 얻는다. 인증 시도와 결과는 `seller_verifications`에 보관한다.
+
 또한 v4 본문의 3.5 제목 아래에는 `FR-CFM`이 배치되어 있고 3.6~3.12 본문이 누락되어 있다. 누락 영역은 v4의 추적 매트릭스와 v3 요구사항을 참고하되, 최종 동작과 저장 구조는 ERD v2로 확정했다.
 
 ## 1. 공통 규칙
@@ -29,8 +31,9 @@
 ### 1.1 인증과 권한
 
 - 인증 헤더: `Authorization: Bearer {accessToken}`
-- 역할: `BUYER`, `SELLER`, `ADMIN`
-- 구매자 토큰으로 판매자·관리자 API에 접근할 수 없으며 반대 방향도 동일하다.
+- 역할: `USER`, `SELLER`, `ADMIN`
+- 모든 일반 계정은 `USER` 권한을 가지며, 유효한 `seller_profiles`가 있는 계정만 `SELLER` API에 접근한다.
+- 판매자도 같은 `users` 계정으로 구매 API를 사용할 수 있다. 관리자 API는 별도 `ADMIN` 인증 주체만 접근한다.
 - `/auth/**`, 공개 공동구매 조회, 카테고리 조회를 제외한 API는 인증이 필요하다.
 - 자원 소유권은 URL의 식별자뿐 아니라 인증 주체를 기준으로 다시 검증한다.
 
@@ -92,23 +95,26 @@
 
 | ID | Method | URL | 기능 | 권한 | 요구사항 |
 | --- | --- | --- | --- | --- | --- |
-| AUTH-01 | POST | `/auth/buyers/signup` | 구매자 회원가입 | Public | FR-ACC-01, 03, 04, 06 |
-| AUTH-02 | POST | `/auth/buyers/login` | 구매자 로그인 | Public | FR-ACC-02, 05, 08 |
-| AUTH-03 | POST | `/auth/sellers/signup` | 판매자 회원가입 | Public | FR-ACC-01, 03, 04, 07 |
-| AUTH-04 | POST | `/auth/sellers/login` | 판매자 로그인 | Public | FR-ACC-02, 05, 08 |
-| AUTH-05 | POST | `/auth/refresh` | Access Token 재발급 | Authenticated | FR-ACC-05 |
-| AUTH-06 | POST | `/auth/logout` | 로그아웃 및 Refresh Token 폐기 | Authenticated | FR-ACC-08 |
-| AUTH-07 | POST | `/auth/admins/login` | 관리자 로그인 | Public | 관리자 인증 |
-| BUY-01 | GET | `/buyers/me` | 구매자 프로필 조회 | BUYER | FR-ACC-09 |
-| BUY-02 | PATCH | `/buyers/me` | 구매자 프로필 수정 | BUYER | FR-ACC-09 |
-| BUY-03 | GET | `/buyers/me/addresses` | 배송지 목록 조회 | BUYER | FR-ACC-06 |
-| BUY-04 | POST | `/buyers/me/addresses` | 배송지 등록 | BUYER | FR-ACC-06 |
-| BUY-05 | PATCH | `/buyers/me/addresses/{addressId}` | 배송지 수정 | BUYER | FR-ACC-06 |
-| BUY-06 | DELETE | `/buyers/me/addresses/{addressId}` | 배송지 삭제 | BUYER | FR-ACC-06 |
-| SEL-01 | GET | `/sellers/me` | 판매자 프로필·제재 상태 조회 | SELLER | FR-ACC-09, FR-PEN-11 |
-| SEL-02 | PATCH | `/sellers/me` | 연락처·정산계좌·반품주소 수정 | SELLER | FR-ACC-09 |
+| AUTH-01 | POST | `/auth/signup` | 통합 사용자 회원가입 | Public | FR-ACC-01, 03, 04, 06 |
+| AUTH-02 | POST | `/auth/login` | 통합 사용자 로그인 | Public | FR-ACC-02, 05, 08 |
+| AUTH-03 | POST | `/auth/refresh` | Access Token 재발급 | Authenticated | FR-ACC-05 |
+| AUTH-04 | POST | `/auth/logout` | 로그아웃 및 Refresh Token 폐기 | Authenticated | FR-ACC-08 |
+| AUTH-05 | POST | `/auth/admins/login` | 관리자 로그인 | Public | 관리자 인증 |
+| USR-01 | GET | `/users/me` | 사용자 프로필 조회 | USER | FR-ACC-09 |
+| USR-02 | PATCH | `/users/me` | 사용자 프로필 수정 | USER | FR-ACC-09 |
+| USR-03 | GET | `/users/me/addresses` | 배송지 목록 조회 | USER | FR-ACC-06 |
+| USR-04 | POST | `/users/me/addresses` | 배송지 등록 | USER | FR-ACC-06 |
+| USR-05 | PATCH | `/users/me/addresses/{addressId}` | 배송지 수정 | USER | FR-ACC-06 |
+| USR-06 | DELETE | `/users/me/addresses/{addressId}` | 배송지 삭제 | USER | FR-ACC-06 |
+| SEL-01 | POST | `/users/me/seller-verifications/phone/request` | 판매자 전환 휴대폰 인증 요청 | USER | FR-ACC-07 |
+| SEL-02 | POST | `/users/me/seller-verifications/phone/confirm` | 휴대폰 인증 확인 | USER | FR-ACC-07 |
+| SEL-03 | POST | `/users/me/seller-verifications/account/request` | 정산계좌 1원 인증 요청 | USER | FR-ACC-07 |
+| SEL-04 | POST | `/users/me/seller-verifications/account/confirm` | 정산계좌 1원 인증 확인 | USER | FR-ACC-07 |
+| SEL-05 | POST | `/users/me/seller-profile` | 인증 완료 후 판매자 전환 | USER | FR-ACC-07 |
+| SEL-06 | GET | `/sellers/me` | 판매자 프로필·제재 상태 조회 | SELLER | FR-ACC-09, FR-PEN-11 |
+| SEL-07 | PATCH | `/sellers/me` | 연락처·정산계좌·반품주소 수정 | SELLER | FR-ACC-09 |
 
-### 구매자 회원가입 요청
+### 사용자 회원가입 요청
 
 ```json
 {
@@ -136,10 +142,28 @@
     "refreshToken": "...",
     "tokenType": "Bearer",
     "expiresIn": 1800,
-    "actor": { "id": "101", "role": "BUYER", "name": "공구왕" }
+    "actor": { "id": "101", "role": "USER", "isSeller": false, "name": "공구왕" }
   },
   "meta": null,
   "traceId": "01J..."
+}
+```
+
+### 판매자 전환 요청
+
+휴대폰과 정산계좌에 대해 `VERIFIED` 상태이며 만료되지 않은 인증 이력이 모두 있어야 한다. 전환 성공 시 같은 `users.user_id`를 `seller_profiles.seller_id`로 사용하고 `users.is_seller=true`를 함께 반영한다.
+
+```json
+{
+  "businessName": "공구상회",
+  "businessPhone": "01012345678",
+  "ssafyAccountNo": "0012345678901234",
+  "accountHolder": "홍길동",
+  "returnAddress": {
+    "zipcode": "06236",
+    "address1": "서울특별시 강남구 ...",
+    "address2": "101동 101호"
+  }
 }
 ```
 
@@ -238,10 +262,10 @@ AI 분석은 ERD v2에 따라 동기 요청으로 처리한다. 분석 결과를
 
 | ID | Method | URL | 기능 | 권한 | 요구사항 |
 | --- | --- | --- | --- | --- | --- |
-| PAY-01 | POST | `/group-buys/{groupBuyId}/payments/prepare` | 금액 검증·슬롯 선점·PROCESSING 결제 생성 | BUYER | FR-JOI-06~10, FR-SLT-01~11, FR-PAY-01~09 |
-| PAY-02 | GET | `/payments/{paymentId}` | 결제·슬롯·참여 생성 결과 조회 | BUYER | FR-PAY-03~06, FR-STA-01 |
-| PAY-03 | POST | `/payments/{paymentId}/abort` | 구매자 이탈 시 PROCESSING 결제 종료·슬롯 해제 | BUYER | FR-SLT-09 |
-| PAY-04 | GET | `/buyers/me/payments` | 구매자 결제 이력 조회 | BUYER | FR-STA-01 |
+| PAY-01 | POST | `/group-buys/{groupBuyId}/payments/prepare` | 금액 검증·슬롯 선점·PROCESSING 결제 생성 | USER | FR-JOI-06~10, FR-SLT-01~11, FR-PAY-01~09 |
+| PAY-02 | GET | `/payments/{paymentId}` | 결제·슬롯·참여 생성 결과 조회 | USER | FR-PAY-03~06, FR-STA-01 |
+| PAY-03 | POST | `/payments/{paymentId}/abort` | 사용자 이탈 시 PROCESSING 결제 종료·슬롯 해제 | USER | FR-SLT-09 |
+| PAY-04 | GET | `/users/me/payments` | 사용자 결제 이력 조회 | USER | FR-STA-01 |
 
 ### 결제 준비 요청
 
@@ -287,15 +311,15 @@ AI 분석은 ERD v2에 따라 동기 요청으로 처리한다. 분석 결과를
 
 | ID | Method | URL | 기능 | 권한 | 요구사항 |
 | --- | --- | --- | --- | --- | --- |
-| CARD-01 | POST | `/payments/{paymentId}/card/approve` | 카드 승인 및 서버 검증 | BUYER | FR-PAY-11, 13~14, IR-01 |
-| KAKA-01 | POST | `/payments/{paymentId}/kakaopay/ready` | 카카오페이 Ready 요청 | BUYER | FR-PAY-12~13, IR-02 |
-| KAKA-02 | POST | `/payments/kakaopay/approve` | `pg_token`으로 Approve 후 참여 확정 | BUYER | FR-PAY-12~13, IR-02 |
-| KAKA-03 | POST | `/payments/{paymentId}/kakaopay/cancel-flow` | 사용자 결제 취소 화면 복귀 처리 | BUYER | FR-SLT-09 |
-| KAKA-04 | POST | `/payments/{paymentId}/kakaopay/fail-flow` | 결제 실패 화면 복귀 처리 | BUYER | FR-PAY-05 |
-| CRYP-01 | GET | `/crypto/assets` | 지원 디지털 자산 목록 조회 | BUYER | FR-PAY-27, 32 |
-| CRYP-02 | POST | `/payments/{paymentId}/crypto/quote` | 환율·Buffer 적용 Quote 생성 | BUYER | FR-PAY-21~25, 28~30, IR-03 |
-| CRYP-03 | POST | `/payments/{paymentId}/crypto/transactions` | 사용자가 제출한 트랜잭션 해시 등록 | BUYER | FR-PAY-26, 31, IR-04 |
-| CRYP-04 | GET | `/payments/{paymentId}/crypto/status` | 입금·컨펌·매칭 상태 조회 | BUYER | FR-PAY-25~26, IR-04 |
+| CARD-01 | POST | `/payments/{paymentId}/card/approve` | 카드 승인 및 서버 검증 | USER | FR-PAY-11, 13~14, IR-01 |
+| KAKA-01 | POST | `/payments/{paymentId}/kakaopay/ready` | 카카오페이 Ready 요청 | USER | FR-PAY-12~13, IR-02 |
+| KAKA-02 | POST | `/payments/kakaopay/approve` | `pg_token`으로 Approve 후 참여 확정 | USER | FR-PAY-12~13, IR-02 |
+| KAKA-03 | POST | `/payments/{paymentId}/kakaopay/cancel-flow` | 사용자 결제 취소 화면 복귀 처리 | USER | FR-SLT-09 |
+| KAKA-04 | POST | `/payments/{paymentId}/kakaopay/fail-flow` | 결제 실패 화면 복귀 처리 | USER | FR-PAY-05 |
+| CRYP-01 | GET | `/crypto/assets` | 지원 디지털 자산 목록 조회 | USER | FR-PAY-27, 32 |
+| CRYP-02 | POST | `/payments/{paymentId}/crypto/quote` | 환율·Buffer 적용 Quote 생성 | USER | FR-PAY-21~25, 28~30, IR-03 |
+| CRYP-03 | POST | `/payments/{paymentId}/crypto/transactions` | 사용자가 제출한 트랜잭션 해시 등록 | USER | FR-PAY-26, 31, IR-04 |
+| CRYP-04 | GET | `/payments/{paymentId}/crypto/status` | 입금·컨펌·매칭 상태 조회 | USER | FR-PAY-25~26, IR-04 |
 
 ### 카드 승인 요청
 
@@ -355,11 +379,11 @@ AI 분석은 ERD v2에 따라 동기 요청으로 처리한다. 분석 결과를
 
 | ID | Method | URL | 기능 | 권한 | 요구사항 |
 | --- | --- | --- | --- | --- | --- |
-| PAR-01 | GET | `/buyers/me/participations` | 내 참여 목록·통합 상태 조회 | BUYER | FR-JOI-11, FR-STA-01 |
-| PAR-02 | GET | `/buyers/me/participations/{participationId}` | 참여 상세·상태 이력 조회 | BUYER | FR-STA-01, 04~05 |
-| PAR-03 | POST | `/buyers/me/participations/{participationId}/cancel` | 모집 완료 전 참여 취소·환불 개시 | BUYER | FR-JOI-12~13, FR-RFD-02 |
-| CFM-01 | POST | `/buyers/me/participations/{participationId}/confirm` | 배송완료 건 수동 구매확정 | BUYER | FR-CFM-01~08 |
-| CFM-02 | POST | `/buyers/me/participations/{participationId}/disputes` | 미배송·상품 불일치 이의제기 | BUYER | FR-CFM-09~10 |
+| PAR-01 | GET | `/users/me/participations` | 내 참여 목록·통합 상태 조회 | USER | FR-JOI-11, FR-STA-01 |
+| PAR-02 | GET | `/users/me/participations/{participationId}` | 참여 상세·상태 이력 조회 | USER | FR-STA-01, 04~05 |
+| PAR-03 | POST | `/users/me/participations/{participationId}/cancel` | 모집 완료 전 참여 취소·환불 개시 | USER | FR-JOI-12~13, FR-RFD-02 |
+| CFM-01 | POST | `/users/me/participations/{participationId}/confirm` | 배송완료 건 수동 구매확정 | USER | FR-CFM-01~08 |
+| CFM-02 | POST | `/users/me/participations/{participationId}/disputes` | 미배송·상품 불일치 이의제기 | USER | FR-CFM-09~10 |
 
 ### 구매확정 요청
 
@@ -375,7 +399,7 @@ AI 분석은 ERD v2에 따라 동기 요청으로 처리한다. 분석 결과를
 
 | ID | Method | URL | 기능 | 권한 | 요구사항 |
 | --- | --- | --- | --- | --- | --- |
-| ESC-01 | GET | `/buyers/me/participations/{participationId}/escrow` | 참여자 에스크로 상태 조회 | BUYER | FR-ESC-04, 07 |
+| ESC-01 | GET | `/users/me/participations/{participationId}/escrow` | 참여자 에스크로 상태 조회 | USER | FR-ESC-04, 07 |
 | ESC-02 | GET | `/sellers/group-buys/{groupBuyId}/escrows` | 판매자 공동구매별 보관 내역·합계 조회 | SELLER | FR-ESC-04, 07~08 |
 | ESC-03 | GET | `/admin/escrows/summary` | 전체 보관액·정산대기액 집계 | ADMIN | FR-ADM-12 |
 
@@ -389,7 +413,7 @@ AI 분석은 ERD v2에 따라 동기 요청으로 처리한다. 분석 결과를
 | DLV-02 | PUT | `/sellers/deliveries/{deliveryId}/invoice` | 택배사·송장번호·발송일 등록 | SELLER | FR-DLV-01~02, 05, 08 |
 | DLV-03 | PATCH | `/sellers/deliveries/{deliveryId}/status` | 참여자별 배송 상태 변경 | SELLER | FR-DLV-03, 09, 13 |
 | DLV-04 | PATCH | `/sellers/group-buys/{groupBuyId}/deliveries/status` | 배송 상태 일괄 변경 | SELLER | FR-DLV-10 |
-| DLV-05 | GET | `/buyers/me/participations/{participationId}/delivery` | 구매자 배송 상태·송장 조회 | BUYER | FR-DLV-04, 11~12 |
+| DLV-05 | GET | `/users/me/participations/{participationId}/delivery` | 사용자 배송 상태·송장 조회 | USER | FR-DLV-04, 11~12 |
 
 ### 송장 등록 요청
 
@@ -407,15 +431,15 @@ AI 분석은 ERD v2에 따라 동기 요청으로 처리한다. 분석 결과를
 
 | ID | Method | URL | 기능 | 권한 | 요구사항 |
 | --- | --- | --- | --- | --- | --- |
-| RTN-01 | POST | `/buyers/me/participations/{participationId}/returns/preview` | 반품 가능 여부·예상 환불액 계산 | BUYER | FR-RTN-01~06, 21~26 |
-| RTN-02 | POST | `/buyers/me/participations/{participationId}/returns` | 반품 신청 | BUYER | FR-RTN-11~13, 18 |
-| RTN-03 | GET | `/buyers/me/returns` | 구매자 반품 목록 조회 | BUYER | FR-RTN-19 |
-| RTN-04 | GET | `/buyers/me/returns/{returnId}` | 구매자 반품 상세·이력 조회 | BUYER | FR-RTN-19 |
+| RTN-01 | POST | `/users/me/participations/{participationId}/returns/preview` | 반품 가능 여부·예상 환불액 계산 | USER | FR-RTN-01~06, 21~26 |
+| RTN-02 | POST | `/users/me/participations/{participationId}/returns` | 반품 신청 | USER | FR-RTN-11~13, 18 |
+| RTN-03 | GET | `/users/me/returns` | 사용자 반품 목록 조회 | USER | FR-RTN-19 |
+| RTN-04 | GET | `/users/me/returns/{returnId}` | 사용자 반품 상세·이력 조회 | USER | FR-RTN-19 |
 | RTN-05 | GET | `/sellers/returns` | 판매자 반품 목록 조회 | SELLER | FR-RTN-19 |
 | RTN-06 | POST | `/sellers/returns/{returnId}/approve` | 반품 승인 | SELLER | FR-RTN-14~15 |
 | RTN-07 | POST | `/sellers/returns/{returnId}/reject` | 사유를 포함한 반품 거부 | SELLER | FR-RTN-14 |
 | RTN-08 | POST | `/sellers/returns/{returnId}/pickup-complete` | 수거 완료 확인·환불 개시 | SELLER | FR-RTN-17 |
-| RTN-09 | POST | `/buyers/me/returns/{returnId}/disputes` | 반품 거부 이의제기 | BUYER | FR-RTN-16 |
+| RTN-09 | POST | `/users/me/returns/{returnId}/disputes` | 반품 거부 이의제기 | USER | FR-RTN-16 |
 | RTN-10 | GET | `/admin/returns/reviews` | 이의제기·구매확정 후 반품 검토 목록 | ADMIN | FR-ADM-09, ERD v2 `admin_review_required` |
 | RTN-11 | POST | `/admin/returns/{returnId}/resolve` | 관리자 검토 승인·기각 | ADMIN | FR-ADM-09, ERD v2 `forced_by` |
 
@@ -451,8 +475,8 @@ AI 분석은 ERD v2에 따라 동기 요청으로 처리한다. 분석 결과를
 
 | ID | Method | URL | 기능 | 권한 | 요구사항 |
 | --- | --- | --- | --- | --- | --- |
-| RFD-01 | GET | `/buyers/me/refunds` | 내 환불 목록 조회 | BUYER | FR-RFD-07~10 |
-| RFD-02 | GET | `/buyers/me/refunds/{refundId}` | 환불 상세·처리 결과 조회 | BUYER | FR-RFD-07~10 |
+| RFD-01 | GET | `/users/me/refunds` | 내 환불 목록 조회 | USER | FR-RFD-07~10 |
+| RFD-02 | GET | `/users/me/refunds/{refundId}` | 환불 상세·처리 결과 조회 | USER | FR-RFD-07~10 |
 | RFD-03 | GET | `/admin/refunds` | 실패 포함 환불 목록 조회 | ADMIN | FR-RFD-09, FR-ADM-08 |
 | RFD-04 | POST | `/admin/refunds/{refundId}/retry` | 실패 환불 재처리 | ADMIN | FR-RFD-09, FR-ADM-08 |
 
@@ -595,7 +619,10 @@ AI 분석은 ERD v2에 따라 동기 요청으로 처리한다. 분석 결과를
 
 외부 호출은 DB 트랜잭션 내부에서 장시간 대기하지 않는다. 호출 전 `PROCESSING` 상태와 요청 식별자를 커밋하고, 외부 응답을 받은 뒤 별도 트랜잭션에서 결과를 반영한다.
 
-## 19. ERD v2 적용 원칙
+## 19. 최신 ERDCloud 적용 원칙
+
+- 계정은 `users`로 통합하고 판매자 전환 정보는 `seller_profiles`, 인증 이력은 `seller_verifications`에서 관리한다.
+- 사용자 배송지는 `user_addresses`에 저장하며 결제·참여의 구매 주체 FK는 모두 `user_id`를 사용한다.
 
 - 결제 진행 슬롯은 `payments(PROCESSING)`로 영속화하고 별도 슬롯 API와 테이블을 만들지 않는다.
 - 카드·카카오페이는 5분, 디지털 자산은 10분의 `slot_expires_at`을 사용한다.
