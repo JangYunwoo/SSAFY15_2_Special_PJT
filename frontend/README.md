@@ -1,4 +1,14 @@
-# React + Vite
+# 공구한 (Gongguhan) - Frontend
+
+React + Vite로 구성된 공동구매 플랫폼 프론트엔드. 백엔드 API 명세는
+[`../docs/api/공구한_API_명세서_v1.md`](../docs/api/공구한_API_명세서_v1.md) 참고.
+
+```bash
+npm install
+npm run dev
+```
+
+## 템플릿 기본 안내 (Vite)
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
