@@ -1,13 +1,21 @@
 -- =====================================================================
--- 공구한 (Gonggu-han) Database Schema v1.0 (최종)
--- MySQL 8.0 / InnoDB / utf8mb4
+-- 공구한 (Gonggu-han) Database Schema v2.0  (2026-09-07 개정)
+-- MySQL 8.0 / InnoDB / utf8mb4  |  31 tables
 --
 -- 기준 문서
 --   - 요구사항 명세서 v4.0
 --   - 팀 의사결정 목록
+--   - 최신 ERDCloud (2oNmPznY5vTrAMDCi)
 --   - SSAFY 교육용 금융망 API 명세
 --
--- 결제  : SSAFY 금융망 카드 결제 / 카카오페이 / MetaMask + Polygon Amoy
+-- 개정 내용
+--   - buyers/sellers 분리 계정을 users + seller_profiles로 통합
+--   - buyer_addresses를 user_addresses로 변경
+--   - seller_verifications 추가
+--   - ai_extractions 삭제 (AI 결과는 products에 저장, 동기 호출)
+--   - slot_reservations 삭제 → payments의 PROCESSING 상태로 통합
+--
+-- 결제  : SSAFY 금융망 카드 / 카카오페이 / MetaMask + Polygon Amoy
 -- 정산  : SSAFY 금융망 계좌 이체 (플랫폼 계좌 -> 판매자 계좌)
 -- 수수료: 상품 분담금 합계의 5% (배송비 제외, 판매자 부담)
 -- 배송비: 판매자가 공동구매 단위로 기입, 반품 배송비는 그 2배(왕복)
@@ -21,29 +29,31 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- 1. 계정
 -- =====================================================================
 
-CREATE TABLE buyers (
-    buyer_id         BIGINT       NOT NULL AUTO_INCREMENT,
+CREATE TABLE users (
+    user_id          BIGINT       NOT NULL AUTO_INCREMENT,
     email            VARCHAR(255) NOT NULL,
     password_hash    VARCHAR(255) NOT NULL,
     nickname         VARCHAR(50)  NOT NULL,
     phone            VARCHAR(20)  NULL,
+    phone_verified   BOOLEAN      NOT NULL DEFAULT FALSE,
     ssafy_user_key   VARCHAR(60)  NULL COMMENT 'SSAFY member 생성 응답 userKey',
     ssafy_account_no VARCHAR(16)  NULL COMMENT '카드 취소 불가 시 환불 수취 계좌',
     wallet_address   VARCHAR(42)  NULL COMMENT '최근 사용 MetaMask 주소',
+    is_seller        BOOLEAN      NOT NULL DEFAULT FALSE COMMENT '판매자 여부 캐시',
     status           VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE'
                      COMMENT 'ACTIVE / DORMANT / WITHDRAWN',
     created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
                      ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (buyer_id),
-    UNIQUE KEY uk_buyers_email (email)
+    PRIMARY KEY (user_id),
+    UNIQUE KEY uk_users_email (email)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
-  COMMENT = '구매자 계정 (판매자와 분리)';
+  COMMENT = '통합 사용자 계정';
 
 
-CREATE TABLE buyer_addresses (
+CREATE TABLE user_addresses (
     address_id      BIGINT       NOT NULL AUTO_INCREMENT,
-    buyer_id        BIGINT       NOT NULL,
+    user_id         BIGINT       NOT NULL,
     alias           VARCHAR(50)  NULL,
     recipient_name  VARCHAR(50)  NOT NULL,
     recipient_phone VARCHAR(20)  NOT NULL,
@@ -55,35 +65,56 @@ CREATE TABLE buyer_addresses (
     updated_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
                     ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (address_id),
-    KEY idx_buyer_addresses_buyer (buyer_id, is_default),
-    CONSTRAINT fk_buyer_addresses_buyer
-        FOREIGN KEY (buyer_id) REFERENCES buyers (buyer_id)
+    KEY idx_user_addresses_user (user_id, is_default),
+    CONSTRAINT fk_user_addresses_user
+        FOREIGN KEY (user_id) REFERENCES users (user_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
-  COMMENT = '구매자 배송지';
+  COMMENT = '사용자 배송지';
 
 
-CREATE TABLE sellers (
-    seller_id        BIGINT       NOT NULL AUTO_INCREMENT,
-    email            VARCHAR(255) NOT NULL,
-    password_hash    VARCHAR(255) NOT NULL,
+CREATE TABLE seller_profiles (
+    seller_id        BIGINT       NOT NULL COMMENT 'users.user_id와 동일',
     business_name    VARCHAR(100) NOT NULL,
-    phone            VARCHAR(20)  NULL,
-    ssafy_user_key   VARCHAR(60)  NULL,
+    business_phone   VARCHAR(20)  NULL,
     ssafy_account_no VARCHAR(16)  NULL COMMENT '정산 수취 계좌',
     account_holder   VARCHAR(50)  NULL,
+    account_verified BOOLEAN      NOT NULL DEFAULT FALSE COMMENT '1원 인증 완료 여부',
     return_zipcode   CHAR(5)      NULL COMMENT '반품 수취 주소',
     return_address1  VARCHAR(255) NULL,
     return_address2  VARCHAR(255) NULL,
     penalty_count    INT          NOT NULL DEFAULT 0 COMMENT '3회 누적 시 정지',
     status           VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE'
                      COMMENT 'ACTIVE / WARNED / SUSPENDED',
+    verified_at      DATETIME     NOT NULL COMMENT '판매자 인증 완료일시',
     created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
                      ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (seller_id),
-    UNIQUE KEY uk_sellers_email (email)
+    CONSTRAINT fk_seller_profiles_user
+        FOREIGN KEY (seller_id) REFERENCES users (user_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
-  COMMENT = '판매자 계정';
+  COMMENT = '판매자 전환 프로필';
+
+
+CREATE TABLE seller_verifications (
+    verification_id  BIGINT       NOT NULL AUTO_INCREMENT,
+    user_id           BIGINT       NOT NULL,
+    verification_type VARCHAR(20)  NOT NULL COMMENT 'PHONE / ACCOUNT_1WON',
+    target_value      VARCHAR(50)  NOT NULL COMMENT '휴대폰 번호 또는 계좌번호',
+    code_hash         VARCHAR(255) NULL COMMENT '인증코드 해시',
+    ssafy_auth_id     VARCHAR(60)  NULL COMMENT '1원 인증 authId',
+    attempt_count     INT          NOT NULL DEFAULT 0,
+    status            VARCHAR(20)  NOT NULL DEFAULT 'REQUESTED'
+                      COMMENT 'REQUESTED / VERIFIED / EXPIRED / FAILED',
+    expires_at        DATETIME     NOT NULL,
+    verified_at       DATETIME     NULL,
+    created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (verification_id),
+    KEY idx_seller_verifications_user (user_id, status),
+    CONSTRAINT fk_seller_verifications_user
+        FOREIGN KEY (user_id) REFERENCES users (user_id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+  COMMENT = '판매자 전환용 휴대폰·계좌 인증 이력';
 
 
 CREATE TABLE admins (
@@ -129,7 +160,7 @@ CREATE TABLE withdrawal_restriction_reasons (
     PRIMARY KEY (reason_id),
     UNIQUE KEY uk_restriction_code (code)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
-  COMMENT = '청약철회 제한 사유 마스터 (플랫폼 제공 목록)';
+  COMMENT = '청약철회 제한 사유 마스터';
 
 
 CREATE TABLE products (
@@ -142,7 +173,8 @@ CREATE TABLE products (
     color                     VARCHAR(50)  NULL COMMENT '판매자 직접 입력',
     description               TEXT         NULL,
     price                     BIGINT       NOT NULL COMMENT '원 단위',
-    ai_extracted              BOOLEAN      NOT NULL DEFAULT FALSE,
+    ai_extracted              BOOLEAN      NOT NULL DEFAULT FALSE
+                              COMMENT 'AI 자동 등록 사용 여부',
     withdrawal_restricted     BOOLEAN      NOT NULL DEFAULT FALSE,
     restriction_reason_id     BIGINT       NULL,
     restriction_evidence_url  VARCHAR(500) NULL COMMENT '증빙자료',
@@ -160,7 +192,7 @@ CREATE TABLE products (
     KEY idx_products_category (category_id, status),
     KEY idx_products_restriction (restriction_review_status),
     CONSTRAINT fk_products_seller
-        FOREIGN KEY (seller_id) REFERENCES sellers (seller_id),
+        FOREIGN KEY (seller_id) REFERENCES seller_profiles (seller_id),
     CONSTRAINT fk_products_category
         FOREIGN KEY (category_id) REFERENCES categories (category_id),
     CONSTRAINT fk_products_restriction_reason
@@ -170,7 +202,7 @@ CREATE TABLE products (
         FOREIGN KEY (restriction_reviewed_by) REFERENCES admins (admin_id),
     CONSTRAINT ck_products_price CHECK (price > 0)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
-  COMMENT = '상품';
+  COMMENT = '상품. AI 추출 결과는 검수 후 여기에만 저장';
 
 
 CREATE TABLE product_images (
@@ -188,33 +220,6 @@ CREATE TABLE product_images (
         ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
   COMMENT = '상품 이미지';
-
-
-CREATE TABLE ai_extractions (
-    extraction_id    BIGINT       NOT NULL AUTO_INCREMENT,
-    seller_id        BIGINT       NOT NULL,
-    product_id       BIGINT       NULL,
-    source_image_url VARCHAR(500) NOT NULL COMMENT '대표 이미지 1장',
-    request_id       VARCHAR(64)  NULL COMMENT 'FastAPI 요청 식별자',
-    vision_model     VARCHAR(50)  NULL COMMENT '예: YOLOv12',
-    ocr_provider     VARCHAR(50)  NULL COMMENT '예: CLOVA OCR',
-    llm_model        VARCHAR(50)  NULL,
-    status           VARCHAR(20)  NOT NULL DEFAULT 'REQUESTED'
-                     COMMENT 'REQUESTED / COMPLETED / FAILED',
-    result_json      JSON         NULL COMMENT '상품명, 카테고리',
-    confidence_json  JSON         NULL,
-    error_message    VARCHAR(500) NULL,
-    requested_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    completed_at     DATETIME     NULL,
-    PRIMARY KEY (extraction_id),
-    KEY idx_ai_extractions_seller (seller_id, requested_at),
-    KEY idx_ai_extractions_product (product_id),
-    CONSTRAINT fk_ai_extractions_seller
-        FOREIGN KEY (seller_id) REFERENCES sellers (seller_id),
-    CONSTRAINT fk_ai_extractions_product
-        FOREIGN KEY (product_id) REFERENCES products (product_id)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
-  COMMENT = 'AI 추출 이력 (상품명·카테고리)';
 
 
 -- =====================================================================
@@ -256,8 +261,10 @@ CREATE TABLE group_buys (
     expected_settlement_amount BIGINT        NOT NULL,
     recruit_start_at           DATETIME      NOT NULL,
     recruit_end_at             DATETIME      NOT NULL,
-    current_participants       INT           NOT NULL DEFAULT 0,
-    reserved_slots             INT           NOT NULL DEFAULT 0,
+    current_participants       INT           NOT NULL DEFAULT 0
+                               COMMENT '결제 완료(PAID) 참여 수',
+    reserved_slots             INT           NOT NULL DEFAULT 0
+                               COMMENT '결제 진행중(PROCESSING) 건 수',
     fulfilled_at               DATETIME      NULL,
     shipping_deadline_at       DATETIME      NULL,
     status                     VARCHAR(20)   NOT NULL DEFAULT 'RECRUITING'
@@ -274,7 +281,7 @@ CREATE TABLE group_buys (
     CONSTRAINT fk_group_buys_product
         FOREIGN KEY (product_id) REFERENCES products (product_id),
     CONSTRAINT fk_group_buys_seller
-        FOREIGN KEY (seller_id) REFERENCES sellers (seller_id),
+        FOREIGN KEY (seller_id) REFERENCES seller_profiles (seller_id),
     CONSTRAINT ck_group_buys_target CHECK (target_participants >= 2),
     CONSTRAINT ck_group_buys_slots
         CHECK (current_participants + reserved_slots <= target_participants)
@@ -282,32 +289,10 @@ CREATE TABLE group_buys (
   COMMENT = '공동구매';
 
 
-CREATE TABLE slot_reservations (
-    reservation_id BIGINT      NOT NULL AUTO_INCREMENT,
-    group_buy_id   BIGINT      NOT NULL,
-    buyer_id       BIGINT      NOT NULL,
-    payment_method VARCHAR(20) NOT NULL COMMENT 'CARD / KAKAOPAY / CRYPTO',
-    reserved_at    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    expires_at     DATETIME    NOT NULL COMMENT '카드·페이 5분, 코인 10분',
-    status         VARCHAR(20) NOT NULL DEFAULT 'HELD'
-                   COMMENT 'HELD / CONVERTED / RELEASED',
-    active_marker  CHAR(1)     NULL COMMENT 'HELD일 때 Y, 해제 시 NULL',
-    released_at    DATETIME    NULL,
-    PRIMARY KEY (reservation_id),
-    UNIQUE KEY uk_slot_active (group_buy_id, buyer_id, active_marker),
-    KEY idx_slot_expire (status, expires_at),
-    CONSTRAINT fk_slot_group_buy
-        FOREIGN KEY (group_buy_id) REFERENCES group_buys (group_buy_id),
-    CONSTRAINT fk_slot_buyer
-        FOREIGN KEY (buyer_id) REFERENCES buyers (buyer_id)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
-  COMMENT = '슬롯 선점 (전 결제수단 공통)';
-
-
 CREATE TABLE participations (
     participation_id         BIGINT       NOT NULL AUTO_INCREMENT,
     group_buy_id             BIGINT       NOT NULL,
-    buyer_id                 BIGINT       NOT NULL,
+    user_id                  BIGINT       NOT NULL,
     share_amount             BIGINT       NOT NULL COMMENT '분담금 스냅샷',
     shipping_fee             BIGINT       NOT NULL COMMENT '배송비 스냅샷',
     total_amount             BIGINT       NOT NULL COMMENT '개인 결제금액',
@@ -331,19 +316,19 @@ CREATE TABLE participations (
     confirm_hold             BOOLEAN      NOT NULL DEFAULT FALSE
                              COMMENT '반품 진행 중 자동확정 보류',
     settled                  BOOLEAN      NOT NULL DEFAULT FALSE,
-    active_marker            CHAR(1)      NULL,
+    active_marker            CHAR(1)      NULL COMMENT '활성 Y, 취소 시 NULL',
     updated_at               DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
                              ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (participation_id),
-    UNIQUE KEY uk_participation_active (group_buy_id, buyer_id, active_marker),
+    UNIQUE KEY uk_participation_active (group_buy_id, user_id, active_marker),
     KEY idx_participation_group (group_buy_id, status),
-    KEY idx_participation_buyer (buyer_id, status),
+    KEY idx_participation_user (user_id, status),
     KEY idx_participation_autoconfirm (status, confirm_hold, withdrawal_period_end_at),
     KEY idx_participation_settle (status, settled, settlement_eligible_at),
     CONSTRAINT fk_participation_group_buy
         FOREIGN KEY (group_buy_id) REFERENCES group_buys (group_buy_id),
-    CONSTRAINT fk_participation_buyer
-        FOREIGN KEY (buyer_id) REFERENCES buyers (buyer_id)
+    CONSTRAINT fk_participation_user
+        FOREIGN KEY (user_id) REFERENCES users (user_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
   COMMENT = '공동구매 참여';
 
@@ -373,18 +358,23 @@ CREATE TABLE ssafy_api_logs (
 
 
 -- =====================================================================
--- 6. 결제 공통
+-- 6. 결제 (슬롯 선점 통합)
 -- =====================================================================
 
 CREATE TABLE payments (
     payment_id       BIGINT       NOT NULL AUTO_INCREMENT,
-    reservation_id   BIGINT       NULL COMMENT 'PROCESSING 단계 연결',
+    group_buy_id     BIGINT       NOT NULL,
+    user_id          BIGINT       NOT NULL,
     participation_id BIGINT       NULL COMMENT '결제 완료 후 연결',
     method           VARCHAR(20)  NOT NULL COMMENT 'CARD / KAKAOPAY / CRYPTO',
     krw_amount       BIGINT       NOT NULL COMMENT 'KRW 기준 거래가치',
+    slot_expires_at  DATETIME     NOT NULL
+                     COMMENT '슬롯 만료. 카드·페이 5분, 코인 10분',
+    slot_marker      CHAR(1)      NULL
+                     COMMENT 'PROCESSING일 때 Y, 그 외 NULL (중복 선점 차단)',
     idempotency_key  VARCHAR(64)  NOT NULL,
     status           VARCHAR(20)  NOT NULL DEFAULT 'PROCESSING'
-                     COMMENT 'PROCESSING(내부전용) / PAID / FAILED / REFUNDED',
+                     COMMENT 'PROCESSING(슬롯 점유) / PAID / FAILED / EXPIRED / REFUNDED',
     approved_at      DATETIME     NULL,
     fail_reason      VARCHAR(255) NULL,
     created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -393,14 +383,18 @@ CREATE TABLE payments (
     PRIMARY KEY (payment_id),
     UNIQUE KEY uk_payments_idempotency (idempotency_key),
     UNIQUE KEY uk_payments_participation (participation_id),
-    KEY idx_payments_status (status, created_at),
-    KEY idx_payments_reservation (reservation_id),
-    CONSTRAINT fk_payments_reservation
-        FOREIGN KEY (reservation_id) REFERENCES slot_reservations (reservation_id),
+    UNIQUE KEY uk_payments_slot (group_buy_id, user_id, slot_marker),
+    KEY idx_payments_slot_expire (status, slot_expires_at),
+    KEY idx_payments_group (group_buy_id, status),
+    KEY idx_payments_user (user_id, status),
+    CONSTRAINT fk_payments_group_buy
+        FOREIGN KEY (group_buy_id) REFERENCES group_buys (group_buy_id),
+    CONSTRAINT fk_payments_user
+        FOREIGN KEY (user_id) REFERENCES users (user_id),
     CONSTRAINT fk_payments_participation
         FOREIGN KEY (participation_id) REFERENCES participations (participation_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
-  COMMENT = '결제 공통. 수단별 상세는 하위 테이블';
+  COMMENT = '결제 공통 + 슬롯 선점. PROCESSING 상태가 곧 선점된 슬롯';
 
 
 -- ---------------------------------------------------------------------
@@ -408,24 +402,24 @@ CREATE TABLE payments (
 -- ---------------------------------------------------------------------
 
 CREATE TABLE card_payments (
-    payment_id            BIGINT      NOT NULL,
-    ssafy_user_key        VARCHAR(60) NULL COMMENT '구매자 userKey',
-    card_no_masked        VARCHAR(19) NULL COMMENT '카드번호·CVC는 저장하지 않음',
-    merchant_id           BIGINT      NULL COMMENT '공구한 가맹점 ID',
-    merchant_name         VARCHAR(100) NULL,
-    category_id           VARCHAR(20) NULL,
-    institution_tx_no     VARCHAR(20) NULL COMMENT '결제 요청 기관거래고유번호',
-    transaction_unique_no BIGINT      NULL COMMENT 'SSAFY 거래고유번호. 취소 시 필요',
-    transaction_date      CHAR(8)     NULL COMMENT 'YYYYMMDD',
-    transaction_time      CHAR(6)     NULL COMMENT 'HHMMSS',
-    payment_balance       BIGINT      NULL COMMENT '결제금액',
-    billing_issued        BOOLEAN     NOT NULL DEFAULT FALSE
-                          COMMENT '청구서 발행 시 결제 취소 불가',
-    billing_issued_at     DATETIME    NULL,
-    cancel_institution_tx_no VARCHAR(20) NULL,
-    cancel_status         VARCHAR(10) NULL COMMENT 'SUCCESS / FAIL / CANCEL',
-    canceled_at           DATETIME    NULL,
-    raw_response          JSON        NULL,
+    payment_id               BIGINT       NOT NULL,
+    ssafy_user_key           VARCHAR(60)  NULL COMMENT '구매자 userKey',
+    card_no_masked           VARCHAR(19)  NULL COMMENT '카드번호·CVC는 저장하지 않음',
+    merchant_id              BIGINT       NULL COMMENT '공구한 가맹점 ID',
+    merchant_name            VARCHAR(100) NULL,
+    category_id              VARCHAR(20)  NULL,
+    institution_tx_no        VARCHAR(20)  NULL COMMENT '결제 요청 기관거래고유번호',
+    transaction_unique_no    BIGINT       NULL COMMENT 'SSAFY 거래고유번호. 취소 시 필요',
+    transaction_date         CHAR(8)      NULL COMMENT 'YYYYMMDD',
+    transaction_time         CHAR(6)      NULL COMMENT 'HHMMSS',
+    payment_balance          BIGINT       NULL COMMENT '결제금액',
+    billing_issued           BOOLEAN      NOT NULL DEFAULT FALSE
+                             COMMENT '청구서 발행 시 deleteTransaction 불가',
+    billing_issued_at        DATETIME     NULL,
+    cancel_institution_tx_no VARCHAR(20)  NULL,
+    cancel_status            VARCHAR(10)  NULL COMMENT 'SUCCESS / FAIL / CANCEL',
+    canceled_at              DATETIME     NULL,
+    raw_response             JSON         NULL,
     PRIMARY KEY (payment_id),
     UNIQUE KEY uk_card_tx_no (transaction_unique_no),
     KEY idx_card_billing (billing_issued, transaction_date),
@@ -433,7 +427,7 @@ CREATE TABLE card_payments (
         FOREIGN KEY (payment_id) REFERENCES payments (payment_id)
         ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
-  COMMENT = 'SSAFY 카드 결제. 청구서 발행 후에는 deleteTransaction 불가';
+  COMMENT = 'SSAFY 카드 결제. 청구서 발행 후에는 취소 불가 → 계좌 이체 환불';
 
 
 -- ---------------------------------------------------------------------
@@ -505,7 +499,7 @@ CREATE TABLE crypto_quotes (
     krw_amount   BIGINT          NOT NULL,
     asset_amount DECIMAL(36, 18) NOT NULL,
     issued_at    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    expires_at   DATETIME        NOT NULL COMMENT '10분',
+    expires_at   DATETIME        NOT NULL COMMENT '10분. 슬롯 만료와 동일',
     used         BOOLEAN         NOT NULL DEFAULT FALSE,
     PRIMARY KEY (quote_id),
     KEY idx_quotes_expire (expires_at, used),
@@ -585,7 +579,7 @@ CREATE TABLE chain_scan_cursors (
                        ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (chain_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
-  COMMENT = '이벤트 폴링 커서';
+  COMMENT = '이벤트 폴링 커서. 재시작 시 여기서부터 재스캔';
 
 
 -- =====================================================================
@@ -710,7 +704,7 @@ CREATE TABLE settlements (
     CONSTRAINT fk_settlements_group_buy
         FOREIGN KEY (group_buy_id) REFERENCES group_buys (group_buy_id),
     CONSTRAINT fk_settlements_seller
-        FOREIGN KEY (seller_id) REFERENCES sellers (seller_id)
+        FOREIGN KEY (seller_id) REFERENCES seller_profiles (seller_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
   COMMENT = '판매자 정산. 플랫폼 계좌 → 판매자 계좌 SSAFY 이체';
 
@@ -792,7 +786,7 @@ CREATE TABLE seller_penalties (
     KEY idx_penalties_seller (seller_id, status),
     KEY idx_penalties_status (status, detected_at),
     CONSTRAINT fk_penalties_seller
-        FOREIGN KEY (seller_id) REFERENCES sellers (seller_id),
+        FOREIGN KEY (seller_id) REFERENCES seller_profiles (seller_id),
     CONSTRAINT fk_penalties_group_buy
         FOREIGN KEY (group_buy_id) REFERENCES group_buys (group_buy_id),
     CONSTRAINT fk_penalties_admin
@@ -873,12 +867,11 @@ INSERT INTO platform_policies (policy_key, policy_value, description) VALUES
     -- 수수료 및 인원
     ('PLATFORM_FEE_RATE',        '0.05',  '수수료율 (상품 분담금 기준, 배송비 제외)'),
     ('MIN_TARGET_PARTICIPANTS',  '2',     '목표 모집 인원 하한'),
-    -- 슬롯 및 결제
-    ('SLOT_TTL_CARD_SEC',        '300',   '카드·카카오페이 슬롯 선점 유효시간'),
-    ('SLOT_TTL_CRYPTO_SEC',      '600',   '코인 슬롯 선점 유효시간'),
-    ('SLOT_RETRY_GRACE_SEC',     '120',   '결제 실패 후 재시도 유예'),
+    -- 슬롯 (payments.PROCESSING)
+    ('SLOT_TTL_CARD_SEC',        '300',   '카드·카카오페이 슬롯 유효시간'),
+    ('SLOT_TTL_CRYPTO_SEC',      '600',   '코인 슬롯 유효시간'),
     -- 코인
-    ('QUOTE_TTL_SEC',            '600',   'Quote 유효시간'),
+    ('QUOTE_TTL_SEC',            '600',   'Quote 유효시간 (슬롯과 동일)'),
     ('CRYPTO_BUFFER_RATE',       '0.003', '코인 결제 Buffer율'),
     ('CHAIN_SCAN_INTERVAL_MS',   '5000',  '이벤트 폴링 주기'),
     ('CHAIN_SCAN_BATCH_BLOCKS',  '500',   '1회 스캔 최대 블록 수'),
@@ -886,13 +879,13 @@ INSERT INTO platform_policies (policy_key, policy_value, description) VALUES
     ('SHIPPING_DEADLINE_DAYS',   '3',     '모집 완료 후 송장 등록 기한 (영업일)'),
     ('AUTO_CONFIRM_DAYS',        '7',     '배송완료 후 자동 구매확정 기한'),
     ('WITHDRAWAL_PERIOD_DAYS',   '7',     '청약철회 가능 기간'),
-    ('SETTLEMENT_ELIGIBLE_DAYS', '7',     '배송완료 후 정산 자격 발생까지 (회수 채권 방지)'),
+    ('SETTLEMENT_ELIGIBLE_DAYS', '7',     '배송완료 후 정산 자격 발생까지'),
     ('RETURN_APPROVE_DAYS',      '3',     '반품 자동 승인 기한 (영업일)'),
     ('RETURN_AUTO_REFUND_DAYS',  '7',     '수거 미확인 시 자동 환불 기한'),
-    ('CARD_BILLING_CUTOFF_DAYS', '8',     '카드 청구서 발행 추정 경과일 (취소 불가 판정)'),
+    ('CARD_BILLING_CUTOFF_DAYS', '8',     '카드 청구서 발행 추정 경과일'),
     ('PENALTY_LIMIT',            '3',     '판매 정지 위반 누적 횟수'),
     ('SETTLEMENT_BATCH_HOUR',    '3',     '정산 배치 실행 시각 (일 1회)'),
-    -- SSAFY 금융망 (발급 후 값 채우기, apiKey/userKey는 환경변수)
+    -- SSAFY 금융망 (apiKey / 플랫폼 userKey는 환경변수로 관리)
     ('SSAFY_MERCHANT_ID',        '',      'createMerchant 응답 merchantId'),
     ('SSAFY_PLATFORM_ACCOUNT_NO','',      '공구한 정산 출금 계좌번호'),
     ('SSAFY_INSTITUTION_CODE',   '00100', '기관코드 고정값'),
