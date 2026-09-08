@@ -6,6 +6,7 @@ import {
   type GroupBuyListParams,
   type GroupBuySort,
 } from '@/entities/groupBuy/model'
+import { scrollToListTop, toPageIndex } from '@/shared/lib/hooks/usePageParam'
 
 const DEFAULT_SORT: GroupBuySort = 'popular'
 export const ALL_CATEGORIES = 'all'
@@ -26,6 +27,7 @@ export function useGroupBuyListParams() {
   const categoryId = searchParams.get('categoryId') ?? ALL_CATEGORIES
   const sortParam = searchParams.get('sort')
   const sort = isSort(sortParam) ? sortParam : DEFAULT_SORT
+  const page = toPageIndex(searchParams.get('page'))
 
   /** API 로 보낼 형태. 빈 값은 아예 넣지 않습니다. */
   const queryParams = useMemo<GroupBuyListParams>(
@@ -34,8 +36,9 @@ export function useGroupBuyListParams() {
       ...(categoryId === ALL_CATEGORIES ? {} : { categoryId }),
       sort,
       status: 'RECRUITING',
+      page,
     }),
-    [keyword, categoryId, sort],
+    [keyword, categoryId, sort, page],
   )
 
   const patch = useCallback(
@@ -52,6 +55,8 @@ export function useGroupBuyListParams() {
             if (isDefault) draft.delete(key)
             else draft.set(key, value)
           }
+          // 조건이 바뀌면 결과가 줄어 현재 쪽이 비어버릴 수 있어 첫 쪽으로 돌아갑니다.
+          draft.delete('page')
           return draft
         },
         { replace: true },
@@ -60,5 +65,19 @@ export function useGroupBuyListParams() {
     [setSearchParams],
   )
 
-  return { keyword, categoryId, sort, queryParams, patch }
+  /** `index` 는 0부터 세는 API 기준 값입니다. */
+  const goToPage = useCallback(
+    (index: number) => {
+      setSearchParams((current) => {
+        const draft = new URLSearchParams(current)
+        if (index <= 0) draft.delete('page')
+        else draft.set('page', String(index + 1))
+        return draft
+      })
+      scrollToListTop()
+    },
+    [setSearchParams],
+  )
+
+  return { keyword, categoryId, sort, page, queryParams, patch, goToPage }
 }
