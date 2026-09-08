@@ -43,8 +43,12 @@ app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
   storage:
-    product-image-dir: ${PRODUCT_IMAGE_DIR:uploads/products}
     product-image-max-bytes: ${PRODUCT_IMAGE_MAX_BYTES:10485760}
+    s3:
+      bucket: ${AWS_S3_BUCKET:}
+      region: ${AWS_REGION:ap-northeast-2}
+      endpoint: ${AWS_S3_ENDPOINT:}
+      public-base-url: ${AWS_S3_PUBLIC_BASE_URL:}
 
 management:
   endpoints:

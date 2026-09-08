@@ -21,6 +21,7 @@ repositories {
 ext {
 	querydslVersion = '5.1.0'
 	jjwtVersion = '0.12.6'
+	awsSdkVersion = '2.54.13'
 }
 
 dependencies {
@@ -36,8 +37,12 @@ dependencies {
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 
 	// Flyway - 스키마(docs/database/공구한_schema_v2.sql) 기준 마이그레이션 관리
-	implementation 'org.flywaydb:flyway-core'
+	implementation 'org.springframework.boot:spring-boot-starter-flyway'
 	implementation 'org.flywaydb:flyway-mysql'
+
+	// AWS S3 - 상품 이미지 객체 저장소
+	implementation platform("software.amazon.awssdk:bom:${awsSdkVersion}")
+	implementation 'software.amazon.awssdk:s3'
 
 	// QueryDSL - 동적 쿼리(검색, 관리자 조회 등)
 	implementation "com.querydsl:querydsl-jpa:${querydslVersion}:jakarta"
