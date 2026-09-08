@@ -5,12 +5,13 @@ import { GroupBuyFilters } from '@/features/groupBuy/GroupBuyFilters'
 import { GroupBuyGrid } from '@/features/groupBuy/GroupBuyGrid'
 import { ALL_CATEGORIES, useGroupBuyListParams } from '@/features/groupBuy/useGroupBuyListParams'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
+import { Pagination } from '@/shared/ui/Pagination'
 import { EmptyState, QueryBoundary } from '@/shared/ui/states'
 
 export function GroupBuyListPage() {
   useDocumentTitle('상품 전체보기')
 
-  const { keyword, categoryId, sort, queryParams, patch } = useGroupBuyListParams()
+  const { keyword, categoryId, sort, queryParams, patch, goToPage } = useGroupBuyListParams()
   const query = useQuery(groupBuyQueries.list(queryParams))
 
   const isFiltered = keyword !== '' || categoryId !== ALL_CATEGORIES
@@ -35,15 +36,18 @@ export function GroupBuyListPage() {
         <GroupBuyFilters keyword={keyword} categoryId={categoryId} sort={sort} onChange={patch} />
 
         <QueryBoundary query={query}>
-          {(page) =>
-            page.items.length === 0 ? (
+          {(result) =>
+            result.items.length === 0 ? (
               <EmptyState>
                 {keyword
                   ? `'${keyword}' 검색 결과가 없습니다.`
                   : '해당 카테고리에 진행 중인 공동구매가 없습니다.'}
               </EmptyState>
             ) : (
-              <GroupBuyGrid items={page.items} />
+              <>
+                <GroupBuyGrid items={result.items} />
+                <Pagination meta={result.meta} onChange={goToPage} label="공동구매 목록 페이지" />
+              </>
             )
           }
         </QueryBoundary>
