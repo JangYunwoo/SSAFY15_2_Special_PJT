@@ -6,14 +6,8 @@ import com.gongguhan.domain.groupbuy.dto.GroupBuyCreateRequest;
 import com.gongguhan.domain.groupbuy.dto.BuyerParticipationSummaryResponse;
 import com.gongguhan.domain.groupbuy.dto.GroupBuyDetailResponse;
 import com.gongguhan.domain.groupbuy.dto.GroupBuyResponse;
-import com.gongguhan.domain.groupbuy.dto.GroupBuySearchCondition;
-import com.gongguhan.domain.groupbuy.dto.GroupBuySort;
-import com.gongguhan.domain.groupbuy.dto.GroupBuySummaryResponse;
-import com.gongguhan.domain.groupbuy.dto.SellerGroupBuySummaryResponse;
-import com.gongguhan.domain.groupbuy.dto.SellerParticipantResponse;
-import com.gongguhan.domain.groupbuy.entity.GroupBuy;
-import com.gongguhan.domain.groupbuy.repository.GroupBuyQueryRepository;
-import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
+import com.gongguhan.domain.groupbuy.repository.GroupBuyCommandRepository;
+import com.gongguhan.domain.groupbuy.repository.GroupBuyCreateCommand;
 import com.gongguhan.domain.product.entity.Product;
 import com.gongguhan.domain.product.repository.ProductRepository;
 import com.gongguhan.global.error.BusinessException;
@@ -43,16 +37,11 @@ public class GroupBuyService {
             "PAID", "FULFILLED", "SHIPPING", "DELIVERED", "CONFIRMED",
             "SETTLED", "CANCELED", "RETURNING", "RETURNED", "REFUNDED");
 
-    private final GroupBuyRepository groupBuyRepository;
-    private final GroupBuyQueryRepository groupBuyQueryRepository;
+    private final GroupBuyCommandRepository groupBuyCommandRepository;
     private final ProductRepository productRepository;
 
-    public GroupBuyService(
-            GroupBuyRepository groupBuyRepository,
-            GroupBuyQueryRepository groupBuyQueryRepository,
-            ProductRepository productRepository) {
-        this.groupBuyRepository = groupBuyRepository;
-        this.groupBuyQueryRepository = groupBuyQueryRepository;
+    public GroupBuyService(GroupBuyCommandRepository groupBuyCommandRepository, ProductRepository productRepository) {
+        this.groupBuyCommandRepository = groupBuyCommandRepository;
         this.productRepository = productRepository;
     }
 
@@ -101,13 +90,13 @@ public class GroupBuyService {
     @Transactional
     public GroupBuyResponse create(Long sellerId, GroupBuyCreateRequest request) {
         ensureUsableSeller(sellerId);
-        Product product = findOwnedProduct(sellerId, request.productId());
+        findOwnedProduct(sellerId, request.productId());
         validateRecruitPeriod(request);
 
         GroupBuyAmountPreviewResponse amounts =
                 calculateAmounts(request.productPrice(), request.targetCount(), request.shippingFee());
-        GroupBuy groupBuy = GroupBuy.create(
-                product,
+        GroupBuyCreateCommand command = new GroupBuyCreateCommand(
+                request.productId(),
                 sellerId,
                 request.productPrice(),
                 request.targetCount(),
@@ -119,8 +108,27 @@ public class GroupBuyService {
                 amounts.estimatedSettlementAmount(),
                 toUtcLocalDateTime(request.recruitStartAt()),
                 toUtcLocalDateTime(request.recruitEndAt()));
+        GroupBuyCommandRepository.StoredGroupBuy stored = groupBuyCommandRepository.create(command);
 
-        return GroupBuyResponse.from(groupBuyRepository.saveAndFlush(groupBuy));
+        return new GroupBuyResponse(
+                stored.groupBuyId(),
+                command.productId(),
+                command.sellerId(),
+                command.productPrice(),
+                command.targetParticipants(),
+                command.unitShareAmount(),
+                command.roundingDiff(),
+                command.shippingFee(),
+                command.platformFeeRate(),
+                command.expectedPlatformFee(),
+                command.expectedSettlementAmount(),
+                command.recruitStartAt().atOffset(ZoneOffset.UTC),
+                command.recruitEndAt().atOffset(ZoneOffset.UTC),
+                0,
+                0,
+                "RECRUITING",
+                stored.createdAt(),
+                stored.updatedAt());
     }
 
     private GroupBuyAmountPreviewResponse calculateAmounts(long productPrice, int targetCount, long shippingFee) {
