@@ -1,6 +1,5 @@
 package com.gongguhan.domain.groupbuy.repository;
 
-import com.gongguhan.domain.groupbuy.dto.BuyerParticipationSummaryResponse;
 import com.gongguhan.domain.groupbuy.dto.GroupBuyDetailResponse;
 import com.gongguhan.domain.groupbuy.dto.GroupBuySearchCondition;
 import com.gongguhan.domain.groupbuy.dto.GroupBuySort;
@@ -137,54 +136,6 @@ public class GroupBuyQueryRepository {
                  ORDER BY sort_order ASC, image_id ASC
                 """, Map.of("productId", detail.get().productId()), String.class);
         return Optional.of(detail.get().withImages(images));
-    }
-
-    public Page<BuyerParticipationSummaryResponse> findBuyerParticipations(
-            Long userId, String status, Pageable pageable) {
-        MapSqlParameterSource parameters = pageParameters(pageable).addValue("userId", userId);
-        String statusWhere = "";
-        if (status != null) {
-            statusWhere = " AND part.status = :status";
-            parameters.addValue("status", status);
-        }
-        String fromWhere = """
-                  FROM participations part
-                  JOIN group_buys gb ON gb.group_buy_id = part.group_buy_id
-                  JOIN products p ON p.product_id = gb.product_id
-                  JOIN seller_profiles sp ON sp.seller_id = gb.seller_id
-             LEFT JOIN payments pay ON pay.participation_id = part.participation_id
-             LEFT JOIN escrows esc ON esc.participation_id = part.participation_id
-                 WHERE part.user_id = :userId
-                """ + statusWhere;
-        String sql = """
-                SELECT part.participation_id AS id,
-                       gb.group_buy_id,
-                       p.name AS product_name,
-                       %s AS thumbnail_url,
-                       sp.business_name AS seller_name,
-                       part.status,
-                       gb.status AS group_buy_status,
-                       esc.status AS escrow_status,
-                       pay.method,
-                       part.share_amount,
-                       part.shipping_fee,
-                       part.total_amount,
-                       part.joined_at AS paid_at,
-                       gb.target_participants,
-                       gb.current_participants,
-                       gb.recruit_end_at,
-                       part.delivered_at,
-                       part.withdrawal_period_end_at,
-                       part.confirmed_at,
-                       part.confirm_type
-                """.formatted(THUMBNAIL_SUBQUERY)
-                + fromWhere
-                + " ORDER BY part.joined_at DESC, part.participation_id DESC LIMIT :limit OFFSET :offset";
-
-        List<BuyerParticipationSummaryResponse> content =
-                jdbcTemplate.query(sql, parameters, this::mapBuyerParticipation);
-        Long total = jdbcTemplate.queryForObject("SELECT COUNT(*) " + fromWhere, parameters, Long.class);
-        return new PageImpl<>(content, pageable, total == null ? 0 : total);
     }
 
     public Page<SellerGroupBuySummaryResponse> findSellerGroupBuys(Long sellerId, Pageable pageable) {
@@ -362,33 +313,6 @@ public class GroupBuyQueryRepository {
                 resultSet.getBoolean("withdrawal_restricted"),
                 resultSet.getString("withdrawal_restriction_reason"),
                 resultSet.getBoolean("seller_suspended"));
-    }
-
-    private BuyerParticipationSummaryResponse mapBuyerParticipation(ResultSet resultSet, int rowNum)
-            throws SQLException {
-        OffsetDateTime withdrawalEndAt = utc(resultSet, "withdrawal_period_end_at");
-        return new BuyerParticipationSummaryResponse(
-                resultSet.getLong("id"),
-                resultSet.getLong("group_buy_id"),
-                resultSet.getString("product_name"),
-                resultSet.getString("thumbnail_url"),
-                resultSet.getString("seller_name"),
-                resultSet.getString("status"),
-                resultSet.getString("group_buy_status"),
-                resultSet.getString("escrow_status"),
-                resultSet.getString("method"),
-                resultSet.getLong("share_amount"),
-                resultSet.getLong("shipping_fee"),
-                resultSet.getLong("total_amount"),
-                utc(resultSet, "paid_at"),
-                resultSet.getInt("target_participants"),
-                resultSet.getInt("current_participants"),
-                utc(resultSet, "recruit_end_at"),
-                utc(resultSet, "delivered_at"),
-                withdrawalEndAt,
-                withdrawalEndAt,
-                utc(resultSet, "confirmed_at"),
-                "AUTO".equals(resultSet.getString("confirm_type")));
     }
 
     private SellerGroupBuySummaryResponse mapSellerGroupBuy(ResultSet resultSet, int rowNum) throws SQLException {

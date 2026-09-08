@@ -2,7 +2,7 @@ package com.gongguhan.domain.groupbuy.controller;
 
 import com.gongguhan.domain.groupbuy.dto.GroupBuyDetailResponse;
 import com.gongguhan.domain.groupbuy.dto.GroupBuySummaryResponse;
-import com.gongguhan.domain.groupbuy.service.GroupBuyService;
+import com.gongguhan.domain.groupbuy.service.GroupBuyQueryService;
 import com.gongguhan.global.common.ApiResponse;
 import com.gongguhan.global.common.PageResponse;
 import com.gongguhan.global.common.TraceIdUtils;
@@ -20,10 +20,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/group-buys")
 public class GroupBuyController {
 
-    private final GroupBuyService groupBuyService;
+    private final GroupBuyQueryService groupBuyQueryService;
 
-    public GroupBuyController(GroupBuyService groupBuyService) {
-        this.groupBuyService = groupBuyService;
+    public GroupBuyController(GroupBuyQueryService groupBuyQueryService) {
+        this.groupBuyQueryService = groupBuyQueryService;
     }
 
     @GetMapping
@@ -35,7 +35,7 @@ public class GroupBuyController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             HttpServletRequest httpRequest) {
-        Page<GroupBuySummaryResponse> result = groupBuyService.getPublicGroupBuys(
+        Page<GroupBuySummaryResponse> result = groupBuyQueryService.getPublicGroupBuys(
                 keyword, categoryId, status, sort, page, size);
         return ResponseEntity.ok(ApiResponse.success(
                 result.getContent(), PageResponse.from(result), TraceIdUtils.from(httpRequest)));
@@ -45,7 +45,7 @@ public class GroupBuyController {
     public ResponseEntity<ApiResponse<GroupBuyDetailResponse>> getGroupBuy(
             @PathVariable Long groupBuyId,
             HttpServletRequest httpRequest) {
-        GroupBuyDetailResponse result = groupBuyService.getPublicDetail(groupBuyId);
+        GroupBuyDetailResponse result = groupBuyQueryService.getPublicDetail(groupBuyId);
         return ResponseEntity.ok(ApiResponse.success(result, TraceIdUtils.from(httpRequest)));
     }
 }

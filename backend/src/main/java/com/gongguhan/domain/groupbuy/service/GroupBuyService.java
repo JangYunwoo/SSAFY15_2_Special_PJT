@@ -3,8 +3,6 @@ package com.gongguhan.domain.groupbuy.service;
 import com.gongguhan.domain.groupbuy.dto.GroupBuyAmountPreviewRequest;
 import com.gongguhan.domain.groupbuy.dto.GroupBuyAmountPreviewResponse;
 import com.gongguhan.domain.groupbuy.dto.GroupBuyCreateRequest;
-import com.gongguhan.domain.groupbuy.dto.BuyerParticipationSummaryResponse;
-import com.gongguhan.domain.groupbuy.dto.GroupBuyDetailResponse;
 import com.gongguhan.domain.groupbuy.dto.GroupBuyResponse;
 import com.gongguhan.domain.groupbuy.repository.GroupBuyCommandRepository;
 import com.gongguhan.domain.groupbuy.repository.GroupBuyCreateCommand;
@@ -17,10 +15,6 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.Locale;
-import java.util.Set;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,12 +24,6 @@ public class GroupBuyService {
 
     private static final BigDecimal PLATFORM_FEE_RATE = new BigDecimal("0.05");
     private static final String FEE_POLICY_RATE = "RATE";
-    private static final Set<String> GROUP_BUY_STATUSES = Set.of(
-            "RECRUITING", "FULFILLED", "SHIPPING", "DELIVERED",
-            "COMPLETED", "SETTLED", "FAILED", "CANCELED");
-    private static final Set<String> PARTICIPATION_STATUSES = Set.of(
-            "PAID", "FULFILLED", "SHIPPING", "DELIVERED", "CONFIRMED",
-            "SETTLED", "CANCELED", "RETURNING", "RETURNED", "REFUNDED");
 
     private final GroupBuyCommandRepository groupBuyCommandRepository;
     private final ProductRepository productRepository;
@@ -43,42 +31,6 @@ public class GroupBuyService {
     public GroupBuyService(GroupBuyCommandRepository groupBuyCommandRepository, ProductRepository productRepository) {
         this.groupBuyCommandRepository = groupBuyCommandRepository;
         this.productRepository = productRepository;
-    }
-
-    public Page<GroupBuySummaryResponse> getPublicGroupBuys(
-            String keyword, Long categoryId, String status, String sort, int page, int size) {
-        String normalizedStatus = normalizeStatus(status, GROUP_BUY_STATUSES, GroupBuy.STATUS_RECRUITING);
-        GroupBuySearchCondition condition = new GroupBuySearchCondition(
-                normalizeKeyword(keyword), categoryId, normalizedStatus, GroupBuySort.from(sort));
-        return groupBuyQueryRepository.findPublicGroupBuys(condition, pageRequest(page, size));
-    }
-
-    public GroupBuyDetailResponse getPublicDetail(Long groupBuyId) {
-        return groupBuyQueryRepository.findPublicDetail(groupBuyId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "공동구매를 찾을 수 없습니다."));
-    }
-
-    public Page<BuyerParticipationSummaryResponse> getBuyerParticipations(
-            Long userId, String status, int page, int size) {
-        ensureAuthenticated(userId);
-        String normalizedStatus = normalizeOptionalStatus(status, PARTICIPATION_STATUSES);
-        return groupBuyQueryRepository.findBuyerParticipations(
-                userId, normalizedStatus, pageRequest(page, size));
-    }
-
-    public Page<SellerGroupBuySummaryResponse> getSellerGroupBuys(Long sellerId, int page, int size) {
-        ensureAuthenticated(sellerId);
-        return groupBuyQueryRepository.findSellerGroupBuys(sellerId, pageRequest(page, size));
-    }
-
-    public Page<SellerParticipantResponse> getSellerParticipants(
-            Long sellerId, Long groupBuyId, int page, int size) {
-        ensureAuthenticated(sellerId);
-        if (!groupBuyQueryRepository.existsOwnedGroupBuy(sellerId, groupBuyId)) {
-            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "공동구매를 찾을 수 없습니다.");
-        }
-        return groupBuyQueryRepository.findSellerParticipants(
-                sellerId, groupBuyId, pageRequest(page, size));
     }
 
     public GroupBuyAmountPreviewResponse preview(Long sellerId, GroupBuyAmountPreviewRequest request) {
@@ -180,46 +132,5 @@ public class GroupBuyService {
 
     private LocalDateTime toUtcLocalDateTime(OffsetDateTime dateTime) {
         return dateTime.withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime();
-    }
-
-    private PageRequest pageRequest(int page, int size) {
-        if (page < 0 || size < 1 || size > 100) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "page는 0 이상, size는 1 이상 100 이하여야 합니다.");
-        }
-        return PageRequest.of(page, size);
-    }
-
-    private String normalizeKeyword(String keyword) {
-        if (keyword == null || keyword.isBlank()) {
-            return null;
-        }
-        String normalized = keyword.trim();
-        if (normalized.length() > 200) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "검색어는 200자 이하여야 합니다.");
-        }
-        return normalized;
-    }
-
-    private String normalizeStatus(String status, Set<String> allowed, String defaultStatus) {
-        String normalized = status == null || status.isBlank()
-                ? defaultStatus
-                : status.trim().toUpperCase(Locale.ROOT);
-        if (!allowed.contains(normalized)) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "지원하지 않는 상태값입니다.");
-        }
-        return normalized;
-    }
-
-    private String normalizeOptionalStatus(String status, Set<String> allowed) {
-        if (status == null || status.isBlank()) {
-            return null;
-        }
-        return normalizeStatus(status, allowed, null);
-    }
-
-    private void ensureAuthenticated(Long actorId) {
-        if (actorId == null) {
-            throw new BusinessException(ErrorCode.AUTHENTICATION_REQUIRED);
-        }
     }
 }

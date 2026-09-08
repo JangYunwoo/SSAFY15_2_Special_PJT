@@ -17,11 +17,7 @@ import java.time.LocalDateTime;
  * 공동구매 CRUD(GRP-01~10)는 이 엔티티를 확장해 별도로 구현된다.
  */
 @Entity
-@Table(name = "group_buys", indexes = {
-        @Index(name = "idx_group_buys_status_end", columnList = "status,recruit_end_at"),
-        @Index(name = "idx_group_buys_seller", columnList = "seller_id,status"),
-        @Index(name = "idx_group_buys_product", columnList = "product_id")
-})
+@Table(name = "group_buys")
 public class GroupBuy extends BaseTimeEntity {
 
     public static final String STATUS_RECRUITING = "RECRUITING";

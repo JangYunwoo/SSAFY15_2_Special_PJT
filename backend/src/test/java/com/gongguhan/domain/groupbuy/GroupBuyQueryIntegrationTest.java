@@ -48,6 +48,7 @@ class GroupBuyQueryIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        addGroupBuyQueryColumns();
         createReadSideTables();
         insertUsersAndSellers();
         insertCatalog();
@@ -97,21 +98,6 @@ class GroupBuyQueryIntegrationTest {
                 .andExpect(jsonPath("$.data.withdrawalRestricted").value(true))
                 .andExpect(jsonPath("$.data.withdrawalRestrictionReason").value("주문 제작 상품"))
                 .andExpect(jsonPath("$.data.images[0]").value("https://img/keyboard-main.jpg"));
-    }
-
-    @Test
-    void buyerCanReadOwnParticipationList() throws Exception {
-        mockMvc.perform(get("/users/me/participations")
-                        .with(authentication(user(BUYER_ID))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.meta.totalElements").value(1))
-                .andExpect(jsonPath("$.data[0].id").value(5001))
-                .andExpect(jsonPath("$.data[0].productName").value("무선 키보드"))
-                .andExpect(jsonPath("$.data[0].shareAmount").value(50_000))
-                .andExpect(jsonPath("$.data[0].shippingFee").value(4_000))
-                .andExpect(jsonPath("$.data[0].totalAmount").value(54_000))
-                .andExpect(jsonPath("$.data[0].method").value("CARD"))
-                .andExpect(jsonPath("$.data[0].escrowStatus").value("HELD"));
     }
 
     @Test
@@ -222,21 +208,6 @@ class GroupBuyQueryIntegrationTest {
                 )
                 """);
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_participation_group ON participations(group_buy_id, status)");
-        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_participation_user ON participations(user_id, status)");
-        jdbcTemplate.execute("""
-                CREATE TABLE IF NOT EXISTS payments (
-                    payment_id BIGINT PRIMARY KEY,
-                    participation_id BIGINT UNIQUE,
-                    method VARCHAR(20)
-                )
-                """);
-        jdbcTemplate.execute("""
-                CREATE TABLE IF NOT EXISTS escrows (
-                    escrow_id BIGINT PRIMARY KEY,
-                    participation_id BIGINT UNIQUE,
-                    status VARCHAR(20)
-                )
-                """);
     }
 
     private void insertUsersAndSellers() {
@@ -324,13 +295,17 @@ class GroupBuyQueryIntegrationTest {
                 ) VALUES (5001, 1001, 20, 50000, 4000, 54000, '김구매', '01012345678',
                           '06236', '서울시 강남구', '101호', 'PAID', TIMESTAMP '2026-09-02 00:00:00')
                 """);
-        jdbcTemplate.update("INSERT INTO payments (payment_id, participation_id, method) VALUES (6001, 5001, 'CARD')");
-        jdbcTemplate.update("INSERT INTO escrows (escrow_id, participation_id, status) VALUES (7001, 5001, 'HELD')");
     }
 
-    private UsernamePasswordAuthenticationToken user(Long userId) {
-        return new UsernamePasswordAuthenticationToken(
-                userId, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+    private void addGroupBuyQueryColumns() {
+        jdbcTemplate.execute("ALTER TABLE group_buys ADD COLUMN IF NOT EXISTS product_price BIGINT");
+        jdbcTemplate.execute("ALTER TABLE group_buys ADD COLUMN IF NOT EXISTS rounding_diff BIGINT");
+        jdbcTemplate.execute("ALTER TABLE group_buys ADD COLUMN IF NOT EXISTS platform_fee_rate DECIMAL(5, 4)");
+        jdbcTemplate.execute("ALTER TABLE group_buys ADD COLUMN IF NOT EXISTS expected_platform_fee BIGINT");
+        jdbcTemplate.execute("ALTER TABLE group_buys ADD COLUMN IF NOT EXISTS expected_settlement_amount BIGINT");
+        jdbcTemplate.execute("ALTER TABLE group_buys ADD COLUMN IF NOT EXISTS recruit_start_at TIMESTAMP");
+        jdbcTemplate.execute(
+                "CREATE INDEX IF NOT EXISTS idx_group_buys_status_end ON group_buys(status, recruit_end_at)");
     }
 
     private UsernamePasswordAuthenticationToken seller(Long sellerId) {
