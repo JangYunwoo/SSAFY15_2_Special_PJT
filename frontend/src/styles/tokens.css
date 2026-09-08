@@ -1,0 +1,96 @@
+/* =========================================================
+   공구한 - 공동구매 플랫폼 (wireframe style)
+   ========================================================= */
+
+/* =========================================================
+   팔레트
+   상태 틴트는 IBM Design Language 값을 그대로 씁니다.
+   https://www.ibm.com/design/workplace/interior-architecture/color
+   원시 색(--gray / --blue / 상태 틴트)을 역할 토큰이 참조하는 구조라,
+   색을 바꿀 땐 원시 색만 만지면 됩니다.
+   ========================================================= */
+:root{
+  /* 중립 스케일 · 순수 검정을 쓰지 않습니다.
+     가장 진한 값이 #202124라서 대비가 부드럽고 딱딱한 인상이 덜합니다. */
+  --gray-100:#202124;
+  --gray-90:#3c4043;
+  --gray-80:#5f6368;
+  --gray-70:#80868b;
+  --gray-50:#9aa0a6;
+  --gray-40:#bdc1c6;
+  --gray-30:#dadce0;
+  --gray-20:#e8eaed;
+  --gray-10:#f1f3f4;
+  --gray-5:#f8f9fa;
+  --white:#ffffff;
+
+  /* 블루 · --aqua 가 이 서비스의 파란색입니다 */
+  --aqua:#428dff;
+  --blue-70:#0043ce;
+  --blue-60:#0f62fe;
+  --blue-20:#d0e2ff;
+  --blue-10:#edf5ff;
+
+  /* 상태 틴트 · 20은 칩 배경, 10은 더 옅은 배경용 */
+  --red-20:#ffd7d9;      --red-10:#fff1f1;
+  --magenta-20:#ffd6e8;  --magenta-10:#fff0f7;
+  --purple-20:#e8daff;   --purple-10:#f6f2ff;
+  --cyan-20:#bae6ff;     --cyan-10:#e5f6ff;
+  --teal-20:#9ef0f0;     --teal-10:#d9fbfb;
+  --green-20:#a7f0ba;    --green-10:#defbe6;
+
+  /* 상태 틴트 위에 얹는 글자색 (70 계열) */
+  --red-text:#a2191f;
+  --magenta-text:#9f1853;
+  --purple-text:#6929c4;
+  --cyan-text:#00539a;
+  --teal-text:#005d5d;
+  --green-text:#0e6027;
+  --blue-text:var(--blue-70);
+
+  /* ---------- 역할 토큰 ---------- */
+
+  /* 브랜드 · 파랑은 누를 수 있는 것과 강조에만 씁니다 */
+  --brand:var(--aqua);
+  --brand-dark:var(--blue-70);
+  --brand-soft:var(--blue-10);
+
+  /* 배경 · 3단계: 흰 표면 → 옅은 회색 → 채움 */
+  --bg:var(--white);
+  --surface:var(--white);  /* 카드 · 패널 · 헤더 */
+  --soft:var(--gray-5);    /* 안내 박스 · hover */
+  --soft2:var(--gray-10);  /* 히어로 · 강조 블록 */
+  --fill:var(--gray-20);   /* 이미지 자리 · 진행률 트랙 */
+
+  /* 글자 */
+  --ink:var(--gray-90);
+  --ink2:var(--gray-80);
+  --muted:var(--gray-70);
+  --placeholder:var(--gray-50);
+  --on-dark:var(--white);  /* 어두운 배경 위 글자 */
+  --black:var(--gray-100);
+  --charcoal:var(--gray-80);
+
+  /* 테두리 */
+  --line:var(--gray-30);
+  --line2:var(--gray-20);
+  --line-strong:var(--gray-40); /* hover 테두리 */
+  --line-soft:var(--gray-30);   /* 선택된 칩 테두리 */
+
+  /* 기타 */
+  --btn:var(--gray-90);         /* 버튼은 무채색 · 파랑은 링크와 강조에만 */
+  --btn-hover:var(--gray-100);
+  --bar-fill:var(--brand);      /* 진행률 채움 */
+  --track:var(--gray-30);       /* 캐러셀 바 */
+  --track-hover:var(--gray-40);
+  --max:1180px;
+
+  /* 상태 칩에서 쓰는 이름 (IBM 색 이름과 맞춰둔 별칭) */
+  --red:var(--red-20);
+  --pink:var(--magenta-20);     --pink-text:var(--magenta-text);
+  --purple:var(--purple-20);
+  --blue:var(--blue-20);
+  --skyblue:var(--cyan-20);     --skyblue-text:var(--cyan-text);
+  --turquoise:var(--teal-20);   --turquoise-text:var(--teal-text);
+  --green:var(--green-20);
+}
