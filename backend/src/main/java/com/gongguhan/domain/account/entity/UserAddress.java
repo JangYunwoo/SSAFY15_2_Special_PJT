@@ -70,4 +70,24 @@ public class UserAddress extends BaseTimeEntity {
     public boolean isDefault() {
         return isDefault;
     }
+
+    public String getRecipientName() {
+        return recipientName;
+    }
+
+    public String getRecipientPhone() {
+        return recipientPhone;
+    }
+
+    public String getZipcode() {
+        return zipcode;
+    }
+
+    public String getAddress1() {
+        return address1;
+    }
+
+    public String getAddress2() {
+        return address2;
+    }
 }
