@@ -8,6 +8,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -16,7 +17,11 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "group_buys")
+@Table(name = "group_buys", indexes = {
+        @Index(name = "idx_group_buys_status_end", columnList = "status,recruit_end_at"),
+        @Index(name = "idx_group_buys_seller", columnList = "seller_id,status"),
+        @Index(name = "idx_group_buys_product", columnList = "product_id")
+})
 public class GroupBuy extends BaseTimeEntity {
 
     public static final String STATUS_RECRUITING = "RECRUITING";

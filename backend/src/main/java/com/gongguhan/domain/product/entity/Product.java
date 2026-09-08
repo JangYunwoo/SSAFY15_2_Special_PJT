@@ -8,6 +8,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
@@ -19,7 +20,11 @@ import java.util.Collections;
 import java.util.List;
 
 @Entity
-@Table(name = "products")
+@Table(name = "products", indexes = {
+        @Index(name = "idx_products_seller", columnList = "seller_id,status"),
+        @Index(name = "idx_products_category", columnList = "category_id,status"),
+        @Index(name = "idx_products_restriction", columnList = "restriction_review_status")
+})
 public class Product extends BaseTimeEntity {
 
     public static final String STATUS_ACTIVE = "ACTIVE";
@@ -179,6 +184,18 @@ public class Product extends BaseTimeEntity {
 
     public boolean isAiExtracted() {
         return aiExtracted;
+    }
+
+    public boolean isWithdrawalRestricted() {
+        return withdrawalRestricted;
+    }
+
+    public Long getRestrictionReasonId() {
+        return restrictionReasonId;
+    }
+
+    public String getRestrictionReviewStatus() {
+        return restrictionReviewStatus;
     }
 
     public String getStatus() {

@@ -7,11 +7,15 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.eq;
 
 import com.gongguhan.domain.groupbuy.dto.GroupBuyAmountPreviewRequest;
 import com.gongguhan.domain.groupbuy.dto.GroupBuyAmountPreviewResponse;
 import com.gongguhan.domain.groupbuy.dto.GroupBuyCreateRequest;
+import com.gongguhan.domain.groupbuy.dto.GroupBuySearchCondition;
+import com.gongguhan.domain.groupbuy.dto.GroupBuySort;
 import com.gongguhan.domain.groupbuy.entity.GroupBuy;
+import com.gongguhan.domain.groupbuy.repository.GroupBuyQueryRepository;
 import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
 import com.gongguhan.domain.product.entity.Category;
 import com.gongguhan.domain.product.entity.Product;
@@ -21,6 +25,8 @@ import com.gongguhan.global.error.ErrorCode;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -28,14 +34,86 @@ import org.mockito.ArgumentCaptor;
 class GroupBuyServiceTest {
 
     private GroupBuyRepository groupBuyRepository;
+    private GroupBuyQueryRepository groupBuyQueryRepository;
     private ProductRepository productRepository;
     private GroupBuyService groupBuyService;
 
     @BeforeEach
     void setUp() {
         groupBuyRepository = mock(GroupBuyRepository.class);
+        groupBuyQueryRepository = mock(GroupBuyQueryRepository.class);
         productRepository = mock(ProductRepository.class);
-        groupBuyService = new GroupBuyService(groupBuyRepository, productRepository);
+        groupBuyService = new GroupBuyService(groupBuyRepository, groupBuyQueryRepository, productRepository);
+    }
+
+    @Test
+    void publicListNormalizesSearchConditionAndUsesRequestedPage() {
+        when(groupBuyQueryRepository.findPublicGroupBuys(any(), any())).thenReturn(Page.empty());
+
+        groupBuyService.getPublicGroupBuys("  무선 키보드  ", 11L, null, "deadline", 2, 30);
+
+        ArgumentCaptor<GroupBuySearchCondition> conditionCaptor =
+                ArgumentCaptor.forClass(GroupBuySearchCondition.class);
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(groupBuyQueryRepository).findPublicGroupBuys(conditionCaptor.capture(), pageableCaptor.capture());
+        assertEquals("무선 키보드", conditionCaptor.getValue().keyword());
+        assertEquals(11L, conditionCaptor.getValue().categoryId());
+        assertEquals(GroupBuy.STATUS_RECRUITING, conditionCaptor.getValue().status());
+        assertEquals(GroupBuySort.DEADLINE, conditionCaptor.getValue().sort());
+        assertEquals(2, pageableCaptor.getValue().getPageNumber());
+        assertEquals(30, pageableCaptor.getValue().getPageSize());
+    }
+
+    @Test
+    void publicListRejectsUnsupportedSort() {
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> groupBuyService.getPublicGroupBuys(null, null, null, "random", 0, 20));
+
+        assertEquals(ErrorCode.VALIDATION_ERROR, exception.getErrorCode());
+        verify(groupBuyQueryRepository, never()).findPublicGroupBuys(any(), any());
+    }
+
+    @Test
+    void publicDetailReturnsNotFoundForMissingGroupBuy() {
+        when(groupBuyQueryRepository.findPublicDetail(99L)).thenReturn(Optional.empty());
+
+        BusinessException exception = assertThrows(
+                BusinessException.class, () -> groupBuyService.getPublicDetail(99L));
+
+        assertEquals(ErrorCode.RESOURCE_NOT_FOUND, exception.getErrorCode());
+    }
+
+    @Test
+    void buyerParticipationListNormalizesStatus() {
+        when(groupBuyQueryRepository.findBuyerParticipations(any(), any(), any())).thenReturn(Page.empty());
+
+        groupBuyService.getBuyerParticipations(20L, "delivered", 0, 20);
+
+        verify(groupBuyQueryRepository).findBuyerParticipations(
+                eq(20L), eq("DELIVERED"), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void listRejectsPageSizeOverOneHundred() {
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> groupBuyService.getSellerGroupBuys(10L, 0, 101));
+
+        assertEquals(ErrorCode.VALIDATION_ERROR, exception.getErrorCode());
+        verify(groupBuyQueryRepository, never()).findSellerGroupBuys(any(), any());
+    }
+
+    @Test
+    void sellerCannotReadParticipantsOfAnotherSellersGroupBuy() {
+        when(groupBuyQueryRepository.existsOwnedGroupBuy(10L, 1L)).thenReturn(false);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> groupBuyService.getSellerParticipants(10L, 1L, 0, 20));
+
+        assertEquals(ErrorCode.RESOURCE_NOT_FOUND, exception.getErrorCode());
+        verify(groupBuyQueryRepository, never()).findSellerParticipants(any(), any(), any());
     }
 
     @Test
