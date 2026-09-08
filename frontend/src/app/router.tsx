@@ -1,0 +1,104 @@
+/* eslint-disable react-refresh/only-export-components --
+   라우터는 컴포넌트가 아니라 라우트 설정(router)을 내보내는 모듈입니다. */
+import { lazy } from 'react'
+import { createBrowserRouter } from 'react-router'
+
+import { CheckoutLayout } from './layouts/CheckoutLayout'
+import { RequireAuth, RequireSellerVerified } from './layouts/guards'
+import { RootLayout } from './layouts/RootLayout'
+import { SellerLayout } from './layouts/SellerLayout'
+
+/* 첫 화면 두 개만 즉시 번들에 넣고, 나머지는 라우트 단위로 쪼갭니다. */
+import { GroupBuyListPage } from '@/pages/GroupBuyListPage'
+import { HomePage } from '@/pages/HomePage'
+
+const AboutPage = lazy(() => import('@/pages/AboutPage'))
+const GroupBuyDetailPage = lazy(() => import('@/pages/GroupBuyDetailPage'))
+const LoginPage = lazy(() => import('@/pages/LoginPage'))
+const SignupPage = lazy(() => import('@/pages/SignupPage'))
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
+
+const ShippingPage = lazy(() => import('@/pages/checkout/ShippingPage'))
+const PaymentPage = lazy(() => import('@/pages/checkout/PaymentPage'))
+const CompletePage = lazy(() => import('@/pages/checkout/CompletePage'))
+
+const OrdersPage = lazy(() => import('@/pages/orders/OrdersPage'))
+const ConfirmPage = lazy(() => import('@/pages/orders/ConfirmPage'))
+const ReturnRequestPage = lazy(() => import('@/pages/orders/ReturnRequestPage'))
+
+const SellerVerifyPage = lazy(() => import('@/pages/seller/SellerVerifyPage'))
+const SellerHomePage = lazy(() => import('@/pages/seller/SellerHomePage'))
+const SellerProductsPage = lazy(() => import('@/pages/seller/SellerProductsPage'))
+const SellerProductNewPage = lazy(() => import('@/pages/seller/SellerProductNewPage'))
+const SellerGroupBuyNewPage = lazy(() => import('@/pages/seller/SellerGroupBuyNewPage'))
+const SellerOrdersPage = lazy(() => import('@/pages/seller/SellerOrdersPage'))
+const SellerReturnsPage = lazy(() => import('@/pages/seller/SellerReturnsPage'))
+const SellerSettlementsPage = lazy(() => import('@/pages/seller/SellerSettlementsPage'))
+
+export const router = createBrowserRouter([
+  {
+    element: <RootLayout />,
+    children: [
+      { index: true, element: <HomePage /> },
+      { path: 'group-buys', element: <GroupBuyListPage /> },
+      { path: 'group-buys/:groupBuyId', element: <GroupBuyDetailPage /> },
+      { path: 'about', element: <AboutPage /> },
+      { path: 'login', element: <LoginPage /> },
+      { path: 'signup', element: <SignupPage /> },
+
+      /* 구매자 전용 */
+      {
+        element: <RequireAuth role="BUYER" />,
+        children: [
+          { path: 'orders', element: <OrdersPage /> },
+          { path: 'orders/:participationId/confirm', element: <ConfirmPage /> },
+          { path: 'orders/:participationId/return', element: <ReturnRequestPage /> },
+        ],
+      },
+    ],
+  },
+
+  /* 결제 플로우는 헤더가 다릅니다 */
+  {
+    element: <CheckoutLayout />,
+    children: [
+      {
+        element: <RequireAuth role="BUYER" />,
+        children: [
+          { path: 'checkout/:groupBuyId/shipping', element: <ShippingPage /> },
+          { path: 'checkout/:groupBuyId/payment', element: <PaymentPage /> },
+          { path: 'checkout/complete/:paymentId', element: <CompletePage /> },
+        ],
+      },
+    ],
+  },
+
+  /* 판매자센터 */
+  {
+    path: 'seller',
+    element: <RequireAuth role="SELLER" />,
+    children: [
+      // 본인인증 화면은 인증 전에도 보여야 하므로 가드 밖에 둡니다.
+      { path: 'verify', element: <SellerVerifyPage /> },
+      {
+        element: <RequireSellerVerified />,
+        children: [
+          {
+            element: <SellerLayout />,
+            children: [
+              { index: true, element: <SellerHomePage /> },
+              { path: 'products', element: <SellerProductsPage /> },
+              { path: 'products/new', element: <SellerProductNewPage /> },
+              { path: 'group-buys/new', element: <SellerGroupBuyNewPage /> },
+              { path: 'orders', element: <SellerOrdersPage /> },
+              { path: 'returns', element: <SellerReturnsPage /> },
+              { path: 'settlements', element: <SellerSettlementsPage /> },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+
+  { path: '*', element: <NotFoundPage /> },
+])
