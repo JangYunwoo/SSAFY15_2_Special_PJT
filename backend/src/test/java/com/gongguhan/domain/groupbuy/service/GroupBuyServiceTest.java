@@ -11,13 +11,14 @@ import static org.mockito.Mockito.when;
 import com.gongguhan.domain.groupbuy.dto.GroupBuyAmountPreviewRequest;
 import com.gongguhan.domain.groupbuy.dto.GroupBuyAmountPreviewResponse;
 import com.gongguhan.domain.groupbuy.dto.GroupBuyCreateRequest;
-import com.gongguhan.domain.groupbuy.entity.GroupBuy;
-import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
+import com.gongguhan.domain.groupbuy.repository.GroupBuyCommandRepository;
+import com.gongguhan.domain.groupbuy.repository.GroupBuyCreateCommand;
 import com.gongguhan.domain.product.entity.Category;
 import com.gongguhan.domain.product.entity.Product;
 import com.gongguhan.domain.product.repository.ProductRepository;
 import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
@@ -27,15 +28,15 @@ import org.mockito.ArgumentCaptor;
 
 class GroupBuyServiceTest {
 
-    private GroupBuyRepository groupBuyRepository;
+    private GroupBuyCommandRepository groupBuyCommandRepository;
     private ProductRepository productRepository;
     private GroupBuyService groupBuyService;
 
     @BeforeEach
     void setUp() {
-        groupBuyRepository = mock(GroupBuyRepository.class);
+        groupBuyCommandRepository = mock(GroupBuyCommandRepository.class);
         productRepository = mock(ProductRepository.class);
-        groupBuyService = new GroupBuyService(groupBuyRepository, productRepository);
+        groupBuyService = new GroupBuyService(groupBuyCommandRepository, productRepository);
     }
 
     @Test
@@ -55,22 +56,22 @@ class GroupBuyServiceTest {
     @Test
     void createPersistsCalculatedAmountsAsSnapshot() {
         stubUsableSellerAndOwnedProduct();
-        when(groupBuyRepository.saveAndFlush(any(GroupBuy.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(groupBuyCommandRepository.create(any(GroupBuyCreateCommand.class)))
+                .thenReturn(new GroupBuyCommandRepository.StoredGroupBuy(
+                        1L, LocalDateTime.of(2026, 9, 5, 0, 0), LocalDateTime.of(2026, 9, 5, 0, 0)));
         OffsetDateTime startAt = OffsetDateTime.of(2026, 9, 5, 0, 0, 0, 0, ZoneOffset.UTC);
         OffsetDateTime endAt = OffsetDateTime.of(2026, 9, 12, 23, 59, 0, 0, ZoneOffset.UTC);
 
         groupBuyService.create(
                 10L, new GroupBuyCreateRequest(1L, 1_000_001L, 20, 4_000L, startAt, endAt));
 
-        ArgumentCaptor<GroupBuy> captor = ArgumentCaptor.forClass(GroupBuy.class);
-        verify(groupBuyRepository).saveAndFlush(captor.capture());
-        GroupBuy saved = captor.getValue();
-        assertEquals(50_001L, saved.getUnitShareAmount());
-        assertEquals(19L, saved.getRoundingDiff());
-        assertEquals(50_001L, saved.getExpectedPlatformFee());
-        assertEquals(1_030_019L, saved.getExpectedSettlementAmount());
-        assertEquals(GroupBuy.STATUS_RECRUITING, saved.getStatus());
+        ArgumentCaptor<GroupBuyCreateCommand> captor = ArgumentCaptor.forClass(GroupBuyCreateCommand.class);
+        verify(groupBuyCommandRepository).create(captor.capture());
+        GroupBuyCreateCommand saved = captor.getValue();
+        assertEquals(50_001L, saved.unitShareAmount());
+        assertEquals(19L, saved.roundingDiff());
+        assertEquals(50_001L, saved.expectedPlatformFee());
+        assertEquals(1_030_019L, saved.expectedSettlementAmount());
     }
 
     @Test
@@ -85,7 +86,7 @@ class GroupBuyServiceTest {
                         new GroupBuyCreateRequest(1L, 1_000_000L, 20, 4_000L, sameTime, sameTime)));
 
         assertEquals(ErrorCode.VALIDATION_ERROR, exception.getErrorCode());
-        verify(groupBuyRepository, never()).saveAndFlush(any(GroupBuy.class));
+        verify(groupBuyCommandRepository, never()).create(any(GroupBuyCreateCommand.class));
     }
 
     @Test

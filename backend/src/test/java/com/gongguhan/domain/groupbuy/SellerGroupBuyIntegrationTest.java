@@ -42,6 +42,7 @@ class SellerGroupBuyIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        addGroupBuyCreationColumns();
         jdbcTemplate.execute("""
                 CREATE TABLE IF NOT EXISTS seller_profiles (
                     seller_id BIGINT PRIMARY KEY,
@@ -122,8 +123,21 @@ class SellerGroupBuyIntegrationTest {
 
         List<GroupBuy> saved = groupBuyRepository.findAll();
         assertThat(saved).hasSize(1);
-        assertThat(saved.getFirst().getProduct().getProductId()).isEqualTo(PRODUCT_ID);
+        assertThat(saved.getFirst().getProductId()).isEqualTo(PRODUCT_ID);
         assertThat(saved.getFirst().getUnitShareAmount()).isEqualTo(50_001L);
-        assertThat(saved.getFirst().getExpectedSettlementAmount()).isEqualTo(1_030_019L);
+        Long expectedSettlementAmount = jdbcTemplate.queryForObject(
+                "SELECT expected_settlement_amount FROM group_buys WHERE group_buy_id = ?",
+                Long.class,
+                saved.getFirst().getGroupBuyId());
+        assertThat(expectedSettlementAmount).isEqualTo(1_030_019L);
+    }
+
+    private void addGroupBuyCreationColumns() {
+        jdbcTemplate.execute("ALTER TABLE group_buys ADD COLUMN IF NOT EXISTS product_price BIGINT");
+        jdbcTemplate.execute("ALTER TABLE group_buys ADD COLUMN IF NOT EXISTS rounding_diff BIGINT");
+        jdbcTemplate.execute("ALTER TABLE group_buys ADD COLUMN IF NOT EXISTS platform_fee_rate DECIMAL(5, 4)");
+        jdbcTemplate.execute("ALTER TABLE group_buys ADD COLUMN IF NOT EXISTS expected_platform_fee BIGINT");
+        jdbcTemplate.execute("ALTER TABLE group_buys ADD COLUMN IF NOT EXISTS expected_settlement_amount BIGINT");
+        jdbcTemplate.execute("ALTER TABLE group_buys ADD COLUMN IF NOT EXISTS recruit_start_at TIMESTAMP");
     }
 }
