@@ -3,6 +3,8 @@ package com.gongguhan.domain.groupbuy.dto;
 import com.gongguhan.domain.groupbuy.entity.GroupBuy;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 public record GroupBuyResponse(
         Long groupBuyId,
@@ -16,8 +18,8 @@ public record GroupBuyResponse(
         BigDecimal platformFeeRate,
         long expectedPlatformFee,
         long expectedSettlementAmount,
-        LocalDateTime recruitStartAt,
-        LocalDateTime recruitEndAt,
+        OffsetDateTime recruitStartAt,
+        OffsetDateTime recruitEndAt,
         int currentParticipants,
         int reservedSlots,
         String status,
@@ -38,8 +40,8 @@ public record GroupBuyResponse(
                 groupBuy.getPlatformFeeRate(),
                 groupBuy.getExpectedPlatformFee(),
                 groupBuy.getExpectedSettlementAmount(),
-                groupBuy.getRecruitStartAt(),
-                groupBuy.getRecruitEndAt(),
+                groupBuy.getRecruitStartAt().atOffset(ZoneOffset.UTC),
+                groupBuy.getRecruitEndAt().atOffset(ZoneOffset.UTC),
                 groupBuy.getCurrentParticipants(),
                 groupBuy.getReservedSlots(),
                 groupBuy.getStatus(),

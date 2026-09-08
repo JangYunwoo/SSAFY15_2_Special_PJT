@@ -18,7 +18,8 @@ import com.gongguhan.domain.product.entity.Product;
 import com.gongguhan.domain.product.repository.ProductRepository;
 import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -56,8 +57,8 @@ class GroupBuyServiceTest {
         stubUsableSellerAndOwnedProduct();
         when(groupBuyRepository.saveAndFlush(any(GroupBuy.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        LocalDateTime startAt = LocalDateTime.of(2026, 9, 5, 0, 0);
-        LocalDateTime endAt = LocalDateTime.of(2026, 9, 12, 23, 59);
+        OffsetDateTime startAt = OffsetDateTime.of(2026, 9, 5, 0, 0, 0, 0, ZoneOffset.UTC);
+        OffsetDateTime endAt = OffsetDateTime.of(2026, 9, 12, 23, 59, 0, 0, ZoneOffset.UTC);
 
         groupBuyService.create(
                 10L, new GroupBuyCreateRequest(1L, 1_000_001L, 20, 4_000L, startAt, endAt));
@@ -75,7 +76,7 @@ class GroupBuyServiceTest {
     @Test
     void createRejectsRecruitEndThatIsNotAfterStart() {
         stubUsableSellerAndOwnedProduct();
-        LocalDateTime sameTime = LocalDateTime.of(2026, 9, 5, 0, 0);
+        OffsetDateTime sameTime = OffsetDateTime.of(2026, 9, 5, 0, 0, 0, 0, ZoneOffset.UTC);
 
         BusinessException exception = assertThrows(
                 BusinessException.class,

@@ -12,6 +12,9 @@ import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,8 +58,8 @@ public class GroupBuyService {
                 amounts.platformFeeRate(),
                 amounts.estimatedPlatformFee(),
                 amounts.estimatedSettlementAmount(),
-                request.recruitStartAt(),
-                request.recruitEndAt());
+                toUtcLocalDateTime(request.recruitStartAt()),
+                toUtcLocalDateTime(request.recruitEndAt()));
 
         return GroupBuyResponse.from(groupBuyRepository.saveAndFlush(groupBuy));
     }
@@ -106,5 +109,9 @@ public class GroupBuyService {
         if (!request.recruitEndAt().isAfter(request.recruitStartAt())) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "모집 종료 시각은 시작 시각보다 늦어야 합니다.");
         }
+    }
+
+    private LocalDateTime toUtcLocalDateTime(OffsetDateTime dateTime) {
+        return dateTime.withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime();
     }
 }
