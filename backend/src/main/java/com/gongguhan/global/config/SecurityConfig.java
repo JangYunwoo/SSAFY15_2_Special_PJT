@@ -54,7 +54,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST,
                                 "/auth/signup", "/auth/login", "/auth/admins/login", "/auth/refresh").permitAll()
                         .requestMatchers(HttpMethod.GET,
-                                "/categories", "/product-images/*", "/group-buys", "/group-buys/*").permitAll()
+                                "/categories", "/group-buys", "/group-buys/*").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .requestMatchers("/sellers/**").hasRole("SELLER")
