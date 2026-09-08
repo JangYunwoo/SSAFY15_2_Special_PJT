@@ -1,6 +1,6 @@
 # 공구한 Frontend
 
-공동구매 플랫폼 "공구한"의 웹 프론트엔드입니다.
+공동구매 플랫폼 공구한의 웹 프론트엔드입니다.
 
 - 기준 문서: [`docs/공구한_API_명세서_v1.md`](../docs/공구한_API_명세서_v1.md), [`docs/공구한_schema_v2.sql`](../docs/공구한_schema_v2.sql)
 - 화면 기준: `mockup/` (HTML 목업 19개 화면 + 캡처)
