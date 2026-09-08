@@ -49,6 +49,15 @@ app:
       region: ${AWS_REGION:ap-northeast-2}
       endpoint: ${AWS_S3_ENDPOINT:}
       public-base-url: ${AWS_S3_PUBLIC_BASE_URL:}
+  crypto:
+    # Polygon Amoy 테스트넷
+    chain-id: ${CRYPTO_CHAIN_ID:80002}
+    # Upbit 공개 시세 API. 인증 키가 필요 없다.
+    exchange-base-url: ${CRYPTO_EXCHANGE_BASE_URL:https://api.upbit.com}
+    exchange-market: ${CRYPTO_EXCHANGE_MARKET:KRW-USDT}
+    exchange-timeout-ms: ${CRYPTO_EXCHANGE_TIMEOUT_MS:3000}
+    # 짧게 유지한다. 낡은 환율은 Buffer(0.3%)로 흡수되지 않는다.
+    rate-cache-ttl-ms: ${CRYPTO_RATE_CACHE_TTL_MS:10000}
 
 management:
   endpoints:
