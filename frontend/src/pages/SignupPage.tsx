@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent } from 'react'
 
-import { useSignupBuyer } from '@/features/auth/useAuthMutations'
+import { useSignup } from '@/features/auth/useAuthMutations'
 import { isApiError, toMessage } from '@/shared/api/errors'
 import type { SubmitHandlerEvent } from '@/shared/lib/dom'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
@@ -36,7 +36,7 @@ export default function SignupPage() {
   useDocumentTitle('회원가입')
 
   const [form, setForm] = useState<FormState>(INITIAL)
-  const signup = useSignupBuyer()
+  const signup = useSignup()
 
   /** 입력 하나를 form 상태의 같은 이름 필드에 반영합니다. */
   const set =
@@ -69,7 +69,7 @@ export default function SignupPage() {
   return (
     <main className="wrap">
       <section className="narrow">
-        <h2>구매자 회원가입</h2>
+        <h2>회원가입</h2>
         <p>공동구매에 참여하려면 계정과 기본 배송지가 필요합니다.</p>
 
         <form onSubmit={submit} noValidate>
@@ -164,7 +164,7 @@ export default function SignupPage() {
           )}
 
           <Button type="submit" block className="mt24" disabled={signup.isPending}>
-            {signup.isPending ? '가입 중…' : '가입하고 시작하기'}
+            {signup.isPending ? '가입 중…' : '가입하기'}
           </Button>
         </form>
       </section>

@@ -199,7 +199,7 @@ export default function SellerProductNewPage() {
                 value={form.categoryId}
                 onChange={set('categoryId')}
                 options={(categories.data ?? []).map((category) => ({
-                  value: category.id,
+                  value: category.categoryId,
                   label: category.name,
                 }))}
                 hint={aiHintText(ai?.hints.categoryId)}
