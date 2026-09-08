@@ -1,30 +1,33 @@
 import { useState } from 'react'
 
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 
 import { useLogin } from '@/features/auth/useAuthMutations'
 import { toMessage } from '@/shared/api/errors'
 import type { SubmitHandlerEvent } from '@/shared/lib/dom'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
 import { Button } from '@/shared/ui/Button'
-import { RadioGroup } from '@/shared/ui/RadioGroup'
 import { TextField } from '@/shared/ui/Field'
 
-type Audience = 'buyer' | 'seller'
-
-const AUDIENCE_OPTIONS = [
-  { value: 'buyer', label: '구매자' },
-  { value: 'seller', label: '판매자' },
-] as const
+/** 회원가입을 마치고 넘어왔다면 그 이메일을 미리 채워줍니다. */
+function signedUpEmail(state: unknown): string {
+  if (typeof state === 'object' && state !== null && 'signedUpEmail' in state) {
+    const { signedUpEmail: email } = state
+    if (typeof email === 'string') return email
+  }
+  return ''
+}
 
 export default function LoginPage() {
   useDocumentTitle('로그인')
 
-  const [audience, setAudience] = useState<Audience>('buyer')
-  const [email, setEmail] = useState('')
+  const location = useLocation()
+  const justSignedUp = signedUpEmail(location.state)
+
+  const [email, setEmail] = useState(justSignedUp)
   const [password, setPassword] = useState('')
 
-  const login = useLogin(audience)
+  const login = useLogin()
 
   const submit = (event: SubmitHandlerEvent) => {
     event.preventDefault()
@@ -37,14 +40,16 @@ export default function LoginPage() {
         <h2>로그인</h2>
         <p>공동구매 참여와 거래 현황 확인을 위해 로그인해 주세요.</p>
 
-        <form onSubmit={submit} noValidate>
-          <RadioGroup
-            legend="로그인 유형"
-            options={AUDIENCE_OPTIONS}
-            value={audience}
-            onChange={setAudience}
-          />
+        {justSignedUp !== '' && (
+          <div className="guide" role="status">
+            <div className="guide-head">가입이 완료되었습니다</div>
+            <p className="small" style={{ margin: 0 }}>
+              방금 만든 계정으로 로그인해 주세요.
+            </p>
+          </div>
+        )}
 
+        <form onSubmit={submit} noValidate>
           <TextField
             label="이메일"
             type="email"

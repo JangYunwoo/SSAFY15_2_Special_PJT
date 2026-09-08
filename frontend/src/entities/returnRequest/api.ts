@@ -14,18 +14,18 @@ import type {
 export const returnApi = {
   /** RTN-01 반품 가능 여부·예상 환불액 */
   preview: (participationId: Id, body: ReturnPreviewRequest) =>
-    api.post<ReturnPreview>(`/buyers/me/participations/${participationId}/returns/preview`, body),
+    api.post<ReturnPreview>(`/users/me/participations/${participationId}/returns/preview`, body),
 
   /** RTN-02 반품 신청 */
   create: (participationId: Id, body: ReturnRequestInput) =>
-    api.post<ReturnRequestDetail>(`/buyers/me/participations/${participationId}/returns`, body),
+    api.post<ReturnRequestDetail>(`/users/me/participations/${participationId}/returns`, body),
 
   /** RTN-03 */
   buyerList: (params: ReturnListParams = {}) =>
-    api.getPage<ReturnRequestSummary>('/buyers/me/returns', { query: { ...params } }),
+    api.getPage<ReturnRequestSummary>('/users/me/returns', { query: { ...params } }),
 
   /** RTN-04 */
-  buyerDetail: (returnId: Id) => api.get<ReturnRequestDetail>(`/buyers/me/returns/${returnId}`),
+  buyerDetail: (returnId: Id) => api.get<ReturnRequestDetail>(`/users/me/returns/${returnId}`),
 
   /** RTN-05 */
   sellerList: (params: ReturnListParams = {}) =>
@@ -44,5 +44,5 @@ export const returnApi = {
 
   /** RTN-09 반품 거부 이의제기 */
   dispute: (returnId: Id, detailReason: string) =>
-    api.post<NoContent>(`/buyers/me/returns/${returnId}/disputes`, { detailReason }),
+    api.post<NoContent>(`/users/me/returns/${returnId}/disputes`, { detailReason }),
 } as const

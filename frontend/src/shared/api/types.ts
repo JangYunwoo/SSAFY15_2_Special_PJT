@@ -12,7 +12,8 @@ export interface PageMeta {
 
 export interface FieldError {
   field: string
-  message: string
+  /** 백엔드 ApiError.FieldError 가 쓰는 이름 (message 가 아닙니다) */
+  reason: string
 }
 
 export interface ApiErrorBody {
@@ -61,7 +62,8 @@ export type Decimal = string
 /** ISO-8601 UTC. 예: `2026-09-03T01:30:00Z` */
 export type IsoDateTime = string
 
-export type Role = 'BUYER' | 'SELLER' | 'ADMIN'
+/** 계정은 통합 USER 하나이고, 판매자 여부는 actor.isSeller 로 구분합니다 (명세서 2장) */
+export type Role = 'USER' | 'ADMIN'
 
 /** 204 No Content 처럼 본문이 없는 응답의 data 타입 */
 export type NoContent = undefined

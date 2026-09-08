@@ -67,7 +67,7 @@ export class ApiError extends Error {
 
   /** 특정 필드의 첫 검증 오류 메시지 */
   fieldError(field: string): string | undefined {
-    return this.fieldErrors.find((error) => error.field === field)?.message
+    return this.fieldErrors.find((error) => error.field === field)?.reason
   }
 
   get isUnauthorized(): boolean {

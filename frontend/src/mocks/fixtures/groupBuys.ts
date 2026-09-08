@@ -498,11 +498,11 @@ export const GROUP_BUY_SEEDS: GroupBuySeed[] = [
 ]
 
 export const CATEGORY_SEEDS = [
-  { id: '11', name: '전자제품', children: [] },
-  { id: '12', name: '생활', children: [] },
-  { id: '13', name: '식품', children: [] },
-  { id: '14', name: '건강', children: [] },
-  { id: '15', name: '패션', children: [] },
-  { id: '16', name: '뷰티', children: [] },
-  { id: '17', name: '취미', children: [] },
+  { categoryId: '11', name: '전자제품', depth: 1, children: [] },
+  { categoryId: '12', name: '생활', depth: 1, children: [] },
+  { categoryId: '13', name: '식품', depth: 1, children: [] },
+  { categoryId: '14', name: '건강', depth: 1, children: [] },
+  { categoryId: '15', name: '패션', depth: 1, children: [] },
+  { categoryId: '16', name: '뷰티', depth: 1, children: [] },
+  { categoryId: '17', name: '취미', depth: 1, children: [] },
 ]
