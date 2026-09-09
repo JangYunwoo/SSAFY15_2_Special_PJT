@@ -5,6 +5,7 @@
 import type { Address } from '@/entities/address/model'
 import type { GroupBuyDetail, GroupBuySummary } from '@/entities/groupBuy/model'
 import type { ParticipationSummary } from '@/entities/participation/model'
+import type { Notification } from '@/entities/notification/model'
 import type { Payment } from '@/entities/payment/model'
 import type { Product } from '@/entities/product/model'
 import type { ReturnRequestSummary } from '@/entities/returnRequest/model'
@@ -311,6 +312,55 @@ const settlements: SettlementSummary[] = [
   },
 ]
 
+/** 알림 5건 (명세서 14장 · 배송 알림은 제공하지 않습니다) */
+const notifications: Notification[] = [
+  {
+    id: '9001',
+    type: 'GROUP_BUY_FULFILLED',
+    title: '모집이 완료되었습니다',
+    body: 'MacBook Air M4 16GB 공동구매가 목표 인원을 채워 결제가 확정되었습니다.',
+    linkUrl: '/orders',
+    readAt: null,
+    createdAt: iso(-2 * 3_600_000),
+  },
+  {
+    id: '9002',
+    type: 'RETURN_STATUS_CHANGED',
+    title: '반품이 승인되었습니다',
+    body: '무선 노이즈캔슬링 헤드폰 반품 요청이 승인되어 회수가 진행됩니다.',
+    linkUrl: '/orders',
+    readAt: null,
+    createdAt: iso(-8 * 3_600_000),
+  },
+  {
+    id: '9003',
+    type: 'REFUND_COMPLETED',
+    title: '환불이 완료되었습니다',
+    body: '원목 체스 세트 공동구매 모집 실패로 32,000원이 환불되었습니다.',
+    linkUrl: '/orders',
+    readAt: null,
+    createdAt: iso(-1 * DAY_MS),
+  },
+  {
+    id: '9004',
+    type: 'SETTLEMENT_COMPLETED',
+    title: '정산이 지급되었습니다',
+    body: 'USB-C 충전기 65W 공동구매 정산금 760,000원이 지급되었습니다.',
+    linkUrl: '/seller/settlements',
+    readAt: iso(-2 * DAY_MS),
+    createdAt: iso(-3 * DAY_MS),
+  },
+  {
+    id: '9005',
+    type: 'GROUP_BUY_FAILED',
+    title: '모집이 종료되었습니다',
+    body: '캠핑용 접이식 테이블 공동구매가 목표 인원을 채우지 못해 종료되었습니다.',
+    linkUrl: null,
+    readAt: iso(-4 * DAY_MS),
+    createdAt: iso(-5 * DAY_MS),
+  },
+]
+
 export const db = {
   categories: CATEGORY_SEEDS,
   groupBuys: GROUP_BUY_SEEDS.map(toSummary),
@@ -320,6 +370,7 @@ export const db = {
   products,
   returns,
   settlements,
+  notifications,
   /** 결제 준비로 생성된 PROCESSING 결제들 */
   payments: new Map<string, Payment>(),
   nextId: 9000,
