@@ -15,6 +15,7 @@ import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -110,6 +111,36 @@ public class PaymentService {
         groupBuy.releaseSlot();
         groupBuySlotGate.release(payment.getGroupBuyId());
         payment.markFailed("USER_ABORTED");
+    }
+
+    /**
+     * 슬롯 만료 배치(1분 주기)가 호출한다. idx_payments_slot_expire(status, slot_expires_at)로
+     * 대상 후보를 뽑고, 실제 해제는 건별로 별도 트랜잭션(expireSlotIfDue)에서 재검증 후 처리한다.
+     */
+    public List<Long> findExpiredSlotPaymentIds() {
+        return paymentRepository
+                .findByStatusAndSlotExpiresAtBefore(Payment.STATUS_PROCESSING, LocalDateTime.now(clock))
+                .stream()
+                .map(Payment::getPaymentId)
+                .toList();
+    }
+
+    /**
+     * 조회 시점과 처리 시점 사이에 abort/completePayment로 이미 상태가 바뀌었을 수 있으므로
+     * 재조회 후 PROCESSING·만료 조건을 다시 확인한다 (중복 슬롯 해제 방지).
+     */
+    @Transactional
+    public void expireSlotIfDue(Long paymentId) {
+        Payment payment = paymentRepository.findById(paymentId).orElse(null);
+        if (payment == null || !payment.isProcessing() || !payment.isExpired(LocalDateTime.now(clock))) {
+            return;
+        }
+
+        GroupBuy groupBuy = groupBuyRepository.findWithLockByGroupBuyId(payment.getGroupBuyId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "공동구매를 찾을 수 없습니다."));
+        groupBuy.releaseSlot();
+        groupBuySlotGate.release(payment.getGroupBuyId());
+        payment.markExpired();
     }
 
     public Page<PaymentResponse> listHistory(Long userId, Pageable pageable) {

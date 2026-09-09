@@ -41,6 +41,27 @@ docker compose up -d
 엔티티 매핑이 실제 스키마와 다르면 기동 시점에 바로 에러가 난다 - 스키마 변경이 필요하면
 새 `V2__...sql` 마이그레이션을 추가한다.
 
+## 상품 이미지 저장소 (S3)
+
+상품 이미지는 S3에 저장한다 (`S3ProductImageStorage`). 자격증명은 AWS SDK 기본 자격증명
+체인을 사용하므로 애플리케이션 설정에는 Access Key를 두지 않는다 - 로컬 개발은
+`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` 환경변수, 배포 환경은 EC2/ECS 인스턴스
+프로필을 사용한다. **Access Key는 절대 커밋하지 않는다.**
+
+| 환경변수 | 설명 |
+| --- | --- |
+| `AWS_S3_BUCKET` | 상품 이미지 버킷 이름 (필수) |
+| `AWS_REGION` | 기본값 `ap-northeast-2` |
+| `AWS_S3_ENDPOINT` | S3 호환 스토리지(LocalStack/MinIO 등) 테스트 시 엔드포인트 오버라이드 |
+| `AWS_S3_PUBLIC_BASE_URL` | 비워두면 `https://{bucket}.s3.{region}.amazonaws.com`으로 조립 |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | 로컬 개발용 자격증명 (배포 환경은 인스턴스 프로필 사용 권장) |
+
+로컬에서 매번 `export`/`$env:`로 넣기 귀찮으면 `backend/.env.example`을 `backend/.env`로
+복사해서 값을 채워두면 된다. `.env`는 `.gitignore`에 걸려 있고, `./gradlew bootRun`이
+자동으로 읽어서 프로세스 환경변수로 주입한다(빌드 결과물에는 포함되지 않음). IntelliJ Run
+Configuration으로 직접 실행할 때는 `.env`가 자동 반영되지 않으니, EnvFile 플러그인을 설치해서
+Run Configuration에 `backend/.env`를 지정하거나 Environment variables에 직접 붙여넣는다.
+
 ## API 기본 경로
 
 `server.servlet.context-path=/api/v1`이 설정되어 있으므로, 컨트롤러의 `@RequestMapping`은
