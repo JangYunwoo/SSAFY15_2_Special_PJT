@@ -32,8 +32,10 @@ function toSummary(seed: GroupBuySeed): GroupBuySummary {
     productPrice: seed.productPrice,
     unitShareAmount: seed.unitShareAmount,
     shippingFee: seed.shippingFee,
+    personalPaymentAmount: seed.unitShareAmount + seed.shippingFee,
     targetCount: seed.targetCount,
     paidCount: seed.paidCount,
+    participationRate: seed.paidCount / seed.targetCount,
     recruitEndAt: iso(seed.hoursLeft * HOUR_MS),
     createdAt: new Date(seed.openedAt).toISOString(),
   }
@@ -49,6 +51,7 @@ function toDetail(seed: GroupBuySeed): GroupBuyDetail {
     color: null,
     roundingSurplus: seed.unitShareAmount * seed.targetCount - seed.productPrice,
     recruitStartAt: new Date(seed.openedAt).toISOString(),
+    withdrawalRestricted: false,
     withdrawalRestrictionReason: null,
     sellerSuspended: false,
   }
