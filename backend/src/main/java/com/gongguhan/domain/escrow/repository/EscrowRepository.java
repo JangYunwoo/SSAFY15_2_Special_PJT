@@ -4,6 +4,8 @@ import com.gongguhan.domain.escrow.entity.Escrow;
 import com.gongguhan.domain.escrow.entity.EscrowStatus;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -36,6 +38,37 @@ public interface EscrowRepository extends JpaRepository<Escrow, Long> {
             where e.status = com.gongguhan.domain.escrow.entity.EscrowStatus.HELD
            """)
     long sumHeldAmount();
+
+    /** ESC-02 목록. 페이지로 끊되 합계는 별도 집계 쿼리로 전체를 센다. */
+    Page<Escrow> findByGroupBuyId(Long groupBuyId, Pageable pageable);
+
+    /**
+     * 공동구매의 상태별 건수·금액 집계 (ESC-02, FR-ESC-04·08).
+     *
+     * <p>목록을 페이지로 끊어도 합계는 <b>전체</b>여야 한다. FR-ESC-08 이
+     * "보관 총액 = 미해제 참여 건 결제금액 합계"를 요구하므로, 한 페이지만 더한 값은
+     * 그 불변식을 확인하는 데 쓸 수 없다.
+     *
+     * <p>상태별로 한 행씩 돌아온다. 해당 상태의 행이 하나도 없으면 그 상태는
+     * 결과에 나타나지 않으므로, 호출 측이 0으로 채워야 한다.
+     */
+    @Query("""
+           select e.status as status, count(e) as count, coalesce(sum(e.amount), 0) as amount
+             from Escrow e
+            where e.groupBuyId = :groupBuyId
+            group by e.status
+           """)
+    List<StatusAggregate> aggregateByGroupBuy(@Param("groupBuyId") Long groupBuyId);
+
+    /** {@link #aggregateByGroupBuy} 결과 한 행. Spring Data 인터페이스 프로젝션. */
+    interface StatusAggregate {
+
+        EscrowStatus getStatus();
+
+        long getCount();
+
+        long getAmount();
+    }
 
     /**
      * 불변식 위반 건을 찾는다 (FR-ESC-08, NFR-DT-05).
