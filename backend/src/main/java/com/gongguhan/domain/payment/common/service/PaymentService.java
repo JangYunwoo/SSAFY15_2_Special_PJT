@@ -147,8 +147,11 @@ public class PaymentService {
                 snapshot.address1(), snapshot.address2());
         participationRepository.saveAndFlush(participation);
 
+        // 보관 시각도 Clock 에서 가져온다. 엔티티가 LocalDateTime.now() 를 직접 부르면
+        // 테스트에서 시각을 고정할 수 없고, DB 에 UTC/KST 가 섞인다.
         escrowRepository.save(Escrow.hold(
-                participation.getParticipationId(), payment.getGroupBuyId(), payment.getKrwAmount()));
+                participation.getParticipationId(), payment.getGroupBuyId(),
+                payment.getKrwAmount(), LocalDateTime.now(clock)));
 
         payment.markPaid(participation.getParticipationId());
         groupBuy.confirmParticipant();
