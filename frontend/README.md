@@ -33,6 +33,19 @@ npm run dev                        # http://localhost:5173
 | `npm run lint` | ESLint (`lint:fix` 로 자동 수정) |
 | `npm run format` | Prettier 포매팅 |
 
+### 데이터가 안 나올 때
+
+목 서버는 서비스워커로 요청을 가로챕니다. 서비스워커는 dev 서버를 껐다 켜도
+브라우저에 남아 있어서, 재시작 뒤 등록이 깨지면 요청이 그대로 네트워크로
+나가 "네트워크에 연결할 수 없습니다"가 뜹니다.
+
+1. F12 → **Application** → **Service Workers** → `mockServiceWorker.js` **Unregister**
+2. `Ctrl+Shift+R` (강력 새로고침)
+3. 그래도 안 되면 dev 서버 재시작
+
+목 서버 시작 자체가 실패하면 화면 위쪽에 원인과 조치가 빨간 배너로 표시됩니다.
+콘솔을 열지 않아도 됩니다.
+
 ### 목 서버 끄고 실제 백엔드에 붙이기
 
 `.env.development` 에서:
