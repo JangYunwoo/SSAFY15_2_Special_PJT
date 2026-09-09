@@ -1,50 +1,27 @@
-import { useState, type ChangeEvent } from 'react'
+import { useState } from 'react'
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
 
-import { categoryQueries } from '@/entities/category/queries'
 import { productApi } from '@/entities/product/api'
-import { productQueries } from '@/entities/product/queries'
 import { ImageUploader, type PickedImage } from '@/features/product/ImageUploader'
+import { ProductFields } from '@/features/product/ProductFields'
 import {
-  aiHintText,
-  useAiExtraction,
-  type AiExtractionResult,
-} from '@/features/product/useAiExtraction'
+  EMPTY_PRODUCT_FORM,
+  isProductFormReady,
+  type ProductFormState,
+} from '@/features/product/productForm'
+import { useAiExtraction, type AiExtractionResult } from '@/features/product/useAiExtraction'
 import { toMessage } from '@/shared/api/errors'
 import { queryKeys } from '@/shared/api/queryKeys'
-import { number } from '@/shared/lib/format'
 import type { SubmitHandlerEvent } from '@/shared/lib/dom'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
 import { Button } from '@/shared/ui/Button'
 import { DataRow } from '@/shared/ui/DataRow'
-import { FieldRow, SelectField, TextAreaField, TextField } from '@/shared/ui/Field'
 import { Panel } from '@/shared/ui/Panel'
-import { RadioGroup } from '@/shared/ui/RadioGroup'
 import { Steps } from '@/shared/ui/Steps'
 
 const STEPS = ['상품 등록', '공동구매 생성'] as const
-
-interface FormState {
-  name: string
-  brand: string
-  modelName: string
-  color: string
-  categoryId: string
-  price: string
-  description: string
-}
-
-const INITIAL: FormState = {
-  name: '',
-  brand: '',
-  modelName: '',
-  color: '',
-  categoryId: '',
-  price: '',
-  description: '',
-}
 
 export default function SellerProductNewPage() {
   useDocumentTitle('상품 등록')
@@ -52,19 +29,19 @@ export default function SellerProductNewPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  const categories = useQuery(categoryQueries.tree())
-  const withdrawalReasons = useQuery(productQueries.withdrawalReasons())
-
   const [images, setImages] = useState<PickedImage[]>([])
-  const [form, setForm] = useState<FormState>(INITIAL)
-  const [restricted, setRestricted] = useState<'NONE' | 'RESTRICTED'>('NONE')
-  const [reasonId, setReasonId] = useState('')
+  const [form, setForm] = useState<ProductFormState>(EMPTY_PRODUCT_FORM)
   const [ai, setAi] = useState<AiExtractionResult | null>(null)
+
+  const patch = (next: Partial<ProductFormState>) => {
+    setForm((current) => ({ ...current, ...next }))
+  }
 
   const extraction = useAiExtraction((result) => {
     setAi(result)
     // AI 값은 비어 있는 칸만 채우고, 판매자가 이미 입력한 값은 건드리지 않습니다.
     setForm((current) => ({
+      ...current,
       name: current.name || (result.values.name ?? ''),
       brand: current.brand || (result.values.brand ?? ''),
       modelName: current.modelName || (result.values.modelName ?? ''),
@@ -77,38 +54,30 @@ export default function SellerProductNewPage() {
 
   const create = useMutation({
     mutationFn: () =>
-      productApi.create({
-        name: form.name,
-        brand: form.brand,
-        modelName: form.modelName,
-        color: form.color,
-        categoryId: form.categoryId,
-        price: Number(form.price.replace(/\D/g, '')),
-        description: form.description,
-        // 이미지 업로드 엔드포인트가 확정되면 업로드 후 URL 을 넣습니다.
-        imageUrls: [],
-        aiExtracted: ai !== null,
-        withdrawalRestrictionReasonId: restricted === 'RESTRICTED' ? reasonId || null : null,
-      }),
+      productApi.create(
+        {
+          name: form.name,
+          brand: form.brand,
+          modelName: form.modelName,
+          color: form.color,
+          categoryId: form.categoryId,
+          price: Number(form.price),
+          description: form.description,
+          // 첫 장이 대표 이미지입니다 (ImageUploader 규칙).
+          thumbnailIndex: 0,
+          aiExtracted: ai !== null,
+          withdrawalRestrictionReasonId:
+            form.restricted === 'RESTRICTED' ? form.reasonId || null : null,
+        },
+        images.map((image) => image.file),
+      ),
     onSuccess: async (product) => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.sellerProducts.all })
       await navigate(`/seller/group-buys/new?productId=${product.id}`)
     },
   })
 
-  /** 입력 하나를 form 상태의 같은 이름 필드에 반영합니다. */
-  const set =
-    (key: keyof FormState) =>
-    (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>): void => {
-      setForm((current) => ({ ...current, [key]: event.target.value }))
-    }
-
-  const isReady =
-    form.name.trim() !== '' &&
-    form.description.trim() !== '' &&
-    form.categoryId !== '' &&
-    Number(form.price.replace(/\D/g, '')) > 0 &&
-    images.length > 0
+  const isReady = isProductFormReady(form) && images.length > 0
 
   const submit = (event: SubmitHandlerEvent) => {
     event.preventDefault()
@@ -160,119 +129,7 @@ export default function SellerProductNewPage() {
             </div>
           </Panel>
 
-          <Panel
-            className="mt16"
-            title="상품 정보"
-            description="구매자에게 표시되는 내용 · AI가 채운 값도 반드시 검수해 주세요"
-          >
-            <TextField
-              label="상품명"
-              required
-              placeholder="예) MacBook Air M4 16GB"
-              value={form.name}
-              onChange={set('name')}
-              hint={aiHintText(ai?.hints.name)}
-            />
-
-            <FieldRow className="mt8">
-              <TextField
-                label="브랜드"
-                placeholder="예) Apple"
-                value={form.brand}
-                onChange={set('brand')}
-                hint={aiHintText(ai?.hints.brand)}
-              />
-              <TextField
-                label="모델명"
-                placeholder="예) MGN63KH/A"
-                value={form.modelName}
-                onChange={set('modelName')}
-                hint={aiHintText(ai?.hints.modelName)}
-              />
-            </FieldRow>
-
-            <FieldRow className="mt8">
-              <SelectField
-                label="카테고리"
-                required
-                placeholder="선택"
-                value={form.categoryId}
-                onChange={set('categoryId')}
-                options={(categories.data ?? []).map((category) => ({
-                  value: category.categoryId,
-                  label: category.name,
-                }))}
-                hint={aiHintText(ai?.hints.categoryId)}
-              />
-              <TextField
-                label="색상"
-                placeholder="예) 미드나이트"
-                value={form.color}
-                onChange={set('color')}
-                hint={aiHintText(ai?.hints.color)}
-              />
-            </FieldRow>
-
-            <TextField
-              label="상품 가격"
-              required
-              inputMode="numeric"
-              placeholder="공동구매 1회분 총액"
-              value={form.price === '' ? '' : number(Number(form.price.replace(/\D/g, '')))}
-              onChange={(event) => {
-                setForm((current) => ({
-                  ...current,
-                  price: event.target.value.replace(/\D/g, ''),
-                }))
-              }}
-              hint={aiHintText(ai?.hints.price) ?? '공동구매 1회분 총액을 입력합니다.'}
-            />
-
-            <TextAreaField
-              label="상품 설명"
-              required
-              placeholder="상품 구성, 보증, 배송 조건 등을 입력해 주세요."
-              value={form.description}
-              onChange={set('description')}
-              hint={aiHintText(ai?.hints.description)}
-            />
-          </Panel>
-
-          <Panel
-            className="mt16"
-            title="청약철회 제한"
-            description="법정 청약철회권은 제한할 수 없으며, 예외 사유에 해당할 때만 지정합니다"
-          >
-            <RadioGroup
-              legend="청약철회 제한"
-              value={restricted}
-              onChange={setRestricted}
-              options={[
-                { value: 'NONE', label: '제한 없음' },
-                { value: 'RESTRICTED', label: '제한 상품' },
-              ]}
-            />
-
-            <SelectField
-              label="제한 사유"
-              placeholder="사유 선택"
-              disabled={restricted === 'NONE'}
-              value={reasonId}
-              onChange={(event) => {
-                setReasonId(event.target.value)
-              }}
-              options={(withdrawalReasons.data ?? []).map((reason) => ({
-                value: reason.id,
-                label: reason.description,
-              }))}
-            />
-
-            <p className="small muted mt16" style={{ marginBottom: 0, lineHeight: 1.8 }}>
-              제한 상품으로 지정하면 관리자 검토를 거친 뒤 공동구매 상세 화면에 사유가 함께
-              표시됩니다. 제한 상품이라도 상품 하자·오배송·표시광고 불일치의 경우에는 반품이
-              가능합니다.
-            </p>
-          </Panel>
+          <ProductFields form={form} onChange={patch} ai={ai} />
 
           {create.isError && (
             <p className="ai-hint mt16" role="alert">

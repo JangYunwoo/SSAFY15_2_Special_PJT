@@ -97,7 +97,15 @@ export default function SellerProductsPage() {
                               <StateChip tone={chip.tone}>{chip.label}</StateChip>
                             )}
                           </td>
-                          <td>{editable ? '가능' : <span className="small muted">불가</span>}</td>
+                          <td>
+                            {editable ? (
+                              <Link className="btn-ghost" to={`/seller/products/${product.id}/edit`}>
+                                수정
+                              </Link>
+                            ) : (
+                              <span className="small muted">불가</span>
+                            )}
+                          </td>
                           <td className="num">
                             {editable ? (
                               <Link

@@ -28,6 +28,10 @@ export interface ProductListParams extends PageParams {
   keyword?: string
 }
 
+/**
+ * PRD-01 등록 · PRD-04 수정 요청의 JSON 파트 (백엔드 ProductUpsertRequest).
+ * 이미지는 이 객체가 아니라 multipart 의 images 파트로 따로 보냅니다.
+ */
 export interface ProductInput {
   name: string
   brand: string
@@ -36,7 +40,12 @@ export interface ProductInput {
   categoryId: Id
   price: Krw
   description: string
-  imageUrls: string[]
+  /** 대표 이미지로 쓸 images 파트의 순번 */
+  thumbnailIndex: number
+  /**
+   * 아래 두 값은 백엔드 ProductUpsertRequest 에 아직 없습니다.
+   * 알 수 없는 필드는 무시되므로, 백엔드가 받게 되는 날 그대로 동작하도록 함께 보냅니다.
+   */
   aiExtracted: boolean
   withdrawalRestrictionReasonId: Id | null
 }
