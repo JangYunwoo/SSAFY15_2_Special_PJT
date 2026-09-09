@@ -34,6 +34,11 @@ export function SiteHeader() {
                 {item.label}
               </NavLink>
             ))}
+            {isSignedIn && (
+              <NavLink to="/me" className={({ isActive }) => cx(isActive && 'on')}>
+                내 정보
+              </NavLink>
+            )}
             {isSignedIn ? (
               <button
                 type="button"

@@ -106,16 +106,14 @@ export const handlers = [
   }),
   http.post(`${BASE}/auth/logout`, () => ok(null)),
 
-  http.get(`${BASE}/users/me`, () =>
-    ok({
-      id: '101',
-      email: 'buyer@example.com',
-      nickname: '공구왕',
-      phone: '01012345678',
-      isSeller: false,
-      createdAt: iso(-90 * 86_400_000),
-    }),
-  ),
+  http.get(`${BASE}/users/me`, () => ok(db.me)),
+  http.patch(`${BASE}/users/me`, async ({ request }) => {
+    await delay(250)
+    const body = (await request.json()) as Partial<typeof db.me>
+    // 이메일과 가입일은 수정 대상이 아닙니다 (USR-02).
+    db.me = { ...db.me, nickname: body.nickname ?? db.me.nickname, phone: body.phone ?? db.me.phone }
+    return ok(db.me)
+  }),
   http.get(`${BASE}/sellers/me`, () =>
     ok({
       id: '201',
@@ -143,10 +141,36 @@ export const handlers = [
   /* ---------- 배송지 ---------- */
   http.get(`${BASE}/users/me/addresses`, () => ok(db.addresses)),
   http.post(`${BASE}/users/me/addresses`, async ({ request }) => {
+    await delay(200)
     const body = (await request.json()) as Omit<(typeof db.addresses)[number], 'id'>
-    const created = { ...body, id: String(++db.nextId) }
+    // 첫 배송지는 자동으로 기본이 되고, 기본으로 지정하면 나머지는 해제됩니다.
+    const isDefault = db.addresses.length === 0 || body.isDefault
+    if (isDefault) for (const item of db.addresses) item.isDefault = false
+    const created = { ...body, isDefault, id: String(++db.nextId) }
     db.addresses.push(created)
     return ok(created)
+  }),
+  http.patch(`${BASE}/users/me/addresses/:addressId`, async ({ params, request }) => {
+    await delay(200)
+    const index = db.addresses.findIndex((item) => item.id === String(params.addressId))
+    const current = db.addresses[index]
+    if (current === undefined) return fail(404, 'RESOURCE_NOT_FOUND', '배송지를 찾을 수 없습니다.')
+    const body = (await request.json()) as Partial<(typeof db.addresses)[number]>
+    if (body.isDefault === true) for (const item of db.addresses) item.isDefault = false
+    const updated = { ...current, ...body }
+    db.addresses[index] = updated
+    return ok(updated)
+  }),
+  http.delete(`${BASE}/users/me/addresses/:addressId`, async ({ params }) => {
+    await delay(200)
+    const index = db.addresses.findIndex((item) => item.id === String(params.addressId))
+    const current = db.addresses[index]
+    if (current === undefined) return fail(404, 'RESOURCE_NOT_FOUND', '배송지를 찾을 수 없습니다.')
+    db.addresses.splice(index, 1)
+    // 기본 배송지를 지웠으면 남은 첫 배송지를 기본으로 올립니다.
+    const first = db.addresses[0]
+    if (current.isDefault && first !== undefined) first.isDefault = true
+    return ok(null)
   }),
 
   /* ---------- 카테고리 ---------- */
