@@ -312,7 +312,18 @@ const settlements: SettlementSummary[] = [
   },
 ]
 
-/** 알림 5건 (명세서 14장 · 배송 알림은 제공하지 않습니다) */
+
+/** 내 프로필 (USR-01/02) */
+const me = {
+  id: '101',
+  email: 'buyer@example.com',
+  nickname: '공구왕',
+  phone: '01012345678',
+  isSeller: false,
+  createdAt: iso(-90 * DAY_MS),
+}
+
+
 const notifications: Notification[] = [
   {
     id: '9001',
@@ -371,6 +382,7 @@ export const db = {
   returns,
   settlements,
   notifications,
+  me,
   /** 결제 준비로 생성된 PROCESSING 결제들 */
   payments: new Map<string, Payment>(),
   nextId: 9000,

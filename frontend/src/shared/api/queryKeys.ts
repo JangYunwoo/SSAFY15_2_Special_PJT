@@ -5,7 +5,8 @@
  */
 export const queryKeys = {
   auth: {
-    me: (role: 'buyer' | 'seller') => ['auth', 'me', role] as const,
+    all: ['auth'] as const,
+    me: () => ['auth', 'me'] as const,
   },
   categories: {
     tree: () => ['categories', 'tree'] as const,
