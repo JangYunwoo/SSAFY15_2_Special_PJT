@@ -53,7 +53,7 @@ class PaymentSlotReservationTransactionTest {
 
     @Test
     void failsWhenGroupBuyNotFound() {
-        when(groupBuyRepository.findWithLockByGroupBuyId(GROUP_BUY_ID)).thenReturn(Optional.empty());
+        when(groupBuyRepository.findById(GROUP_BUY_ID)).thenReturn(Optional.empty());
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> transaction.execute(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY));
@@ -63,7 +63,7 @@ class PaymentSlotReservationTransactionTest {
 
     @Test
     void failsWhenActiveParticipationExists() {
-        when(groupBuyRepository.findWithLockByGroupBuyId(GROUP_BUY_ID))
+        when(groupBuyRepository.findById(GROUP_BUY_ID))
                 .thenReturn(Optional.of(mock(GroupBuy.class)));
         when(participationRepository.existsByGroupBuyIdAndUserIdAndActiveMarker(
                 GROUP_BUY_ID, USER_ID, Participation.ACTIVE_MARKER)).thenReturn(true);
@@ -76,7 +76,7 @@ class PaymentSlotReservationTransactionTest {
 
     @Test
     void failsWhenActiveSlotExists() {
-        when(groupBuyRepository.findWithLockByGroupBuyId(GROUP_BUY_ID))
+        when(groupBuyRepository.findById(GROUP_BUY_ID))
                 .thenReturn(Optional.of(mock(GroupBuy.class)));
         when(paymentRepository.existsByGroupBuyIdAndUserIdAndStatus(
                 GROUP_BUY_ID, USER_ID, Payment.STATUS_PROCESSING)).thenReturn(true);
@@ -89,7 +89,7 @@ class PaymentSlotReservationTransactionTest {
 
     @Test
     void failsWhenAddressNotOwnedByUser() {
-        when(groupBuyRepository.findWithLockByGroupBuyId(GROUP_BUY_ID))
+        when(groupBuyRepository.findById(GROUP_BUY_ID))
                 .thenReturn(Optional.of(mock(GroupBuy.class)));
         when(userAddressRepository.findByAddressIdAndUserId(10L, USER_ID)).thenReturn(Optional.empty());
 
@@ -101,7 +101,7 @@ class PaymentSlotReservationTransactionTest {
 
     @Test
     void failsWhenCryptoMethodMissingAssetId() {
-        when(groupBuyRepository.findWithLockByGroupBuyId(GROUP_BUY_ID))
+        when(groupBuyRepository.findById(GROUP_BUY_ID))
                 .thenReturn(Optional.of(mock(GroupBuy.class)));
         when(userAddressRepository.findByAddressIdAndUserId(10L, USER_ID))
                 .thenReturn(Optional.of(mock(UserAddress.class)));
@@ -117,7 +117,7 @@ class PaymentSlotReservationTransactionTest {
     @Test
     void failsWhenGroupBuyIsFull() {
         GroupBuy groupBuy = mock(GroupBuy.class);
-        when(groupBuyRepository.findWithLockByGroupBuyId(GROUP_BUY_ID)).thenReturn(Optional.of(groupBuy));
+        when(groupBuyRepository.findById(GROUP_BUY_ID)).thenReturn(Optional.of(groupBuy));
         when(userAddressRepository.findByAddressIdAndUserId(10L, USER_ID))
                 .thenReturn(Optional.of(mock(UserAddress.class)));
         doThrow(new BusinessException(ErrorCode.GROUP_BUY_FULL)).when(groupBuy).reserveSlot();

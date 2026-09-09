@@ -30,6 +30,8 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 class PaymentServiceTest {
 
@@ -135,6 +137,76 @@ class PaymentServiceTest {
                 () -> paymentService.prepare(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY));
 
         verify(groupBuySlotGate, times(1)).release(GROUP_BUY_ID);
+        // 낙관적 락 충돌이 아닌 업무 규칙 위반은 재시도해도 결과가 같으므로 재시도하지 않는다.
+        verify(slotReservationTransaction, times(1)).execute(any(), any(), any(), any());
+    }
+
+    @Test
+    void prepareRetriesOnOptimisticLockConflictThenSucceeds() {
+        when(paymentRepository.findByIdempotencyKey(IDEMPOTENCY_KEY)).thenReturn(Optional.empty());
+        GroupBuyRepository.SlotCounts slotCounts = mock(GroupBuyRepository.SlotCounts.class);
+        when(slotCounts.getReservedSlots()).thenReturn(0);
+        when(slotCounts.getCurrentParticipants()).thenReturn(0);
+        when(slotCounts.getTargetParticipants()).thenReturn(50);
+        when(groupBuyRepository.findSlotCounts(GROUP_BUY_ID)).thenReturn(Optional.of(slotCounts));
+        when(groupBuySlotGate.tryReserve(GROUP_BUY_ID, 50, 0)).thenReturn(true);
+        PaymentResponse expected = mock(PaymentResponse.class);
+        when(slotReservationTransaction.execute(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY))
+                .thenThrow(new ObjectOptimisticLockingFailureException(GroupBuy.class, GROUP_BUY_ID))
+                .thenReturn(expected);
+
+        PaymentResponse response = paymentService.prepare(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY);
+
+        assertEquals(expected, response);
+        verify(slotReservationTransaction, times(2)).execute(any(), any(), any(), any());
+        verify(groupBuySlotGate, never()).release(any());
+    }
+
+    @Test
+    void prepareReleasesGateAndThrowsConflictWhenRetriesExhausted() {
+        when(paymentRepository.findByIdempotencyKey(IDEMPOTENCY_KEY)).thenReturn(Optional.empty());
+        GroupBuyRepository.SlotCounts slotCounts = mock(GroupBuyRepository.SlotCounts.class);
+        when(slotCounts.getReservedSlots()).thenReturn(0);
+        when(slotCounts.getCurrentParticipants()).thenReturn(0);
+        when(slotCounts.getTargetParticipants()).thenReturn(50);
+        when(groupBuyRepository.findSlotCounts(GROUP_BUY_ID)).thenReturn(Optional.of(slotCounts));
+        when(groupBuySlotGate.tryReserve(GROUP_BUY_ID, 50, 0)).thenReturn(true);
+        when(slotReservationTransaction.execute(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY))
+                .thenThrow(new ObjectOptimisticLockingFailureException(GroupBuy.class, GROUP_BUY_ID));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> paymentService.prepare(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY));
+
+        assertEquals(ErrorCode.SLOT_RESERVATION_CONFLICT, exception.getErrorCode());
+        verify(slotReservationTransaction, times(3)).execute(any(), any(), any(), any());
+        verify(groupBuySlotGate, times(1)).release(GROUP_BUY_ID);
+    }
+
+    /**
+     * 부하테스트로 재현된 실제 상황: 비관적 락을 뗀 뒤 여러 트랜잭션이 payments의
+     * group_buy_id FK 체크로 group_buys 행에 공유 락을 동시에 잡고, 각자 UPDATE로 배타
+     * 락 승격을 시도하면서 InnoDB 데드락(CannotAcquireLockException)이 발생했다 - 버전
+     * 충돌(ObjectOptimisticLockingFailureException)이 아니라도 재시도 대상이어야 한다.
+     */
+    @Test
+    void prepareRetriesOnDeadlockThenSucceeds() {
+        when(paymentRepository.findByIdempotencyKey(IDEMPOTENCY_KEY)).thenReturn(Optional.empty());
+        GroupBuyRepository.SlotCounts slotCounts = mock(GroupBuyRepository.SlotCounts.class);
+        when(slotCounts.getReservedSlots()).thenReturn(0);
+        when(slotCounts.getCurrentParticipants()).thenReturn(0);
+        when(slotCounts.getTargetParticipants()).thenReturn(50);
+        when(groupBuyRepository.findSlotCounts(GROUP_BUY_ID)).thenReturn(Optional.of(slotCounts));
+        when(groupBuySlotGate.tryReserve(GROUP_BUY_ID, 50, 0)).thenReturn(true);
+        PaymentResponse expected = mock(PaymentResponse.class);
+        when(slotReservationTransaction.execute(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY))
+                .thenThrow(new CannotAcquireLockException("Deadlock found when trying to get lock"))
+                .thenReturn(expected);
+
+        PaymentResponse response = paymentService.prepare(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY);
+
+        assertEquals(expected, response);
+        verify(slotReservationTransaction, times(2)).execute(any(), any(), any(), any());
+        verify(groupBuySlotGate, never()).release(any());
     }
 
     @Test

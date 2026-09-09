@@ -118,3 +118,60 @@ k6 run -e JWT_SECRET=loadtest-shared-secret-please-change -e RUN_LABEL=before \
   무관하게 유효하다.
 - 트라이얼 수(before n=4, after n=5)는 통계적으로 크지 않다. 방향성과
   크기는 명확하지만, 신뢰구간 계산 수준의 엄밀함은 아니다.
+
+---
+
+## 2라운드 — Option B: 성공 경로를 낙관적 락 + 재시도로 전환
+
+1라운드에서 발견한 트레이드오프(성공 경로 24% 악화)를 해소하기 위해,
+`PaymentSlotReservationTransaction`의 `SELECT ... FOR UPDATE`(비관적 락)를
+`GroupBuy.version` 기반 낙관적 락 + 재시도(최대 3회)로 교체했다. 범위는
+`prepare()` 예약 경로로 한정 — `abort()`/`completePayment()`/슬롯만료배치는
+비관적 락 그대로 유지(빈도가 낮고 이 부하테스트 범위 밖).
+
+이번 라운드의 **before**는 1라운드의 "after"(Redis 게이트 + 비관적 락, 즉
+현재 `DevelopV1`)와 동일 코드다 — 방법론 일관성 확인을 위해 이번에도 독립적으로
+3트라이얼 재측정해 1라운드 수치(742ms)와 교차검증했다(결과: 744.5ms, 거의 동일).
+
+### 구현 중 발견한 버그: 비관적 락 제거가 유발한 InnoDB 데드락
+
+첫 부하테스트에서 900건 중 142건(15.8%)이 예상 밖의 500 에러로 실패했다.
+로그 확인 결과 `ObjectOptimisticLockingFailureException`(버전 충돌)이 아니라
+**`CannotAcquireLockException`(InnoDB 데드락, MySQL 에러 1213)**이었다.
+
+원인: `payments.group_buy_id`가 `group_buys`를 참조하는 FK라서, `Payment`
+INSERT 시 InnoDB가 참조 무결성 확인을 위해 `group_buys` 행에 **공유(S) 락**을
+잡는다. Hibernate flush 순서상 이 INSERT가 `GroupBuy` UPDATE보다 먼저
+실행되는데, 여러 트랜잭션이 동시에 각자 S 락을 잡은 뒤(S 락끼리는 호환되므로
+전부 성공) 곧이어 자신의 UPDATE를 위해 **배타(X) 락으로 승격**을 시도하면
+아무도 먼저 양보하지 않아 데드락이 발생한다 — MySQL/InnoDB에서 잘 알려진
+"FK 확인 S 락 → UPDATE X 락 승격" 패턴. 비관적 락(FOR UPDATE)을 쓸 때는
+애초에 한 트랜잭션만 행에 접근할 수 있어 이 경합 자체가 생기지 않았다.
+
+수정: 재시도 대상을 `ObjectOptimisticLockingFailureException`에서 그 공통
+상위 타입인 `org.springframework.dao.ConcurrencyFailureException`으로 넓혔다
+— `OptimisticLockingFailureException`과 `PessimisticLockingFailureException`
+(`CannotAcquireLockException`의 부모)이 둘 다 이 타입의 하위 클래스라, 버전
+충돌과 데드락을 하나의 catch로 함께 재시도한다. 수정 후 재측정: 900건 전부
+0 에러.
+
+### 결과 (Before/After 각 n=3 평균)
+
+| 지표 | Before (Redis 게이트 + 비관적 락) | After (+ 낙관적 락·재시도) | 변화 |
+| --- | --- | --- | --- |
+| 처리량 (req/s) | 631.3 | 845.2 | **1.34배** |
+| success_latency 평균 | 744.5 ms | 429.1 ms | **42.4% 감소 (1.74배)** |
+| success_latency p95 | 1309.5 ms | 641.3 ms | **51.0% 감소 (2.04배)** |
+| reject_latency 평균 | 273.0 ms | 255.5 ms | 거의 동일 (이번 변경 대상 아님) |
+| unexpected_errors | 0 | 0 | 동일 |
+
+### 해석
+
+1라운드에서 예측한 그대로다 — 성공하는 50건이 더 이상 하나의 행 락으로
+완전히 직렬화되지 않고, Redis 게이트가 이미 걸러낸 요청끼리는 각자 독립적인
+트랜잭션으로 병렬 진행하다가 실제로 같은 순간 같은 행을 건드렸을 때만
+재시도한다. 거부 경로는 이번 변경과 무관해 수치가 그대로다(교차검증 성격).
+
+안전성(왜 낙관적 락이 돈이 걸린 이 도메인에서도 안전한지)과 재시도 설계
+근거는 바탕화면 보고서와 커밋 메시지 참고.
+
