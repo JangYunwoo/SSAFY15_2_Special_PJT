@@ -6,6 +6,8 @@ import com.gongguhan.domain.groupbuy.entity.GroupBuy.RecruitmentJudgement;
 import com.gongguhan.domain.groupbuy.event.GroupBuyFailedEvent;
 import com.gongguhan.domain.groupbuy.event.GroupBuyFulfilledEvent;
 import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
+import com.gongguhan.global.policy.PolicyKey;
+import com.gongguhan.global.policy.PolicyService;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,19 +24,19 @@ public class GroupBuyRecruitmentService {
 
     private final GroupBuyRepository groupBuyRepository;
     private final BusinessDayCalculator businessDayCalculator;
-    private final GroupBuyPolicyProvider groupBuyPolicyProvider;
+    private final PolicyService policyService;
     private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
     public GroupBuyRecruitmentService(
             GroupBuyRepository groupBuyRepository,
             BusinessDayCalculator businessDayCalculator,
-            GroupBuyPolicyProvider groupBuyPolicyProvider,
+            PolicyService policyService,
             ApplicationEventPublisher eventPublisher,
             Clock clock) {
         this.groupBuyRepository = groupBuyRepository;
         this.businessDayCalculator = businessDayCalculator;
-        this.groupBuyPolicyProvider = groupBuyPolicyProvider;
+        this.policyService = policyService;
         this.eventPublisher = eventPublisher;
         this.clock = clock;
     }
@@ -48,21 +50,37 @@ public class GroupBuyRecruitmentService {
         int failedCount = 0;
 
         for (GroupBuy groupBuy : candidates) {
-            LocalDateTime shippingDeadlineAt = groupBuy.getCurrentParticipants() >= groupBuy.getTargetParticipants()
-                    ? businessDayCalculator.addBusinessDays(
-                            judgedAt, groupBuyPolicyProvider.shippingDeadlineBusinessDays())
-                    : null;
-            RecruitmentJudgement judgement = groupBuy.judgeRecruitment(judgedAt, shippingDeadlineAt);
+            RecruitmentJudgement judgement = judge(groupBuy, judgedAt);
             if (judgement == RecruitmentJudgement.FULFILLED) {
                 fulfilledCount++;
-                publishFulfilled(groupBuy);
             } else if (judgement == RecruitmentJudgement.FAILED) {
                 failedCount++;
-                publishFailed(groupBuy, judgedAt);
             }
         }
 
         return new GroupBuyJudgementResult(candidates.size(), fulfilledCount, failedCount);
+    }
+
+    @Transactional
+    public void judgeTargetReached(GroupBuy groupBuy) {
+        if (groupBuy.getCurrentParticipants() < groupBuy.getTargetParticipants()) {
+            return;
+        }
+        judge(groupBuy, LocalDateTime.now(clock));
+    }
+
+    private RecruitmentJudgement judge(GroupBuy groupBuy, LocalDateTime judgedAt) {
+        LocalDateTime shippingDeadlineAt = groupBuy.getCurrentParticipants() >= groupBuy.getTargetParticipants()
+                ? businessDayCalculator.addBusinessDays(
+                        judgedAt, policyService.getInt(PolicyKey.SHIPPING_DEADLINE_DAYS))
+                : null;
+        RecruitmentJudgement judgement = groupBuy.judgeRecruitment(judgedAt, shippingDeadlineAt);
+        if (judgement == RecruitmentJudgement.FULFILLED) {
+            publishFulfilled(groupBuy);
+        } else if (judgement == RecruitmentJudgement.FAILED) {
+            publishFailed(groupBuy, judgedAt);
+        }
+        return judgement;
     }
 
     private void publishFulfilled(GroupBuy groupBuy) {

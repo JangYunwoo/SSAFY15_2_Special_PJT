@@ -49,6 +49,21 @@ function paged(items: readonly unknown[], url: URL) {
   return ok(items.slice(page * size, page * size + size), meta)
 }
 
+
+/**
+ * 등록·수정 multipart 요청에서 product 파트(JSON)를 읽습니다.
+ * 목에는 파일 저장소가 없으므로 images 파트는 개수만 세어 자리만 만듭니다.
+ */
+async function readUpsert(request: Request): Promise<Record<string, unknown>> {
+  const form = await request.formData()
+  const part = form.get('product')
+  const json = typeof part === 'string' ? part : await (part?.text() ?? Promise.resolve('{}'))
+  const files = form.getAll('images')
+  const parsed = JSON.parse(json) as Record<string, unknown>
+  return files.length === 0
+    ? parsed
+    : { ...parsed, images: files.map((_, index) => `mock://image-${String(index + 1)}`) }
+}
 const iso = (offsetMs: number): string => new Date(Date.now() + offsetMs).toISOString()
 
 /* ---------- 목록 정렬 (목업 SORTERS 와 같은 규칙) ---------- */
@@ -62,40 +77,42 @@ const SORTERS: Record<string, (a: GroupBuySummary, b: GroupBuySummary) => number
   priceDesc: (a, b) => b.unitShareAmount - a.unitShareAmount,
 }
 
-const tokensFor = (role: 'BUYER' | 'SELLER', name: string): AuthTokens => ({
-  accessToken: `mock.${role.toLowerCase()}.access`,
-  refreshToken: `mock.${role.toLowerCase()}.refresh`,
+/**
+ * 계정은 하나뿐입니다. 판매자 전환(SEL-05) 전에는 isSeller=false 이고,
+ * 목에서는 전환 API 를 아직 흉내내지 않으므로 화면이 세션 플래그만 세웁니다.
+ */
+const tokens = (): AuthTokens => ({
+  accessToken: 'mock.user.access',
+  refreshToken: 'mock.user.refresh',
   tokenType: 'Bearer',
   expiresIn: 1800,
-  actor: { id: role === 'BUYER' ? '101' : '201', role, name },
+  actor: { id: '101', role: 'USER', isSeller: false, name: '공구왕' },
 })
 
 export const handlers = [
   /* ---------- 인증 ---------- */
-  http.post(`${BASE}/auth/buyers/login`, async () => {
-    await delay(200)
-    return ok(tokensFor('BUYER', '공구왕'))
-  }),
-  http.post(`${BASE}/auth/buyers/signup`, async () => {
+  http.post(`${BASE}/auth/signup`, async ({ request }) => {
     await delay(300)
-    return ok(tokensFor('BUYER', '공구왕'))
+    const body = (await request.json()) as { email: string; nickname: string }
+    // AUTH-01 은 계정만 만들고 토큰은 주지 않습니다 (백엔드 SignupResponse).
+    return HttpResponse.json(
+      { success: true, data: { id: '101', email: body.email, nickname: body.nickname }, meta: null, traceId: traceId() },
+      { status: 201 },
+    )
   }),
-  http.post(`${BASE}/auth/sellers/login`, async () => {
+  http.post(`${BASE}/auth/login`, async () => {
     await delay(200)
-    return ok(tokensFor('SELLER', 'TECHSTORE'))
-  }),
-  http.post(`${BASE}/auth/sellers/signup`, async () => {
-    await delay(300)
-    return ok(tokensFor('SELLER', 'TECHSTORE'))
+    return ok(tokens())
   }),
   http.post(`${BASE}/auth/logout`, () => ok(null)),
 
-  http.get(`${BASE}/buyers/me`, () =>
+  http.get(`${BASE}/users/me`, () =>
     ok({
       id: '101',
       email: 'buyer@example.com',
       nickname: '공구왕',
       phone: '01012345678',
+      isSeller: false,
       createdAt: iso(-90 * 86_400_000),
     }),
   ),
@@ -124,8 +141,8 @@ export const handlers = [
   ),
 
   /* ---------- 배송지 ---------- */
-  http.get(`${BASE}/buyers/me/addresses`, () => ok(db.addresses)),
-  http.post(`${BASE}/buyers/me/addresses`, async ({ request }) => {
+  http.get(`${BASE}/users/me/addresses`, () => ok(db.addresses)),
+  http.post(`${BASE}/users/me/addresses`, async ({ request }) => {
     const body = (await request.json()) as Omit<(typeof db.addresses)[number], 'id'>
     const created = { ...body, id: String(++db.nextId) }
     db.addresses.push(created)
@@ -302,12 +319,12 @@ export const handlers = [
   }),
 
   /* ---------- 참여 · 구매확정 ---------- */
-  http.get(`${BASE}/buyers/me/participations`, async ({ request }) => {
+  http.get(`${BASE}/users/me/participations`, async ({ request }) => {
     await delay(150)
     return paged(db.participations, new URL(request.url))
   }),
 
-  http.post(`${BASE}/buyers/me/participations/:id/cancel`, async ({ params }) => {
+  http.post(`${BASE}/users/me/participations/:id/cancel`, async ({ params }) => {
     await delay(400)
     const target = db.participations.find((item) => item.id === String(params.id))
     if (!target) return fail(404, 'RESOURCE_NOT_FOUND', '참여 정보를 찾을 수 없습니다.')
@@ -318,7 +335,7 @@ export const handlers = [
     return ok(null)
   }),
 
-  http.post(`${BASE}/buyers/me/participations/:id/confirm`, async ({ params }) => {
+  http.post(`${BASE}/users/me/participations/:id/confirm`, async ({ params }) => {
     await delay(500)
     const target = db.participations.find((item) => item.id === String(params.id))
     if (!target) return fail(404, 'RESOURCE_NOT_FOUND', '참여 정보를 찾을 수 없습니다.')
@@ -332,7 +349,7 @@ export const handlers = [
   }),
 
   /* ---------- 반품 ---------- */
-  http.post(`${BASE}/buyers/me/participations/:id/returns/preview`, async ({ params, request }) => {
+  http.post(`${BASE}/users/me/participations/:id/returns/preview`, async ({ params, request }) => {
     await delay(250)
     const target = db.participations.find((item) => item.id === String(params.id))
     if (!target) return fail(404, 'RESOURCE_NOT_FOUND', '참여 정보를 찾을 수 없습니다.')
@@ -362,7 +379,7 @@ export const handlers = [
     return ok(preview)
   }),
 
-  http.post(`${BASE}/buyers/me/participations/:id/returns`, async ({ params }) => {
+  http.post(`${BASE}/users/me/participations/:id/returns`, async ({ params }) => {
     await delay(500)
     const target = db.participations.find((item) => item.id === String(params.id))
     if (!target) return fail(404, 'RESOURCE_NOT_FOUND', '참여 정보를 찾을 수 없습니다.')
@@ -407,15 +424,25 @@ export const handlers = [
     await delay(150)
     return paged(db.products, new URL(request.url))
   }),
+  http.get(`${BASE}/sellers/products/:productId`, async ({ params }) => {
+    await delay(150)
+    const found = db.products.find((item) => item.id === String(params.productId))
+    if (found === undefined) return fail(404, 'RESOURCE_NOT_FOUND', '상품을 찾을 수 없습니다.')
+    return ok(found)
+  }),
 
+  /**
+   * 등록·수정은 multipart 입니다. product 파트의 JSON 을 읽고 images 파트는
+   * 개수만 세어 미리보기 URL 자리를 만듭니다 (목에는 저장소가 없습니다).
+   */
   http.post(`${BASE}/sellers/products`, async ({ request }) => {
     await delay(500)
-    const body = (await request.json()) as Partial<(typeof db.products)[number]>
+    const input = await readUpsert(request)
     const template = db.products[0]
     if (template === undefined) return fail(500, 'RESOURCE_NOT_FOUND', '시드 상품이 없습니다.')
     const created = {
       ...template,
-      ...body,
+      ...input,
       id: String(++db.nextId),
       linkedGroupBuyId: null,
       linkedGroupBuyStatus: null,
@@ -423,6 +450,32 @@ export const handlers = [
     }
     db.products.unshift(created)
     return ok(created)
+  }),
+
+  http.put(`${BASE}/sellers/products/:productId`, async ({ params, request }) => {
+    await delay(400)
+    const index = db.products.findIndex((item) => item.id === String(params.productId))
+    const current = db.products[index]
+    if (current === undefined) return fail(404, 'RESOURCE_NOT_FOUND', '상품을 찾을 수 없습니다.')
+    // 공동구매가 걸린 상품은 서버가 막습니다 (명세서 3장).
+    if (current.linkedGroupBuyId !== null) {
+      return fail(409, 'PRODUCT_LOCKED', '공동구매가 연결된 상품은 수정할 수 없습니다.')
+    }
+    const updated = { ...current, ...(await readUpsert(request)) }
+    db.products[index] = updated
+    return ok(updated)
+  }),
+
+  http.delete(`${BASE}/sellers/products/:productId`, async ({ params }) => {
+    await delay(300)
+    const index = db.products.findIndex((item) => item.id === String(params.productId))
+    const current = db.products[index]
+    if (current === undefined) return fail(404, 'RESOURCE_NOT_FOUND', '상품을 찾을 수 없습니다.')
+    if (current.linkedGroupBuyId !== null) {
+      return fail(409, 'PRODUCT_LOCKED', '공동구매가 연결된 상품은 삭제할 수 없습니다.')
+    }
+    db.products.splice(index, 1)
+    return ok(null)
   }),
 
   http.get(`${BASE}/withdrawal-restriction-reasons`, () =>

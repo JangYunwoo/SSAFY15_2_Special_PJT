@@ -35,13 +35,13 @@ type Method = (typeof METHODS)[number]['value']
  * 판매자 본인인증 (전자상거래법 제10조).
  *
  * 본인확인기관 연동은 백엔드 API가 정해지지 않아 아직 붙이지 않았습니다.
- * 인증 성공 시 세션의 sellerVerified 를 세워 판매자센터 진입을 허용합니다.
+ * 인증 성공 시 세션의 isSeller 를 세워 판매자센터 진입을 허용합니다.
  */
 export default function SellerVerifyPage() {
   useDocumentTitle('판매자 본인인증')
 
   const navigate = useNavigate()
-  const setSellerVerified = useSessionStore((state) => state.setSellerVerified)
+  const setIsSeller = useSessionStore((state) => state.setIsSeller)
 
   const [method, setMethod] = useState<Method>('PASS')
   const [name, setName] = useState('')
@@ -160,7 +160,7 @@ export default function SellerVerifyPage() {
                   className="mt16"
                   phoneNumber={phoneNumber}
                   onVerified={() => {
-                    setSellerVerified(true)
+                    setIsSeller(true)
                     void navigate('/seller', { replace: true })
                   }}
                   onResend={() => {

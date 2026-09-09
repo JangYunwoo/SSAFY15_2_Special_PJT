@@ -22,6 +22,7 @@ ext {
 	querydslVersion = '5.1.0'
 	jjwtVersion = '0.12.6'
 	awsSdkVersion = '2.54.13'
+	web3jVersion = '4.12.3'
 }
 
 dependencies {
@@ -43,6 +44,12 @@ dependencies {
 	// AWS S3 - 상품 이미지 객체 저장소
 	implementation platform("software.amazon.awssdk:bom:${awsSdkVersion}")
 	implementation 'software.amazon.awssdk:s3'
+
+	// web3j - Polygon Amoy JSON-RPC 연동 (코인 결제)
+	// 영수증 조회·컨펌 수 확인·ERC-20 Transfer 로그 디코딩·환불 송금 서명에 사용.
+	// core 만 쓴다. codegen(ABI -> Java 래퍼 생성)은 컨트랙트를 직접 호출하지
+	// 않으므로 필요 없다.
+	implementation "org.web3j:core:${web3jVersion}"
 
 	// QueryDSL - 동적 쿼리(검색, 관리자 조회 등)
 	implementation "com.querydsl:querydsl-jpa:${querydslVersion}:jakarta"

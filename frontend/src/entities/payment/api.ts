@@ -32,7 +32,7 @@ export const paymentApi = {
 
   /** PAY-04 */
   history: (params: PaymentHistoryParams = {}) =>
-    api.getPage<PaymentHistoryItem>('/buyers/me/payments', { query: { ...params } }),
+    api.getPage<PaymentHistoryItem>('/users/me/payments', { query: { ...params } }),
 
   /** CARD-01 카드 승인 및 서버 검증 */
   approveCard: (paymentId: Id, body: CardApproveRequest, idempotencyKey = newIdempotencyKey()) =>

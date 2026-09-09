@@ -132,10 +132,12 @@ public class GroupBuy extends BaseTimeEntity {
     }
 
     public void releaseSlot() {
+        ensureReservedSlot();
         reservedSlots--;
     }
 
     public void confirmParticipant() {
+        ensureReservedSlot();
         reservedSlots--;
         currentParticipants++;
     }
@@ -164,5 +166,11 @@ public class GroupBuy extends BaseTimeEntity {
         NONE,
         FULFILLED,
         FAILED
+    }
+
+    private void ensureReservedSlot() {
+        if (reservedSlots <= 0) {
+            throw new IllegalStateException("선점된 공동구매 슬롯이 없습니다.");
+        }
     }
 }

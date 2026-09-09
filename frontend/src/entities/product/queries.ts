@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query'
+import { keepPreviousData, queryOptions } from '@tanstack/react-query'
 
 import { queryKeys } from '@/shared/api/queryKeys'
 import type { Id } from '@/shared/api/types'
@@ -11,6 +11,8 @@ export const productQueries = {
     queryOptions({
       queryKey: queryKeys.sellerProducts.list(params),
       queryFn: () => productApi.list(params),
+      // 쪽을 옮기는 동안 이전 목록을 그대로 두어 화면이 비지 않게 합니다.
+      placeholderData: keepPreviousData,
     }),
 
   detail: (productId: Id) =>

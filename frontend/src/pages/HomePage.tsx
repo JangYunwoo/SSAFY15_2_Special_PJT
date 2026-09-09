@@ -22,7 +22,7 @@ export function HomePage() {
           <h1>
             이거 어디서 샀어?
             <br />
-            이거 <b>공구한</b>건데
+            이거 <b>공구한</b> 건데
           </h1>
           <p>필요한 사람끼리 모여 더 싸게, 결제는 에스크로로 안전하게</p>
           <ButtonLink to="/group-buys">공동구매 둘러보기</ButtonLink>

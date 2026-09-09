@@ -4,7 +4,7 @@ import { lazy } from 'react'
 import { createBrowserRouter } from 'react-router'
 
 import { CheckoutLayout } from './layouts/CheckoutLayout'
-import { RequireAuth, RequireSellerVerified } from './layouts/guards'
+import { RequireAuth, RequireSeller } from './layouts/guards'
 import { RootLayout } from './layouts/RootLayout'
 import { SellerLayout } from './layouts/SellerLayout'
 
@@ -30,6 +30,7 @@ const SellerVerifyPage = lazy(() => import('@/pages/seller/SellerVerifyPage'))
 const SellerHomePage = lazy(() => import('@/pages/seller/SellerHomePage'))
 const SellerProductsPage = lazy(() => import('@/pages/seller/SellerProductsPage'))
 const SellerProductNewPage = lazy(() => import('@/pages/seller/SellerProductNewPage'))
+const SellerProductEditPage = lazy(() => import('@/pages/seller/SellerProductEditPage'))
 const SellerGroupBuyNewPage = lazy(() => import('@/pages/seller/SellerGroupBuyNewPage'))
 const SellerOrdersPage = lazy(() => import('@/pages/seller/SellerOrdersPage'))
 const SellerReturnsPage = lazy(() => import('@/pages/seller/SellerReturnsPage'))
@@ -46,9 +47,9 @@ export const router = createBrowserRouter([
       { path: 'login', element: <LoginPage /> },
       { path: 'signup', element: <SignupPage /> },
 
-      /* 구매자 전용 */
+      /* 로그인 필요 */
       {
-        element: <RequireAuth role="BUYER" />,
+        element: <RequireAuth />,
         children: [
           { path: 'orders', element: <OrdersPage /> },
           { path: 'orders/:participationId/confirm', element: <ConfirmPage /> },
@@ -63,7 +64,7 @@ export const router = createBrowserRouter([
     element: <CheckoutLayout />,
     children: [
       {
-        element: <RequireAuth role="BUYER" />,
+        element: <RequireAuth />,
         children: [
           { path: 'checkout/:groupBuyId/shipping', element: <ShippingPage /> },
           { path: 'checkout/:groupBuyId/payment', element: <PaymentPage /> },
@@ -76,12 +77,12 @@ export const router = createBrowserRouter([
   /* 판매자센터 */
   {
     path: 'seller',
-    element: <RequireAuth role="SELLER" />,
+    element: <RequireAuth />,
     children: [
-      // 본인인증 화면은 인증 전에도 보여야 하므로 가드 밖에 둡니다.
+      // 전환 화면은 전환 전에도 보여야 하므로 가드 밖에 둡니다.
       { path: 'verify', element: <SellerVerifyPage /> },
       {
-        element: <RequireSellerVerified />,
+        element: <RequireSeller />,
         children: [
           {
             element: <SellerLayout />,
@@ -89,6 +90,7 @@ export const router = createBrowserRouter([
               { index: true, element: <SellerHomePage /> },
               { path: 'products', element: <SellerProductsPage /> },
               { path: 'products/new', element: <SellerProductNewPage /> },
+              { path: 'products/:productId/edit', element: <SellerProductEditPage /> },
               { path: 'group-buys/new', element: <SellerGroupBuyNewPage /> },
               { path: 'orders', element: <SellerOrdersPage /> },
               { path: 'returns', element: <SellerReturnsPage /> },

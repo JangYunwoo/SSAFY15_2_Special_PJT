@@ -36,7 +36,7 @@ export function GroupBuyFilters({ categoryId, sort, keyword, onChange }: GroupBu
 
   const chipOptions: ChipOption<string>[] = [
     { value: ALL_CATEGORIES, label: '전체' },
-    ...(categories.data ?? []).map((category) => ({ value: category.id, label: category.name })),
+    ...(categories.data ?? []).map((category) => ({ value: category.categoryId, label: category.name })),
   ]
 
   return (

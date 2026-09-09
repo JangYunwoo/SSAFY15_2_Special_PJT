@@ -26,5 +26,5 @@ export const deliveryApi = {
 
   /** DLV-05 구매자 배송 조회 */
   forParticipation: (participationId: Id) =>
-    api.get<Delivery>(`/buyers/me/participations/${participationId}/delivery`),
+    api.get<Delivery>(`/users/me/participations/${participationId}/delivery`),
 } as const

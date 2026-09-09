@@ -30,6 +30,18 @@ public class Payment extends BaseTimeEntity {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    /**
+     * 결제 시작 시 구매자가 고른 배송지.
+     *
+     * <p>승인 완료 시 참여 건의 배송지 스냅샷을 만들 출처다. 코인 결제는 컨펌 도달을
+     * 기다리는 스케줄러가 완료 처리하므로 그 시점에 HTTP 요청이 없어, 결제 건에
+     * 남겨두지 않으면 배송지를 알 방법이 없다.
+     *
+     * <p>V3 이전에 생성된 행은 NULL 이다.
+     */
+    @Column(name = "address_id")
+    private Long addressId;
+
     @Column(name = "participation_id")
     private Long participationId;
 
@@ -60,10 +72,11 @@ public class Payment extends BaseTimeEntity {
     protected Payment() {
     }
 
-    private Payment(Long groupBuyId, Long userId, String method, long krwAmount,
+    private Payment(Long groupBuyId, Long userId, Long addressId, String method, long krwAmount,
                      LocalDateTime slotExpiresAt, String idempotencyKey) {
         this.groupBuyId = groupBuyId;
         this.userId = userId;
+        this.addressId = addressId;
         this.method = method;
         this.krwAmount = krwAmount;
         this.slotExpiresAt = slotExpiresAt;
@@ -72,9 +85,11 @@ public class Payment extends BaseTimeEntity {
         this.status = STATUS_PROCESSING;
     }
 
-    public static Payment prepare(Long groupBuyId, Long userId, String method, long krwAmount,
-                                   LocalDateTime slotExpiresAt, String idempotencyKey) {
-        return new Payment(groupBuyId, userId, method, krwAmount, slotExpiresAt, idempotencyKey);
+    public static Payment prepare(Long groupBuyId, Long userId, Long addressId, String method,
+                                   long krwAmount, LocalDateTime slotExpiresAt,
+                                   String idempotencyKey) {
+        return new Payment(groupBuyId, userId, addressId, method, krwAmount, slotExpiresAt,
+                idempotencyKey);
     }
 
     public void markPaid(Long participationId) {
@@ -116,6 +131,10 @@ public class Payment extends BaseTimeEntity {
         return userId;
     }
 
+    public Long getAddressId() {
+        return addressId;
+    }
+
     public Long getParticipationId() {
         return participationId;
     }
@@ -138,5 +157,9 @@ public class Payment extends BaseTimeEntity {
 
     public String getStatus() {
         return status;
+    }
+
+    public String getFailReason() {
+        return failReason;
     }
 }

@@ -10,6 +10,7 @@ import com.gongguhan.domain.groupbuy.dto.GroupBuyJudgementResult;
 import com.gongguhan.domain.groupbuy.event.GroupBuyFailedEvent;
 import com.gongguhan.domain.groupbuy.event.GroupBuyFulfilledEvent;
 import com.gongguhan.domain.groupbuy.service.GroupBuyRecruitmentService;
+import com.gongguhan.domain.groupbuy.service.GroupBuySlotService;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
@@ -37,9 +38,13 @@ class GroupBuyRecruitmentIntegrationTest {
     private static final long FULFILLED_ID = 920_001L;
     private static final long FAILED_ID = 920_002L;
     private static final long FUTURE_ID = 920_003L;
+    private static final long IMMEDIATE_ID = 920_004L;
 
     @Autowired
     private GroupBuyRecruitmentService groupBuyRecruitmentService;
+
+    @Autowired
+    private GroupBuySlotService groupBuySlotService;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -75,10 +80,11 @@ class GroupBuyRecruitmentIntegrationTest {
     @AfterEach
     void tearDown() {
         jdbcTemplate.update(
-                "DELETE FROM group_buys WHERE group_buy_id IN (?, ?, ?)",
+                "DELETE FROM group_buys WHERE group_buy_id IN (?, ?, ?, ?)",
                 FULFILLED_ID,
                 FAILED_ID,
-                FUTURE_ID);
+                FUTURE_ID,
+                IMMEDIATE_ID);
     }
 
     @Test
@@ -110,6 +116,21 @@ class GroupBuyRecruitmentIntegrationTest {
         assertThat(rerun.processedCount()).isZero();
         assertThat(rerun.fulfilledCount()).isZero();
         assertThat(rerun.failedCount()).isZero();
+    }
+
+    @Test
+    void confirmingLastReservedSlotImmediatelyFulfillsRecruitment() {
+        LocalDateTime utcNow = LocalDateTime.now(Clock.systemUTC());
+        insertGroupBuy(IMMEDIATE_ID, 2, 1, 1, utcNow.plusDays(1));
+
+        groupBuySlotService.confirm(IMMEDIATE_ID);
+
+        assertGroupBuy(IMMEDIATE_ID, "FULFILLED", 2, 0);
+        assertThat(value(IMMEDIATE_ID, "fulfilled_at", LocalDateTime.class)).isNotNull();
+        assertThat(value(IMMEDIATE_ID, "shipping_deadline_at", LocalDateTime.class)).isNotNull();
+        assertThat(applicationEvents.stream(GroupBuyFulfilledEvent.class)
+                .filter(event -> event.groupBuyId().equals(IMMEDIATE_ID)))
+                .hasSize(1);
     }
 
     @Test
