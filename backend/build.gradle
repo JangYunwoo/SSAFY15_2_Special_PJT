@@ -85,3 +85,14 @@ sourceSets {
 tasks.named('test') {
 	useJUnitPlatform()
 }
+
+// backend/.env(gitignore 대상)가 있으면 읽어서 bootRun 프로세스 환경변수로 주입한다.
+// AWS_ACCESS_KEY_ID 등 로컬 전용 비밀값을 매번 export하지 않아도 되게 하기 위함.
+tasks.named('bootRun') {
+	def envFile = file("${projectDir}/.env")
+	if (envFile.exists()) {
+		def props = new Properties()
+		envFile.withInputStream { props.load(it) }
+		props.each { key, value -> environment(key as String, value as String) }
+	}
+}
