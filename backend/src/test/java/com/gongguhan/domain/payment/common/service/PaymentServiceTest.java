@@ -24,7 +24,9 @@ import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -186,5 +188,85 @@ class PaymentServiceTest {
         verify(groupBuy).releaseSlot();
         verify(groupBuySlotGate).release(GROUP_BUY_ID);
         verify(payment).markFailed("USER_ABORTED");
+    }
+
+    @Test
+    void findExpiredSlotPaymentIdsMapsRepositoryResultToIds() {
+        Payment payment = mock(Payment.class);
+        when(payment.getPaymentId()).thenReturn(PAYMENT_ID);
+        when(paymentRepository.findByStatusAndSlotExpiresAtBefore(
+                Payment.STATUS_PROCESSING, LocalDateTime.now(Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC))))
+                .thenReturn(List.of(payment));
+
+        List<Long> ids = paymentService.findExpiredSlotPaymentIds();
+
+        assertEquals(List.of(PAYMENT_ID), ids);
+    }
+
+    @Test
+    void expireSlotIfDueDoesNothingWhenPaymentMissing() {
+        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.empty());
+
+        paymentService.expireSlotIfDue(PAYMENT_ID);
+
+        verify(groupBuyRepository, never()).findWithLockByGroupBuyId(any());
+    }
+
+    @Test
+    void expireSlotIfDueDoesNothingWhenAlreadyResolved() {
+        Payment payment = mock(Payment.class);
+        when(payment.isProcessing()).thenReturn(false);
+        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
+
+        paymentService.expireSlotIfDue(PAYMENT_ID);
+
+        verify(groupBuyRepository, never()).findWithLockByGroupBuyId(any());
+        verify(payment, never()).markExpired();
+    }
+
+    @Test
+    void expireSlotIfDueDoesNothingWhenNotYetExpired() {
+        Payment payment = mock(Payment.class);
+        when(payment.isProcessing()).thenReturn(true);
+        when(payment.isExpired(any())).thenReturn(false);
+        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
+
+        paymentService.expireSlotIfDue(PAYMENT_ID);
+
+        verify(groupBuyRepository, never()).findWithLockByGroupBuyId(any());
+        verify(payment, never()).markExpired();
+    }
+
+    @Test
+    void expireSlotIfDueReleasesSlotAndMarksExpired() {
+        Payment payment = mock(Payment.class);
+        when(payment.isProcessing()).thenReturn(true);
+        when(payment.isExpired(any())).thenReturn(true);
+        when(payment.getGroupBuyId()).thenReturn(GROUP_BUY_ID);
+        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
+        GroupBuy groupBuy = mock(GroupBuy.class);
+        when(groupBuyRepository.findWithLockByGroupBuyId(GROUP_BUY_ID)).thenReturn(Optional.of(groupBuy));
+
+        paymentService.expireSlotIfDue(PAYMENT_ID);
+
+        verify(groupBuy).releaseSlot();
+        verify(groupBuySlotGate).release(GROUP_BUY_ID);
+        verify(payment).markExpired();
+    }
+
+    @Test
+    void expireSlotIfDueFailsWhenGroupBuyMissing() {
+        Payment payment = mock(Payment.class);
+        when(payment.isProcessing()).thenReturn(true);
+        when(payment.isExpired(any())).thenReturn(true);
+        when(payment.getGroupBuyId()).thenReturn(GROUP_BUY_ID);
+        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
+        when(groupBuyRepository.findWithLockByGroupBuyId(GROUP_BUY_ID)).thenReturn(Optional.empty());
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> paymentService.expireSlotIfDue(PAYMENT_ID));
+
+        assertEquals(ErrorCode.RESOURCE_NOT_FOUND, exception.getErrorCode());
+        verify(payment, never()).markExpired();
     }
 }
