@@ -6,6 +6,7 @@ import com.gongguhan.domain.escrow.entity.Escrow;
 import com.gongguhan.domain.escrow.repository.EscrowRepository;
 import com.gongguhan.domain.groupbuy.entity.GroupBuy;
 import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
+import com.gongguhan.domain.groupbuy.service.GroupBuySlotGate;
 import com.gongguhan.domain.participation.entity.Participation;
 import com.gongguhan.domain.participation.repository.ParticipationRepository;
 import com.gongguhan.domain.payment.common.dto.PaymentPrepareRequest;
@@ -37,6 +38,7 @@ public class PaymentService {
     private final EscrowRepository escrowRepository;
     private final PaymentRepository paymentRepository;
     private final UserAddressRepository userAddressRepository;
+    private final GroupBuySlotGate groupBuySlotGate;
     private final Clock clock;
 
     public PaymentService(GroupBuyRepository groupBuyRepository,
@@ -44,12 +46,14 @@ public class PaymentService {
                            EscrowRepository escrowRepository,
                            PaymentRepository paymentRepository,
                            UserAddressRepository userAddressRepository,
+                           GroupBuySlotGate groupBuySlotGate,
                            Clock clock) {
         this.groupBuyRepository = groupBuyRepository;
         this.participationRepository = participationRepository;
         this.escrowRepository = escrowRepository;
         this.paymentRepository = paymentRepository;
         this.userAddressRepository = userAddressRepository;
+        this.groupBuySlotGate = groupBuySlotGate;
         this.clock = clock;
     }
 
@@ -62,6 +66,34 @@ public class PaymentService {
             return PaymentResponse.from(existing, existingGroupBuy, LocalDateTime.now(clock));
         }
 
+        // Redis fast-fail 게이트: 락 없는 단순 조회이므로 다른 트랜잭션의 행 잠금과
+        // 경합하지 않는다. 정원 초과면 findWithLockByGroupBuyId(비관적 락)까지 가지 않고
+        // 여기서 즉시 거부한다 - 고경합 상황에서 거부될 요청이 MySQL 락 대기열에
+        // 쌓이지 않게 하는 것이 이 게이트의 유일한 목적이다.
+        GroupBuy gatePreCheck = groupBuyRepository.findById(groupBuyId).orElse(null);
+        boolean gateApplies = gatePreCheck != null;
+        if (gateApplies) {
+            int dbTruth = gatePreCheck.getReservedSlots() + gatePreCheck.getCurrentParticipants();
+            boolean granted = groupBuySlotGate.tryReserve(groupBuyId, gatePreCheck.getTargetParticipants(), dbTruth);
+            if (!granted) {
+                throw new BusinessException(ErrorCode.GROUP_BUY_FULL);
+            }
+        }
+
+        try {
+            return doPrepare(userId, groupBuyId, request, idempotencyKey);
+        } catch (RuntimeException e) {
+            // DB 쪽에서 어떤 이유로든 실패하면(중복 참여, 주소 소유권, DB 자체의
+            // GROUP_BUY_FULL, 제약 위반 등) Redis에 잠정 승인해둔 슬롯을 되돌린다.
+            if (gateApplies) {
+                groupBuySlotGate.release(groupBuyId);
+            }
+            throw e;
+        }
+    }
+
+    private PaymentResponse doPrepare(Long userId, Long groupBuyId, PaymentPrepareRequest request,
+                                       String idempotencyKey) {
         GroupBuy groupBuy = groupBuyRepository.findWithLockByGroupBuyId(groupBuyId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "공동구매를 찾을 수 없습니다."));
 
@@ -110,6 +142,7 @@ public class PaymentService {
         GroupBuy groupBuy = groupBuyRepository.findWithLockByGroupBuyId(payment.getGroupBuyId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "공동구매를 찾을 수 없습니다."));
         groupBuy.releaseSlot();
+        groupBuySlotGate.release(payment.getGroupBuyId());
         payment.markFailed("USER_ABORTED");
     }
 

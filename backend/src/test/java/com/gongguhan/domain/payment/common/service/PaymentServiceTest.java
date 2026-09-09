@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -14,6 +15,7 @@ import com.gongguhan.domain.account.repository.UserAddressRepository;
 import com.gongguhan.domain.escrow.repository.EscrowRepository;
 import com.gongguhan.domain.groupbuy.entity.GroupBuy;
 import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
+import com.gongguhan.domain.groupbuy.service.GroupBuySlotGate;
 import com.gongguhan.domain.participation.entity.Participation;
 import com.gongguhan.domain.participation.repository.ParticipationRepository;
 import com.gongguhan.domain.payment.common.dto.PaymentPrepareRequest;
@@ -40,6 +42,7 @@ class PaymentServiceTest {
     private EscrowRepository escrowRepository;
     private PaymentRepository paymentRepository;
     private UserAddressRepository userAddressRepository;
+    private GroupBuySlotGate groupBuySlotGate;
     private PaymentService paymentService;
 
     @BeforeEach
@@ -49,10 +52,11 @@ class PaymentServiceTest {
         escrowRepository = mock(EscrowRepository.class);
         paymentRepository = mock(PaymentRepository.class);
         userAddressRepository = mock(UserAddressRepository.class);
+        groupBuySlotGate = mock(GroupBuySlotGate.class);
         Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
         paymentService = new PaymentService(
                 groupBuyRepository, participationRepository, escrowRepository,
-                paymentRepository, userAddressRepository, clock);
+                paymentRepository, userAddressRepository, groupBuySlotGate, clock);
     }
 
     private PaymentPrepareRequest cardRequest() {
@@ -195,6 +199,41 @@ class PaymentServiceTest {
         paymentService.abort(USER_ID, PAYMENT_ID);
 
         verify(groupBuy).releaseSlot();
+        verify(groupBuySlotGate).release(GROUP_BUY_ID);
         verify(payment).markFailed("USER_ABORTED");
+    }
+
+    @Test
+    void prepareRejectsImmediatelyWhenGateDeniesWithoutTouchingPessimisticLock() {
+        when(paymentRepository.findByIdempotencyKey(IDEMPOTENCY_KEY)).thenReturn(Optional.empty());
+        GroupBuy groupBuy = mock(GroupBuy.class);
+        when(groupBuy.getReservedSlots()).thenReturn(50);
+        when(groupBuy.getCurrentParticipants()).thenReturn(0);
+        when(groupBuy.getTargetParticipants()).thenReturn(50);
+        when(groupBuyRepository.findById(GROUP_BUY_ID)).thenReturn(Optional.of(groupBuy));
+        when(groupBuySlotGate.tryReserve(GROUP_BUY_ID, 50, 50)).thenReturn(false);
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> paymentService.prepare(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY));
+
+        assertEquals(ErrorCode.GROUP_BUY_FULL, exception.getErrorCode());
+        verify(groupBuyRepository, never()).findWithLockByGroupBuyId(any());
+    }
+
+    @Test
+    void prepareReleasesGateWhenDbSideFailsAfterGateGrant() {
+        when(paymentRepository.findByIdempotencyKey(IDEMPOTENCY_KEY)).thenReturn(Optional.empty());
+        GroupBuy gatePreCheck = mock(GroupBuy.class);
+        when(gatePreCheck.getReservedSlots()).thenReturn(0);
+        when(gatePreCheck.getCurrentParticipants()).thenReturn(0);
+        when(gatePreCheck.getTargetParticipants()).thenReturn(50);
+        when(groupBuyRepository.findById(GROUP_BUY_ID)).thenReturn(Optional.of(gatePreCheck));
+        when(groupBuySlotGate.tryReserve(GROUP_BUY_ID, 50, 0)).thenReturn(true);
+        when(groupBuyRepository.findWithLockByGroupBuyId(GROUP_BUY_ID)).thenReturn(Optional.empty());
+
+        assertThrows(BusinessException.class,
+                () -> paymentService.prepare(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY));
+
+        verify(groupBuySlotGate, times(1)).release(GROUP_BUY_ID);
     }
 }
