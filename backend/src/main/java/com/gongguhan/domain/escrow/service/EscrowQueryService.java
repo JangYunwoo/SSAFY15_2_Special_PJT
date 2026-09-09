@@ -1,5 +1,6 @@
 package com.gongguhan.domain.escrow.service;
 
+import com.gongguhan.domain.escrow.dto.EscrowAdminSummaryResponse;
 import com.gongguhan.domain.escrow.dto.EscrowResponse;
 import com.gongguhan.domain.escrow.dto.EscrowSummaryResponse;
 import com.gongguhan.domain.escrow.dto.GroupBuyEscrowResponse;
@@ -19,7 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 에스크로 조회 (ESC-01, ESC-02).
+ * 에스크로 조회 (ESC-01, ESC-02, ESC-03).
  *
  * <p>상태를 바꾸지 않습니다. 전이는 {@link EscrowService} 가 담당하고, 이 서비스는
  * 읽기만 합니다. 그래서 클래스 전체가 {@code readOnly} 입니다.
@@ -102,6 +103,23 @@ public class EscrowQueryService {
      * 두 번 하게 됩니다. 한 번에 묶어서 넘깁니다.
      */
     public record GroupBuyEscrowResult(GroupBuyEscrowResponse body, PageResponse meta) {
+    }
+
+    /**
+     * ESC-03 플랫폼 전체 에스크로 집계 (FR-ADM-12).
+     *
+     * <p>소유권 검증이 없습니다. 관리자 전용이며 {@code /admin/**} 경로가
+     * {@code hasRole("ADMIN")} 으로 이미 막혀 있습니다.
+     *
+     * <p>공동구매 단위가 아니라 전체를 집계하므로 데이터가 늘면 무거워집니다.
+     * 지금은 상태별 {@code GROUP BY} 두 번이라 테이블 스캔 수준이고, 관리자만 호출하는
+     * 화면이라 감당됩니다. 규모가 커지면 집계 결과를 캐싱하거나 별도 집계 테이블을
+     * 두는 편이 낫습니다.
+     */
+    public EscrowAdminSummaryResponse getAdminSummary() {
+        return EscrowAdminSummaryResponse.of(
+                escrowRepository.aggregateAll(),
+                escrowRepository.aggregateSettled());
     }
 
     // ------------------------------------------------------------------

@@ -71,6 +71,52 @@ public interface EscrowRepository extends JpaRepository<Escrow, Long> {
     }
 
     /**
+     * 플랫폼 전체 상태별 건수·금액 (ESC-03, FR-ADM-12).
+     *
+     * <p>{@link #aggregateByGroupBuy} 의 전역 버전이다. 관리자 대시보드가 한 번에
+     * 보관액·해제액·환불액을 봐야 하므로 상태별로 한 번에 집계한다.
+     */
+    @Query("""
+           select e.status as status, count(e) as count, coalesce(sum(e.amount), 0) as amount
+             from Escrow e
+            group by e.status
+           """)
+    List<StatusAggregate> aggregateAll();
+
+    /**
+     * 정산까지 끝난 금액 (ESC-03, FR-ADM-12).
+     *
+     * <p>에스크로 {@code RELEASED} 는 종료 상태라 정산 이후에도 바뀌지 않는다. 그래서
+     * "풀렸지만 아직 판매자에게 나가지 않은 돈"과 "이미 나간 돈"을 에스크로만으로는
+     * 구분할 수 없다. 참여 건 상태를 함께 봐야 한다.
+     *
+     * <blockquote>정산 대기 = RELEASED 전체 − 이 쿼리 결과</blockquote>
+     *
+     * <p>{@code participations.settled} 컬럼이 아니라 {@code status} 를 보는 이유:
+     * 그 컬럼은 {@code Participation} 엔티티에 매핑되어 있지 않고, 해당 패키지는
+     * 다른 담당자 소유라 매핑을 임의로 추가하지 않았다. 정산 완료 시 상태가
+     * {@code SETTLED} 로 가는 것은 schema v2 의 상태 정의에 명시돼 있다.
+     *
+     * <p>팀 규칙상 JPA 연관관계를 쓰지 않으므로 ID 로 조인한다.
+     */
+    @Query("""
+           select count(e) as count, coalesce(sum(e.amount), 0) as amount
+             from Escrow e, com.gongguhan.domain.participation.entity.Participation p
+            where e.participationId = p.participationId
+              and e.status = com.gongguhan.domain.escrow.entity.EscrowStatus.RELEASED
+              and p.status = 'SETTLED'
+           """)
+    CountAmount aggregateSettled();
+
+    /** 건수와 금액만 담는 집계 결과. */
+    interface CountAmount {
+
+        long getCount();
+
+        long getAmount();
+    }
+
+    /**
      * 불변식 위반 건을 찾는다 (FR-ESC-08, NFR-DT-05).
      *
      * <blockquote>에스크로 보관 총액 = 미해제 참여 건의 결제금액 합계</blockquote>
