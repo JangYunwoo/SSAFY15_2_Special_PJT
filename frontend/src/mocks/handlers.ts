@@ -49,6 +49,21 @@ function paged(items: readonly unknown[], url: URL) {
   return ok(items.slice(page * size, page * size + size), meta)
 }
 
+
+/**
+ * 등록·수정 multipart 요청에서 product 파트(JSON)를 읽습니다.
+ * 목에는 파일 저장소가 없으므로 images 파트는 개수만 세어 자리만 만듭니다.
+ */
+async function readUpsert(request: Request): Promise<Record<string, unknown>> {
+  const form = await request.formData()
+  const part = form.get('product')
+  const json = typeof part === 'string' ? part : await (part?.text() ?? Promise.resolve('{}'))
+  const files = form.getAll('images')
+  const parsed = JSON.parse(json) as Record<string, unknown>
+  return files.length === 0
+    ? parsed
+    : { ...parsed, images: files.map((_, index) => `mock://image-${String(index + 1)}`) }
+}
 const iso = (offsetMs: number): string => new Date(Date.now() + offsetMs).toISOString()
 
 /* ---------- 목록 정렬 (목업 SORTERS 와 같은 규칙) ---------- */
@@ -91,16 +106,14 @@ export const handlers = [
   }),
   http.post(`${BASE}/auth/logout`, () => ok(null)),
 
-  http.get(`${BASE}/users/me`, () =>
-    ok({
-      id: '101',
-      email: 'buyer@example.com',
-      nickname: '공구왕',
-      phone: '01012345678',
-      isSeller: false,
-      createdAt: iso(-90 * 86_400_000),
-    }),
-  ),
+  http.get(`${BASE}/users/me`, () => ok(db.me)),
+  http.patch(`${BASE}/users/me`, async ({ request }) => {
+    await delay(250)
+    const body = (await request.json()) as Partial<typeof db.me>
+    // 이메일과 가입일은 수정 대상이 아닙니다 (USR-02).
+    db.me = { ...db.me, nickname: body.nickname ?? db.me.nickname, phone: body.phone ?? db.me.phone }
+    return ok(db.me)
+  }),
   http.get(`${BASE}/sellers/me`, () =>
     ok({
       id: '201',
@@ -128,10 +141,36 @@ export const handlers = [
   /* ---------- 배송지 ---------- */
   http.get(`${BASE}/users/me/addresses`, () => ok(db.addresses)),
   http.post(`${BASE}/users/me/addresses`, async ({ request }) => {
+    await delay(200)
     const body = (await request.json()) as Omit<(typeof db.addresses)[number], 'id'>
-    const created = { ...body, id: String(++db.nextId) }
+    // 첫 배송지는 자동으로 기본이 되고, 기본으로 지정하면 나머지는 해제됩니다.
+    const isDefault = db.addresses.length === 0 || body.isDefault
+    if (isDefault) for (const item of db.addresses) item.isDefault = false
+    const created = { ...body, isDefault, id: String(++db.nextId) }
     db.addresses.push(created)
     return ok(created)
+  }),
+  http.patch(`${BASE}/users/me/addresses/:addressId`, async ({ params, request }) => {
+    await delay(200)
+    const index = db.addresses.findIndex((item) => item.id === String(params.addressId))
+    const current = db.addresses[index]
+    if (current === undefined) return fail(404, 'RESOURCE_NOT_FOUND', '배송지를 찾을 수 없습니다.')
+    const body = (await request.json()) as Partial<(typeof db.addresses)[number]>
+    if (body.isDefault === true) for (const item of db.addresses) item.isDefault = false
+    const updated = { ...current, ...body }
+    db.addresses[index] = updated
+    return ok(updated)
+  }),
+  http.delete(`${BASE}/users/me/addresses/:addressId`, async ({ params }) => {
+    await delay(200)
+    const index = db.addresses.findIndex((item) => item.id === String(params.addressId))
+    const current = db.addresses[index]
+    if (current === undefined) return fail(404, 'RESOURCE_NOT_FOUND', '배송지를 찾을 수 없습니다.')
+    db.addresses.splice(index, 1)
+    // 기본 배송지를 지웠으면 남은 첫 배송지를 기본으로 올립니다.
+    const first = db.addresses[0]
+    if (current.isDefault && first !== undefined) first.isDefault = true
+    return ok(null)
   }),
 
   /* ---------- 카테고리 ---------- */
@@ -409,15 +448,25 @@ export const handlers = [
     await delay(150)
     return paged(db.products, new URL(request.url))
   }),
+  http.get(`${BASE}/sellers/products/:productId`, async ({ params }) => {
+    await delay(150)
+    const found = db.products.find((item) => item.id === String(params.productId))
+    if (found === undefined) return fail(404, 'RESOURCE_NOT_FOUND', '상품을 찾을 수 없습니다.')
+    return ok(found)
+  }),
 
+  /**
+   * 등록·수정은 multipart 입니다. product 파트의 JSON 을 읽고 images 파트는
+   * 개수만 세어 미리보기 URL 자리를 만듭니다 (목에는 저장소가 없습니다).
+   */
   http.post(`${BASE}/sellers/products`, async ({ request }) => {
     await delay(500)
-    const body = (await request.json()) as Partial<(typeof db.products)[number]>
+    const input = await readUpsert(request)
     const template = db.products[0]
     if (template === undefined) return fail(500, 'RESOURCE_NOT_FOUND', '시드 상품이 없습니다.')
     const created = {
       ...template,
-      ...body,
+      ...input,
       id: String(++db.nextId),
       linkedGroupBuyId: null,
       linkedGroupBuyStatus: null,
@@ -425,6 +474,32 @@ export const handlers = [
     }
     db.products.unshift(created)
     return ok(created)
+  }),
+
+  http.put(`${BASE}/sellers/products/:productId`, async ({ params, request }) => {
+    await delay(400)
+    const index = db.products.findIndex((item) => item.id === String(params.productId))
+    const current = db.products[index]
+    if (current === undefined) return fail(404, 'RESOURCE_NOT_FOUND', '상품을 찾을 수 없습니다.')
+    // 공동구매가 걸린 상품은 서버가 막습니다 (명세서 3장).
+    if (current.linkedGroupBuyId !== null) {
+      return fail(409, 'PRODUCT_LOCKED', '공동구매가 연결된 상품은 수정할 수 없습니다.')
+    }
+    const updated = { ...current, ...(await readUpsert(request)) }
+    db.products[index] = updated
+    return ok(updated)
+  }),
+
+  http.delete(`${BASE}/sellers/products/:productId`, async ({ params }) => {
+    await delay(300)
+    const index = db.products.findIndex((item) => item.id === String(params.productId))
+    const current = db.products[index]
+    if (current === undefined) return fail(404, 'RESOURCE_NOT_FOUND', '상품을 찾을 수 없습니다.')
+    if (current.linkedGroupBuyId !== null) {
+      return fail(409, 'PRODUCT_LOCKED', '공동구매가 연결된 상품은 삭제할 수 없습니다.')
+    }
+    db.products.splice(index, 1)
+    return ok(null)
   }),
 
   http.get(`${BASE}/withdrawal-restriction-reasons`, () =>
@@ -487,7 +562,7 @@ export const handlers = [
         unitShareAmount: 24_900,
         shippingFee: 4_000,
         recruitEndAt: iso(-18 * 86_400_000),
-        invoiceRegisteredRate: '1.00',
+        invoiceRegisteredRate: 1,
       },
       {
         id: '0952',
@@ -501,7 +576,7 @@ export const handlers = [
         unitShareAmount: 32_000,
         shippingFee: 4_000,
         recruitEndAt: iso(-41 * 86_400_000),
-        invoiceRegisteredRate: '1.00',
+        invoiceRegisteredRate: 1,
       },
     ]
     return paged(items, new URL(request.url))
@@ -605,6 +680,26 @@ export const handlers = [
   ),
 
   /* ---------- 알림 ---------- */
-  http.get(`${BASE}/notifications/unread-count`, () => ok({ count: 0 })),
-  http.get(`${BASE}/notifications`, ({ request }) => paged([], new URL(request.url))),
+  http.get(`${BASE}/notifications/unread-count`, () =>
+    ok({ count: db.notifications.filter((item) => item.readAt === null).length }),
+  ),
+  http.get(`${BASE}/notifications`, async ({ request }) => {
+    await delay(150)
+    // 최신순으로 내려줍니다.
+    const items = [...db.notifications].sort(
+      (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
+    )
+    return paged(items, new URL(request.url))
+  }),
+  http.post(`${BASE}/notifications/:notificationId/read`, async ({ params }) => {
+    await delay(120)
+    const index = db.notifications.findIndex((item) => item.id === String(params.notificationId))
+    const current = db.notifications[index]
+    if (current === undefined) return fail(404, 'RESOURCE_NOT_FOUND', '알림을 찾을 수 없습니다.')
+    // 이미 읽은 알림은 시각을 덮어쓰지 않습니다.
+    if (current.readAt === null) {
+      db.notifications[index] = { ...current, readAt: new Date().toISOString() }
+    }
+    return ok(null)
+  }),
 ]

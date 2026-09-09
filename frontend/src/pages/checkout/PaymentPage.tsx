@@ -120,7 +120,8 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
         ? true
         : quote !== null && walletAddress !== '')
 
-  const total = groupBuy.unitShareAmount + groupBuy.shippingFee
+  // 서버가 확정한 1인 결제금액을 그대로 씁니다 (GRP-01/02 personalPaymentAmount).
+  const total = groupBuy.personalPaymentAmount
 
   if (addressId === null) {
     return (

@@ -19,7 +19,8 @@ interface OrderSummaryProps {
 
 /** 결제 플로우 오른쪽 고정 요약 패널 */
 export function OrderSummary({ groupBuy, children }: OrderSummaryProps) {
-  const total = groupBuy.unitShareAmount + groupBuy.shippingFee
+  // 서버가 확정한 1인 결제금액을 그대로 씁니다 (GRP-01/02 personalPaymentAmount).
+  const total = groupBuy.personalPaymentAmount
 
   return (
     <div className="panel">

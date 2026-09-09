@@ -21,6 +21,8 @@ import java.time.LocalDateTime;
 public class GroupBuy extends BaseTimeEntity {
 
     public static final String STATUS_RECRUITING = "RECRUITING";
+    public static final String STATUS_FULFILLED = "FULFILLED";
+    public static final String STATUS_FAILED = "FAILED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -50,6 +52,12 @@ public class GroupBuy extends BaseTimeEntity {
 
     @Column(name = "recruit_end_at", nullable = false)
     private LocalDateTime recruitEndAt;
+
+    @Column(name = "fulfilled_at")
+    private LocalDateTime fulfilledAt;
+
+    @Column(name = "shipping_deadline_at")
+    private LocalDateTime shippingDeadlineAt;
 
     @Column(nullable = false, length = 20)
     private String status;
@@ -101,6 +109,14 @@ public class GroupBuy extends BaseTimeEntity {
         return status;
     }
 
+    public LocalDateTime getFulfilledAt() {
+        return fulfilledAt;
+    }
+
+    public LocalDateTime getShippingDeadlineAt() {
+        return shippingDeadlineAt;
+    }
+
     public boolean isRecruiting() {
         return STATUS_RECRUITING.equals(status);
     }
@@ -124,6 +140,32 @@ public class GroupBuy extends BaseTimeEntity {
         ensureReservedSlot();
         reservedSlots--;
         currentParticipants++;
+    }
+
+    public RecruitmentJudgement judgeRecruitment(
+            LocalDateTime judgedAt, LocalDateTime calculatedShippingDeadlineAt) {
+        if (!isRecruiting()) {
+            return RecruitmentJudgement.NONE;
+        }
+        if (currentParticipants >= targetParticipants) {
+            status = STATUS_FULFILLED;
+            reservedSlots = 0;
+            fulfilledAt = judgedAt;
+            shippingDeadlineAt = calculatedShippingDeadlineAt;
+            return RecruitmentJudgement.FULFILLED;
+        }
+        if (!judgedAt.isBefore(recruitEndAt)) {
+            status = STATUS_FAILED;
+            reservedSlots = 0;
+            return RecruitmentJudgement.FAILED;
+        }
+        return RecruitmentJudgement.NONE;
+    }
+
+    public enum RecruitmentJudgement {
+        NONE,
+        FULFILLED,
+        FAILED
     }
 
     private void ensureReservedSlot() {

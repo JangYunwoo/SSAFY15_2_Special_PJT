@@ -40,6 +40,7 @@ class CryptoQuoteServiceTest {
     private static final Long OTHER_USER_ID = 2L;
     private static final Long PAYMENT_ID = 900L;
     private static final Long ASSET_ID = 10L;
+    private static final Long ADDRESS_ID = 501L;
     private static final long CHAIN_ID = 80002L;
     private static final long KRW_AMOUNT = 54_000L;
     private static final String RECEIVE_ADDRESS = "0x1111111111111111111111111111111111111111";
@@ -75,7 +76,7 @@ class CryptoQuoteServiceTest {
 
     /** 슬롯이 {@code slotTtlSeconds}초 뒤 만료되는 코인 결제 건. */
     private Payment cryptoPayment(long slotTtlSeconds) {
-        return Payment.prepare(100L, USER_ID, "CRYPTO", KRW_AMOUNT,
+        return Payment.prepare(100L, USER_ID, ADDRESS_ID, "CRYPTO", KRW_AMOUNT,
                 NOW_LDT.plusSeconds(slotTtlSeconds), "idem-crypto-1");
     }
 
@@ -206,7 +207,7 @@ class CryptoQuoteServiceTest {
     @Test
     @DisplayName("코인 결제 건이 아니면 거부한다")
     void rejectsNonCryptoPayment() {
-        Payment cardPayment = Payment.prepare(100L, USER_ID, "CARD", KRW_AMOUNT,
+        Payment cardPayment = Payment.prepare(100L, USER_ID, ADDRESS_ID, "CARD", KRW_AMOUNT,
                 NOW_LDT.plusSeconds(300), "idem-card-1");
         when(paymentRepository.findByPaymentIdAndUserId(PAYMENT_ID, USER_ID))
                 .thenReturn(Optional.of(cardPayment));
@@ -236,7 +237,7 @@ class CryptoQuoteServiceTest {
     @DisplayName("슬롯이 만료된 결제 건에는 발급하지 않는다")
     void rejectsExpiredSlot() {
         // 슬롯 만료가 이미 과거인 결제 건
-        Payment payment = Payment.prepare(100L, USER_ID, "CRYPTO", KRW_AMOUNT,
+        Payment payment = Payment.prepare(100L, USER_ID, ADDRESS_ID, "CRYPTO", KRW_AMOUNT,
                 NOW_LDT.minusSeconds(1), "idem-crypto-expired");
         when(paymentRepository.findByPaymentIdAndUserId(PAYMENT_ID, USER_ID))
                 .thenReturn(Optional.of(payment));

@@ -78,8 +78,11 @@ class PaymentSlotReservationTransaction {
         long ttlSeconds = METHOD_CRYPTO.equals(request.method()) ? TTL_CRYPTO_SECONDS : TTL_CARD_KAKAOPAY_SECONDS;
         LocalDateTime slotExpiresAt = LocalDateTime.now(clock).plusSeconds(ttlSeconds);
 
+        // 고른 배송지를 결제 건에 남긴다. 승인 완료 시 참여 건 배송지의 출처가 된다.
+        // 코인 결제는 스케줄러가 완료 처리하므로 그 시점에 요청 컨텍스트가 없다.
         Payment payment = Payment.prepare(
-                groupBuyId, userId, request.method(), totalAmount, slotExpiresAt, idempotencyKey);
+                groupBuyId, userId, address.getAddressId(), request.method(), totalAmount,
+                slotExpiresAt, idempotencyKey);
         try {
             paymentRepository.saveAndFlush(payment);
         } catch (DataIntegrityViolationException e) {

@@ -16,6 +16,7 @@ const AboutPage = lazy(() => import('@/pages/AboutPage'))
 const GroupBuyDetailPage = lazy(() => import('@/pages/GroupBuyDetailPage'))
 const LoginPage = lazy(() => import('@/pages/LoginPage'))
 const SignupPage = lazy(() => import('@/pages/SignupPage'))
+const MyPage = lazy(() => import('@/pages/MyPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 
 const ShippingPage = lazy(() => import('@/pages/checkout/ShippingPage'))
@@ -30,6 +31,7 @@ const SellerVerifyPage = lazy(() => import('@/pages/seller/SellerVerifyPage'))
 const SellerHomePage = lazy(() => import('@/pages/seller/SellerHomePage'))
 const SellerProductsPage = lazy(() => import('@/pages/seller/SellerProductsPage'))
 const SellerProductNewPage = lazy(() => import('@/pages/seller/SellerProductNewPage'))
+const SellerProductEditPage = lazy(() => import('@/pages/seller/SellerProductEditPage'))
 const SellerGroupBuyNewPage = lazy(() => import('@/pages/seller/SellerGroupBuyNewPage'))
 const SellerOrdersPage = lazy(() => import('@/pages/seller/SellerOrdersPage'))
 const SellerReturnsPage = lazy(() => import('@/pages/seller/SellerReturnsPage'))
@@ -50,6 +52,7 @@ export const router = createBrowserRouter([
       {
         element: <RequireAuth />,
         children: [
+          { path: 'me', element: <MyPage /> },
           { path: 'orders', element: <OrdersPage /> },
           { path: 'orders/:participationId/confirm', element: <ConfirmPage /> },
           { path: 'orders/:participationId/return', element: <ReturnRequestPage /> },
@@ -89,6 +92,7 @@ export const router = createBrowserRouter([
               { index: true, element: <SellerHomePage /> },
               { path: 'products', element: <SellerProductsPage /> },
               { path: 'products/new', element: <SellerProductNewPage /> },
+              { path: 'products/:productId/edit', element: <SellerProductEditPage /> },
               { path: 'group-buys/new', element: <SellerGroupBuyNewPage /> },
               { path: 'orders', element: <SellerOrdersPage /> },
               { path: 'returns', element: <SellerReturnsPage /> },
