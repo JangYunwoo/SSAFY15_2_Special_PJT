@@ -13,9 +13,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class GroupBuySlotService {
 
     private final GroupBuyRepository groupBuyRepository;
+    private final GroupBuyRecruitmentService groupBuyRecruitmentService;
 
-    public GroupBuySlotService(GroupBuyRepository groupBuyRepository) {
+    public GroupBuySlotService(
+            GroupBuyRepository groupBuyRepository,
+            GroupBuyRecruitmentService groupBuyRecruitmentService) {
         this.groupBuyRepository = groupBuyRepository;
+        this.groupBuyRecruitmentService = groupBuyRecruitmentService;
     }
 
     public GroupBuySlotSnapshot get(Long groupBuyId) {
@@ -40,6 +44,7 @@ public class GroupBuySlotService {
     public GroupBuySlotSnapshot confirm(Long groupBuyId) {
         GroupBuy groupBuy = findWithLock(groupBuyId);
         groupBuy.confirmParticipant();
+        groupBuyRecruitmentService.judgeTargetReached(groupBuy);
         return snapshot(groupBuy);
     }
 

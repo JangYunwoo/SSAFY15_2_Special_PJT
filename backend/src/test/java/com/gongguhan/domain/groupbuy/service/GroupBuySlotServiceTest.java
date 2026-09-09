@@ -21,14 +21,16 @@ class GroupBuySlotServiceTest {
     private static final Long GROUP_BUY_ID = 100L;
 
     private GroupBuyRepository groupBuyRepository;
+    private GroupBuyRecruitmentService groupBuyRecruitmentService;
     private GroupBuy groupBuy;
     private GroupBuySlotService groupBuySlotService;
 
     @BeforeEach
     void setUp() {
         groupBuyRepository = mock(GroupBuyRepository.class);
+        groupBuyRecruitmentService = mock(GroupBuyRecruitmentService.class);
         groupBuy = mock(GroupBuy.class);
-        groupBuySlotService = new GroupBuySlotService(groupBuyRepository);
+        groupBuySlotService = new GroupBuySlotService(groupBuyRepository, groupBuyRecruitmentService);
     }
 
     @Test
@@ -64,6 +66,7 @@ class GroupBuySlotServiceTest {
 
         verify(groupBuyRepository).findWithLockByGroupBuyId(GROUP_BUY_ID);
         verify(groupBuy).confirmParticipant();
+        verify(groupBuyRecruitmentService).judgeTargetReached(groupBuy);
     }
 
     @Test
