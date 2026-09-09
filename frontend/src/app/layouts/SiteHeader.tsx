@@ -2,6 +2,7 @@ import { Link, NavLink } from 'react-router'
 
 import { useIsSignedIn } from '@/features/auth/sessionStore'
 import { useLogout } from '@/features/auth/useAuthMutations'
+import { NotificationBell } from '@/features/notification/NotificationBell'
 import { cx } from '@/shared/lib/cx'
 
 const NAV = [
@@ -50,6 +51,7 @@ export function SiteHeader() {
               </NavLink>
             )}
           </nav>
+          {isSignedIn && <NotificationBell />}
           <Link className="cta" to="/seller">
             판매자센터
           </Link>

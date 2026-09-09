@@ -656,6 +656,26 @@ export const handlers = [
   ),
 
   /* ---------- 알림 ---------- */
-  http.get(`${BASE}/notifications/unread-count`, () => ok({ count: 0 })),
-  http.get(`${BASE}/notifications`, ({ request }) => paged([], new URL(request.url))),
+  http.get(`${BASE}/notifications/unread-count`, () =>
+    ok({ count: db.notifications.filter((item) => item.readAt === null).length }),
+  ),
+  http.get(`${BASE}/notifications`, async ({ request }) => {
+    await delay(150)
+    // 최신순으로 내려줍니다.
+    const items = [...db.notifications].sort(
+      (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
+    )
+    return paged(items, new URL(request.url))
+  }),
+  http.post(`${BASE}/notifications/:notificationId/read`, async ({ params }) => {
+    await delay(120)
+    const index = db.notifications.findIndex((item) => item.id === String(params.notificationId))
+    const current = db.notifications[index]
+    if (current === undefined) return fail(404, 'RESOURCE_NOT_FOUND', '알림을 찾을 수 없습니다.')
+    // 이미 읽은 알림은 시각을 덮어쓰지 않습니다.
+    if (current.readAt === null) {
+      db.notifications[index] = { ...current, readAt: new Date().toISOString() }
+    }
+    return ok(null)
+  }),
 ]
