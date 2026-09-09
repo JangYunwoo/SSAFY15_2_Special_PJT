@@ -579,6 +579,7 @@ AI 분석은 ERD v2에 따라 동기 요청으로 처리한다. 분석 결과를
 | 409 | `DUPLICATE_PARTICIPATION` | 동일 구매자의 중복 참여 |
 | 409 | `PAYMENT_ALREADY_PROCESSED` | 완료·실패 결제 재승인 |
 | 409 | `PAYMENT_SLOT_EXPIRED` | 슬롯 만료 후 승인 도달 |
+| 409 | `SLOT_RESERVATION_CONFLICT` | 슬롯 예약 낙관적 락 충돌 재시도 소진 |
 | 409 | `INVALID_STATE_TRANSITION` | 허용되지 않은 상태 전이 |
 | 409 | `PURCHASE_CONFIRM_RETURN_CONFLICT` | 구매확정과 반품 신청 충돌 |
 | 422 | `RETURN_NOT_ELIGIBLE` | 반품 기간·제한 사유 위반 |

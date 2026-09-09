@@ -19,14 +19,22 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 슬롯 선점의 실제 DB 트랜잭션(비관적 락 포함)만 담당하는 별도 빈.
+ * 슬롯 선점의 실제 DB 트랜잭션만 담당하는 별도 빈.
  *
  * <p>{@link PaymentService#prepare}가 이 메서드를 직접 담고 있으면 안 되는 이유:
  * 같은 클래스 안에서 {@code @Transactional} 메서드를 호출하면(self-invocation) 프록시를
  * 거치지 않아 트랜잭션이 실제로 걸리지 않는다. 별도 빈으로 분리해야 {@code prepare()}가
- * Redis 게이트 체크(및 그 왕복 시간) 동안 DB 커넥션을 붙잡지 않게 되고 — 커넥션을
- * 붙잡은 채 게이트를 통과시키면 Redis fast-fail 게이트를 추가한 의미가 없어진다
- * (거부될 요청도 결국 커넥션 풀에서 대기하게 되므로).
+ * Redis 게이트 체크(및 그 왕복 시간) 동안 DB 커넥션을 붙잡지 않게 되고, 재시도할 때마다
+ * 이 프록시를 다시 거쳐 매번 새 트랜잭션이 열리게 된다(실패한 트랜잭션 안에서 재시도하면
+ * 안 된다).
+ *
+ * <p><b>낙관적 락({@code GroupBuy.version}) 사용, 비관적 락 아님.</b> 정원 초과로 거부될
+ * 요청은 이미 Redis 게이트에서 걸러지므로, 이 트랜잭션에 도달하는 요청끼리의 실제 충돌은
+ * 드물 것으로 예상된다 - 드문 경쟁에 매번 행 잠금을 거는 것보다, 어쩌다 충돌하면 예외를
+ * 받고 {@link PaymentService#prepare}가 재시도하는 편이 동시 처리량에 유리하다. 실제로
+ * 슬롯을 얻는 요청끼리는 이제 서로 순서를 기다리지 않고 각자 트랜잭션을 진행하다가, 정말
+ * 같은 순간 같은 행을 건드렸을 때만 버전 충돌로 재시도한다. 정원 초과에 대한 최종 안전망은
+ * 여전히 {@code ck_group_buys_slots} CHECK 제약이다.
  */
 @Component
 class PaymentSlotReservationTransaction {
@@ -57,7 +65,7 @@ class PaymentSlotReservationTransaction {
 
     @Transactional
     PaymentResponse execute(Long userId, Long groupBuyId, PaymentPrepareRequest request, String idempotencyKey) {
-        GroupBuy groupBuy = groupBuyRepository.findWithLockByGroupBuyId(groupBuyId)
+        GroupBuy groupBuy = groupBuyRepository.findById(groupBuyId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "공동구매를 찾을 수 없습니다."));
 
         boolean hasActiveParticipation = participationRepository

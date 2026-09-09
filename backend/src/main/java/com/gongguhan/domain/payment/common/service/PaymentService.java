@@ -16,8 +16,10 @@ import com.gongguhan.global.error.ErrorCode;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +27,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional(readOnly = true)
 public class PaymentService {
+
+    /**
+     * Redis 게이트를 통과한 요청끼리만 경쟁하므로(정원 초과는 이미 걸러짐) 충돌은
+     * 드물 것으로 예상 - 3회면 충분하다. 그 이상도 계속 충돌한다면 재시도로 풀릴
+     * 문제가 아니라고 보고 포기한다.
+     */
+    private static final int MAX_RESERVATION_ATTEMPTS = 3;
 
     private final GroupBuyRepository groupBuyRepository;
     private final ParticipationRepository participationRepository;
@@ -82,14 +91,45 @@ public class PaymentService {
         }
 
         try {
-            return slotReservationTransaction.execute(userId, groupBuyId, request, idempotencyKey);
+            return reserveWithRetry(userId, groupBuyId, request, idempotencyKey);
         } catch (RuntimeException e) {
             // DB 쪽에서 어떤 이유로든 실패하면(중복 참여, 주소 소유권, DB 자체의
-            // GROUP_BUY_FULL, 제약 위반 등) Redis에 잠정 승인해둔 슬롯을 되돌린다.
+            // GROUP_BUY_FULL, 제약 위반, 재시도 소진 등) Redis에 잠정 승인해둔
+            // 슬롯을 되돌린다.
             if (gateApplies) {
                 groupBuySlotGate.release(groupBuyId);
             }
             throw e;
+        }
+    }
+
+    /**
+     * {@link PaymentSlotReservationTransaction#execute}는 낙관적 락({@code GroupBuy.version})을
+     * 쓴다 - 버전 충돌({@link ObjectOptimisticLockingFailureException})만 재시도 대상이고,
+     * 그 외 실패(중복 참여, 주소 소유권 등 업무 규칙 위반)는 재시도해도 결과가 같으므로
+     * 즉시 전파한다. 재시도마다 {@code slotReservationTransaction}의 프록시를 다시 거쳐야
+     * 매번 새 트랜잭션이 열린다 - 그래서 이 루프는 여기(호출하는 쪽)에 있어야 한다.
+     */
+    private PaymentResponse reserveWithRetry(Long userId, Long groupBuyId, PaymentPrepareRequest request,
+                                              String idempotencyKey) {
+        for (int attempt = 1; attempt <= MAX_RESERVATION_ATTEMPTS; attempt++) {
+            try {
+                return slotReservationTransaction.execute(userId, groupBuyId, request, idempotencyKey);
+            } catch (ObjectOptimisticLockingFailureException e) {
+                if (attempt == MAX_RESERVATION_ATTEMPTS) {
+                    throw new BusinessException(ErrorCode.SLOT_RESERVATION_CONFLICT);
+                }
+                sleepBeforeRetry();
+            }
+        }
+        throw new IllegalStateException("unreachable");
+    }
+
+    private void sleepBeforeRetry() {
+        try {
+            Thread.sleep(ThreadLocalRandom.current().nextLong(5, 15));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
