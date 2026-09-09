@@ -64,7 +64,7 @@ WITH RECURSIVE seq AS (
     UNION ALL
     SELECT n + 1 FROM seq WHERE n < 900
 )
-SELECT 9001000 + n, 9001000 + n, 'Loadtest Buyer', '01000000000', '06236', 'Seoul Gangnam-gu'
+SELECT 9001000 + n, 9001000 + n, 'Loadtest Buyer', '01000000000', '06236', 'Seoul Gangnam-gu', TRUE
 FROM seq
 ON DUPLICATE KEY UPDATE recipient_name = recipient_name;
 
