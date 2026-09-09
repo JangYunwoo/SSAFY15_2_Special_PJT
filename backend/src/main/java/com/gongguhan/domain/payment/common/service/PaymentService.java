@@ -66,11 +66,13 @@ public class PaymentService {
             return PaymentResponse.from(existing, existingGroupBuy, LocalDateTime.now(clock));
         }
 
-        // Redis fast-fail 게이트: 락 없는 단순 조회이므로 다른 트랜잭션의 행 잠금과
-        // 경합하지 않는다. 정원 초과면 findWithLockByGroupBuyId(비관적 락)까지 가지 않고
-        // 여기서 즉시 거부한다 - 고경합 상황에서 거부될 요청이 MySQL 락 대기열에
-        // 쌓이지 않게 하는 것이 이 게이트의 유일한 목적이다.
-        GroupBuy gatePreCheck = groupBuyRepository.findById(groupBuyId).orElse(null);
+        // Redis fast-fail 게이트: 프로젝션 조회라 영속성 컨텍스트에 엔티티를 캐시하지
+        // 않는다(따라서 아래 findWithLockByGroupBuyId와 버전 충돌이 나지 않는다) - 락
+        // 없는 조회이므로 다른 트랜잭션의 행 잠금과도 경합하지 않는다. 정원 초과면
+        // findWithLockByGroupBuyId(비관적 락)까지 가지 않고 여기서 즉시 거부한다 -
+        // 고경합 상황에서 거부될 요청이 MySQL 락 대기열에 쌓이지 않게 하는 것이 이
+        // 게이트의 유일한 목적이다.
+        GroupBuyRepository.SlotCounts gatePreCheck = groupBuyRepository.findSlotCounts(groupBuyId).orElse(null);
         boolean gateApplies = gatePreCheck != null;
         if (gateApplies) {
             int dbTruth = gatePreCheck.getReservedSlots() + gatePreCheck.getCurrentParticipants();

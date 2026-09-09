@@ -206,11 +206,11 @@ class PaymentServiceTest {
     @Test
     void prepareRejectsImmediatelyWhenGateDeniesWithoutTouchingPessimisticLock() {
         when(paymentRepository.findByIdempotencyKey(IDEMPOTENCY_KEY)).thenReturn(Optional.empty());
-        GroupBuy groupBuy = mock(GroupBuy.class);
-        when(groupBuy.getReservedSlots()).thenReturn(50);
-        when(groupBuy.getCurrentParticipants()).thenReturn(0);
-        when(groupBuy.getTargetParticipants()).thenReturn(50);
-        when(groupBuyRepository.findById(GROUP_BUY_ID)).thenReturn(Optional.of(groupBuy));
+        GroupBuyRepository.SlotCounts slotCounts = mock(GroupBuyRepository.SlotCounts.class);
+        when(slotCounts.getReservedSlots()).thenReturn(50);
+        when(slotCounts.getCurrentParticipants()).thenReturn(0);
+        when(slotCounts.getTargetParticipants()).thenReturn(50);
+        when(groupBuyRepository.findSlotCounts(GROUP_BUY_ID)).thenReturn(Optional.of(slotCounts));
         when(groupBuySlotGate.tryReserve(GROUP_BUY_ID, 50, 50)).thenReturn(false);
 
         BusinessException exception = assertThrows(BusinessException.class,
@@ -223,11 +223,11 @@ class PaymentServiceTest {
     @Test
     void prepareReleasesGateWhenDbSideFailsAfterGateGrant() {
         when(paymentRepository.findByIdempotencyKey(IDEMPOTENCY_KEY)).thenReturn(Optional.empty());
-        GroupBuy gatePreCheck = mock(GroupBuy.class);
-        when(gatePreCheck.getReservedSlots()).thenReturn(0);
-        when(gatePreCheck.getCurrentParticipants()).thenReturn(0);
-        when(gatePreCheck.getTargetParticipants()).thenReturn(50);
-        when(groupBuyRepository.findById(GROUP_BUY_ID)).thenReturn(Optional.of(gatePreCheck));
+        GroupBuyRepository.SlotCounts slotCounts = mock(GroupBuyRepository.SlotCounts.class);
+        when(slotCounts.getReservedSlots()).thenReturn(0);
+        when(slotCounts.getCurrentParticipants()).thenReturn(0);
+        when(slotCounts.getTargetParticipants()).thenReturn(50);
+        when(groupBuyRepository.findSlotCounts(GROUP_BUY_ID)).thenReturn(Optional.of(slotCounts));
         when(groupBuySlotGate.tryReserve(GROUP_BUY_ID, 50, 0)).thenReturn(true);
         when(groupBuyRepository.findWithLockByGroupBuyId(GROUP_BUY_ID)).thenReturn(Optional.empty());
 
