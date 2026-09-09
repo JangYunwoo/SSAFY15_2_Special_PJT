@@ -1,4 +1,4 @@
-import type { Decimal, Id, IsoDateTime, Krw, PageParams } from '@/shared/api/types'
+import type { Id, IsoDateTime, Krw, PageParams } from '@/shared/api/types'
 import type { GroupBuyStatus } from '@/entities/model'
 
 /** GRP-01 공개 목록의 카드 한 장 */
@@ -18,8 +18,12 @@ export interface GroupBuySummary {
   productPrice: Krw
   unitShareAmount: Krw
   shippingFee: Krw
+  /** 1인이 실제로 결제하는 금액. 서버가 확정하므로 화면에서 다시 더하지 않습니다. */
+  personalPaymentAmount: Krw
   targetCount: number
   paidCount: number
+  /** 모집 진행률 0~1 */
+  participationRate: number
   recruitEndAt: IsoDateTime
   createdAt: IsoDateTime
 }
@@ -33,6 +37,8 @@ export interface GroupBuyDetail extends GroupBuySummary {
   color: string | null
   roundingSurplus: Krw
   recruitStartAt: IsoDateTime
+  /** 청약철회가 제한된 상품인지 */
+  withdrawalRestricted: boolean
   /** 청약철회 제한 상품이면 사유가 들어옵니다 (명세서 3장) */
   withdrawalRestrictionReason: string | null
   /** 판매자 제재로 노출이 제한된 건 (FR-PEN-14) */
@@ -104,7 +110,7 @@ export interface SellerGroupBuySummary {
   shippingFee: Krw
   recruitEndAt: IsoDateTime
   /** 송장이 등록된 비율 (DLV-01) */
-  invoiceRegisteredRate: Decimal | null
+  invoiceRegisteredRate: number | null
 }
 
 /** GRP-06 판매자 운영 상세 */

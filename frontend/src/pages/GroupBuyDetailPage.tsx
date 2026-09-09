@@ -33,7 +33,8 @@ function DetailView({ detail }: { detail: GroupBuyDetail }) {
 
   const status = GROUP_BUY_STATUS_DISPLAY[detail.status]
   const discount = discountRate(detail.listPrice, detail.unitShareAmount)
-  const totalAmount = detail.unitShareAmount + detail.shippingFee
+  // 서버가 확정한 1인 결제금액을 그대로 씁니다 (GRP-02 personalPaymentAmount).
+  const totalAmount = detail.personalPaymentAmount
   const isJoinable = detail.status === 'RECRUITING' && detail.paidCount < detail.targetCount
 
   const join = () => {

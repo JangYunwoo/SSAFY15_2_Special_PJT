@@ -562,7 +562,7 @@ export const handlers = [
         unitShareAmount: 24_900,
         shippingFee: 4_000,
         recruitEndAt: iso(-18 * 86_400_000),
-        invoiceRegisteredRate: '1.00',
+        invoiceRegisteredRate: 1,
       },
       {
         id: '0952',
@@ -576,7 +576,7 @@ export const handlers = [
         unitShareAmount: 32_000,
         shippingFee: 4_000,
         recruitEndAt: iso(-41 * 86_400_000),
-        invoiceRegisteredRate: '1.00',
+        invoiceRegisteredRate: 1,
       },
     ]
     return paged(items, new URL(request.url))
