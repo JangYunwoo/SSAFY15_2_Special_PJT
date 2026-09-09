@@ -322,4 +322,116 @@ class EscrowQueryServiceTest {
 
         assertEquals(ErrorCode.VALIDATION_ERROR, e.getErrorCode());
     }
+
+    // ------------------------------------------------------------------
+    // ESC-03 관리자 집계 (FR-ADM-12)
+    // ------------------------------------------------------------------
+
+    private EscrowRepository.CountAmount countAmount(long count, long amount) {
+        EscrowRepository.CountAmount row = mock(EscrowRepository.CountAmount.class);
+        when(row.getCount()).thenReturn(count);
+        when(row.getAmount()).thenReturn(amount);
+        return row;
+    }
+
+    @Test
+    @DisplayName("정산 대기 = RELEASED 전체 - 정산 완료")
+    void computesAwaitingSettlement() {
+        // RELEASED 10건 540,000원 중 4건 216,000원이 정산 완료
+        List<EscrowRepository.StatusAggregate> all = List.of(
+                aggregate(EscrowStatus.HELD, 20, 1_080_000L),
+                aggregate(EscrowStatus.RELEASED, 10, 540_000L),
+                aggregate(EscrowStatus.REFUNDED, 2, 108_000L));
+        EscrowRepository.CountAmount settled = countAmount(4, 216_000L);
+
+        when(escrowRepository.aggregateAll()).thenReturn(all);
+        when(escrowRepository.aggregateSettled()).thenReturn(settled);
+
+        var summary = service.getAdminSummary();
+
+        assertEquals(20, summary.heldCount());
+        assertEquals(1_080_000L, summary.heldAmount());
+        // 10 - 4 = 6건, 540,000 - 216,000 = 324,000원
+        assertEquals(6, summary.awaitingSettlementCount());
+        assertEquals(324_000L, summary.awaitingSettlementAmount());
+        assertEquals(4, summary.settledCount());
+        assertEquals(216_000L, summary.settledAmount());
+        assertEquals(2, summary.refundedCount());
+        assertEquals(108_000L, summary.refundedAmount());
+        // 총계는 HELD + RELEASED + REFUNDED (정산 완료는 RELEASED 의 부분집합이라 중복 제외)
+        assertEquals(32, summary.totalCount());
+        assertEquals(1_728_000L, summary.totalAmount());
+        assertEquals("KRW", summary.currency());
+    }
+
+    @Test
+    @DisplayName("정산이 하나도 안 됐으면 RELEASED 전체가 정산 대기다")
+    void allReleasedAwaitsSettlementWhenNoneSettled() {
+        List<EscrowRepository.StatusAggregate> all =
+                List.of(aggregate(EscrowStatus.RELEASED, 5, 270_000L));
+        EscrowRepository.CountAmount nothingSettled = countAmount(0, 0L);
+
+        when(escrowRepository.aggregateAll()).thenReturn(all);
+        when(escrowRepository.aggregateSettled()).thenReturn(nothingSettled);
+
+        var summary = service.getAdminSummary();
+
+        assertEquals(5, summary.awaitingSettlementCount());
+        assertEquals(270_000L, summary.awaitingSettlementAmount());
+        assertEquals(0, summary.settledCount());
+    }
+
+    @Test
+    @DisplayName("집계 결과가 null 이어도 0 으로 처리한다")
+    void handlesNullSettledAggregate() {
+        List<EscrowRepository.StatusAggregate> all =
+                List.of(aggregate(EscrowStatus.HELD, 1, 54_000L));
+
+        when(escrowRepository.aggregateAll()).thenReturn(all);
+        // 대상 행이 없으면 프로젝션이 null 로 올 수 있다.
+        when(escrowRepository.aggregateSettled()).thenReturn(null);
+
+        var summary = service.getAdminSummary();
+
+        assertEquals(0, summary.settledCount());
+        assertEquals(0, summary.settledAmount());
+        assertEquals(0, summary.awaitingSettlementCount());
+        assertEquals(54_000L, summary.heldAmount());
+    }
+
+    @Test
+    @DisplayName("정산 완료가 RELEASED 를 넘겨도 대기 금액이 음수가 되지 않는다")
+    void neverReportsNegativeAwaitingAmount() {
+        // 두 쿼리 사이에 정산이 진행되면 일시적으로 이런 값이 나올 수 있다.
+        List<EscrowRepository.StatusAggregate> all =
+                List.of(aggregate(EscrowStatus.RELEASED, 3, 162_000L));
+        EscrowRepository.CountAmount overSettled = countAmount(5, 270_000L);
+
+        when(escrowRepository.aggregateAll()).thenReturn(all);
+        when(escrowRepository.aggregateSettled()).thenReturn(overSettled);
+
+        var summary = service.getAdminSummary();
+
+        // 관리자 화면에 음수 금액이 뜨는 것보다 0 이 낫다.
+        assertEquals(0, summary.awaitingSettlementCount());
+        assertEquals(0, summary.awaitingSettlementAmount());
+    }
+
+    @Test
+    @DisplayName("데이터가 전혀 없으면 모두 0 이다")
+    void returnsAllZerosWhenEmpty() {
+        EscrowRepository.CountAmount nothingSettled = countAmount(0, 0L);
+
+        when(escrowRepository.aggregateAll()).thenReturn(List.of());
+        when(escrowRepository.aggregateSettled()).thenReturn(nothingSettled);
+
+        var summary = service.getAdminSummary();
+
+        assertEquals(0, summary.heldAmount());
+        assertEquals(0, summary.awaitingSettlementAmount());
+        assertEquals(0, summary.settledAmount());
+        assertEquals(0, summary.refundedAmount());
+        assertEquals(0, summary.totalCount());
+        assertEquals(0, summary.totalAmount());
+    }
 }
