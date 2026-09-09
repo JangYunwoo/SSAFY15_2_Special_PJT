@@ -3,20 +3,21 @@ package com.gongguhan.domain.payment.common.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.gongguhan.domain.account.entity.UserAddress;
-import com.gongguhan.domain.account.repository.UserAddressRepository;
 import com.gongguhan.domain.escrow.repository.EscrowRepository;
 import com.gongguhan.domain.groupbuy.entity.GroupBuy;
 import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
+import com.gongguhan.domain.groupbuy.service.GroupBuySlotGate;
 import com.gongguhan.domain.participation.entity.Participation;
 import com.gongguhan.domain.participation.repository.ParticipationRepository;
 import com.gongguhan.domain.payment.common.dto.PaymentPrepareRequest;
+import com.gongguhan.domain.payment.common.dto.PaymentResponse;
 import com.gongguhan.domain.payment.common.entity.Payment;
 import com.gongguhan.domain.payment.common.repository.PaymentRepository;
 import com.gongguhan.global.error.BusinessException;
@@ -39,7 +40,8 @@ class PaymentServiceTest {
     private ParticipationRepository participationRepository;
     private EscrowRepository escrowRepository;
     private PaymentRepository paymentRepository;
-    private UserAddressRepository userAddressRepository;
+    private GroupBuySlotGate groupBuySlotGate;
+    private PaymentSlotReservationTransaction slotReservationTransaction;
     private PaymentService paymentService;
 
     @BeforeEach
@@ -48,98 +50,16 @@ class PaymentServiceTest {
         participationRepository = mock(ParticipationRepository.class);
         escrowRepository = mock(EscrowRepository.class);
         paymentRepository = mock(PaymentRepository.class);
-        userAddressRepository = mock(UserAddressRepository.class);
+        groupBuySlotGate = mock(GroupBuySlotGate.class);
+        slotReservationTransaction = mock(PaymentSlotReservationTransaction.class);
         Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
         paymentService = new PaymentService(
                 groupBuyRepository, participationRepository, escrowRepository,
-                paymentRepository, userAddressRepository, clock);
+                paymentRepository, groupBuySlotGate, slotReservationTransaction, clock);
     }
 
     private PaymentPrepareRequest cardRequest() {
         return new PaymentPrepareRequest("CARD", 10L, null);
-    }
-
-    @Test
-    void prepareFailsWhenGroupBuyNotFound() {
-        when(paymentRepository.findByIdempotencyKey(IDEMPOTENCY_KEY)).thenReturn(Optional.empty());
-        when(groupBuyRepository.findWithLockByGroupBuyId(GROUP_BUY_ID)).thenReturn(Optional.empty());
-
-        BusinessException exception = assertThrows(BusinessException.class,
-                () -> paymentService.prepare(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY));
-
-        assertEquals(ErrorCode.RESOURCE_NOT_FOUND, exception.getErrorCode());
-    }
-
-    @Test
-    void prepareFailsWhenActiveParticipationExists() {
-        when(paymentRepository.findByIdempotencyKey(IDEMPOTENCY_KEY)).thenReturn(Optional.empty());
-        when(groupBuyRepository.findWithLockByGroupBuyId(GROUP_BUY_ID))
-                .thenReturn(Optional.of(mock(GroupBuy.class)));
-        when(participationRepository.existsByGroupBuyIdAndUserIdAndActiveMarker(
-                GROUP_BUY_ID, USER_ID, Participation.ACTIVE_MARKER)).thenReturn(true);
-
-        BusinessException exception = assertThrows(BusinessException.class,
-                () -> paymentService.prepare(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY));
-
-        assertEquals(ErrorCode.DUPLICATE_PARTICIPATION, exception.getErrorCode());
-    }
-
-    @Test
-    void prepareFailsWhenActiveSlotExists() {
-        when(paymentRepository.findByIdempotencyKey(IDEMPOTENCY_KEY)).thenReturn(Optional.empty());
-        when(groupBuyRepository.findWithLockByGroupBuyId(GROUP_BUY_ID))
-                .thenReturn(Optional.of(mock(GroupBuy.class)));
-        when(paymentRepository.existsByGroupBuyIdAndUserIdAndStatus(
-                GROUP_BUY_ID, USER_ID, Payment.STATUS_PROCESSING)).thenReturn(true);
-
-        BusinessException exception = assertThrows(BusinessException.class,
-                () -> paymentService.prepare(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY));
-
-        assertEquals(ErrorCode.DUPLICATE_PARTICIPATION, exception.getErrorCode());
-    }
-
-    @Test
-    void prepareFailsWhenAddressNotOwnedByUser() {
-        when(paymentRepository.findByIdempotencyKey(IDEMPOTENCY_KEY)).thenReturn(Optional.empty());
-        when(groupBuyRepository.findWithLockByGroupBuyId(GROUP_BUY_ID))
-                .thenReturn(Optional.of(mock(GroupBuy.class)));
-        when(userAddressRepository.findByAddressIdAndUserId(10L, USER_ID)).thenReturn(Optional.empty());
-
-        BusinessException exception = assertThrows(BusinessException.class,
-                () -> paymentService.prepare(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY));
-
-        assertEquals(ErrorCode.VALIDATION_ERROR, exception.getErrorCode());
-    }
-
-    @Test
-    void prepareFailsWhenCryptoMethodMissingAssetId() {
-        when(paymentRepository.findByIdempotencyKey(IDEMPOTENCY_KEY)).thenReturn(Optional.empty());
-        when(groupBuyRepository.findWithLockByGroupBuyId(GROUP_BUY_ID))
-                .thenReturn(Optional.of(mock(GroupBuy.class)));
-        when(userAddressRepository.findByAddressIdAndUserId(10L, USER_ID))
-                .thenReturn(Optional.of(mock(UserAddress.class)));
-
-        PaymentPrepareRequest request = new PaymentPrepareRequest("CRYPTO", 10L, null);
-
-        BusinessException exception = assertThrows(BusinessException.class,
-                () -> paymentService.prepare(USER_ID, GROUP_BUY_ID, request, IDEMPOTENCY_KEY));
-
-        assertEquals(ErrorCode.VALIDATION_ERROR, exception.getErrorCode());
-    }
-
-    @Test
-    void prepareFailsWhenGroupBuyIsFull() {
-        when(paymentRepository.findByIdempotencyKey(IDEMPOTENCY_KEY)).thenReturn(Optional.empty());
-        GroupBuy groupBuy = mock(GroupBuy.class);
-        when(groupBuyRepository.findWithLockByGroupBuyId(GROUP_BUY_ID)).thenReturn(Optional.of(groupBuy));
-        when(userAddressRepository.findByAddressIdAndUserId(10L, USER_ID))
-                .thenReturn(Optional.of(mock(UserAddress.class)));
-        doThrow(new BusinessException(ErrorCode.GROUP_BUY_FULL)).when(groupBuy).reserveSlot();
-
-        BusinessException exception = assertThrows(BusinessException.class,
-                () -> paymentService.prepare(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY));
-
-        assertEquals(ErrorCode.GROUP_BUY_FULL, exception.getErrorCode());
     }
 
     @Test
@@ -157,8 +77,77 @@ class PaymentServiceTest {
 
         paymentService.prepare(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY);
 
-        verify(paymentRepository, never()).saveAndFlush(any(Payment.class));
-        verify(groupBuyRepository, never()).findWithLockByGroupBuyId(any());
+        verify(groupBuyRepository, never()).findSlotCounts(any());
+        verify(slotReservationTransaction, never()).execute(any(), any(), any(), any());
+    }
+
+    @Test
+    void prepareRejectsImmediatelyWhenGateDeniesWithoutStartingDbTransaction() {
+        when(paymentRepository.findByIdempotencyKey(IDEMPOTENCY_KEY)).thenReturn(Optional.empty());
+        GroupBuyRepository.SlotCounts slotCounts = mock(GroupBuyRepository.SlotCounts.class);
+        when(slotCounts.getReservedSlots()).thenReturn(50);
+        when(slotCounts.getCurrentParticipants()).thenReturn(0);
+        when(slotCounts.getTargetParticipants()).thenReturn(50);
+        when(groupBuyRepository.findSlotCounts(GROUP_BUY_ID)).thenReturn(Optional.of(slotCounts));
+        when(groupBuySlotGate.tryReserve(GROUP_BUY_ID, 50, 50)).thenReturn(false);
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> paymentService.prepare(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY));
+
+        assertEquals(ErrorCode.GROUP_BUY_FULL, exception.getErrorCode());
+        verify(slotReservationTransaction, never()).execute(any(), any(), any(), any());
+    }
+
+    @Test
+    void prepareDelegatesToTransactionWhenGateGrants() {
+        when(paymentRepository.findByIdempotencyKey(IDEMPOTENCY_KEY)).thenReturn(Optional.empty());
+        GroupBuyRepository.SlotCounts slotCounts = mock(GroupBuyRepository.SlotCounts.class);
+        when(slotCounts.getReservedSlots()).thenReturn(0);
+        when(slotCounts.getCurrentParticipants()).thenReturn(0);
+        when(slotCounts.getTargetParticipants()).thenReturn(50);
+        when(groupBuyRepository.findSlotCounts(GROUP_BUY_ID)).thenReturn(Optional.of(slotCounts));
+        when(groupBuySlotGate.tryReserve(GROUP_BUY_ID, 50, 0)).thenReturn(true);
+        PaymentResponse expected = mock(PaymentResponse.class);
+        when(slotReservationTransaction.execute(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY))
+                .thenReturn(expected);
+
+        PaymentResponse response = paymentService.prepare(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY);
+
+        assertEquals(expected, response);
+        verify(groupBuySlotGate, never()).release(any());
+    }
+
+    @Test
+    void prepareReleasesGateWhenDbSideFailsAfterGateGrant() {
+        when(paymentRepository.findByIdempotencyKey(IDEMPOTENCY_KEY)).thenReturn(Optional.empty());
+        GroupBuyRepository.SlotCounts slotCounts = mock(GroupBuyRepository.SlotCounts.class);
+        when(slotCounts.getReservedSlots()).thenReturn(0);
+        when(slotCounts.getCurrentParticipants()).thenReturn(0);
+        when(slotCounts.getTargetParticipants()).thenReturn(50);
+        when(groupBuyRepository.findSlotCounts(GROUP_BUY_ID)).thenReturn(Optional.of(slotCounts));
+        when(groupBuySlotGate.tryReserve(GROUP_BUY_ID, 50, 0)).thenReturn(true);
+        when(slotReservationTransaction.execute(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY))
+                .thenThrow(new BusinessException(ErrorCode.DUPLICATE_PARTICIPATION));
+
+        assertThrows(BusinessException.class,
+                () -> paymentService.prepare(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY));
+
+        verify(groupBuySlotGate, times(1)).release(GROUP_BUY_ID);
+    }
+
+    @Test
+    void prepareSkipsGateWhenGroupBuyNotFound() {
+        when(paymentRepository.findByIdempotencyKey(IDEMPOTENCY_KEY)).thenReturn(Optional.empty());
+        when(groupBuyRepository.findSlotCounts(GROUP_BUY_ID)).thenReturn(Optional.empty());
+        when(slotReservationTransaction.execute(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY))
+                .thenThrow(new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> paymentService.prepare(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY));
+
+        assertEquals(ErrorCode.RESOURCE_NOT_FOUND, exception.getErrorCode());
+        verify(groupBuySlotGate, never()).tryReserve(any(), anyInt(), anyInt());
+        verify(groupBuySlotGate, never()).release(any());
     }
 
     @Test
@@ -195,6 +184,7 @@ class PaymentServiceTest {
         paymentService.abort(USER_ID, PAYMENT_ID);
 
         verify(groupBuy).releaseSlot();
+        verify(groupBuySlotGate).release(GROUP_BUY_ID);
         verify(payment).markFailed("USER_ABORTED");
     }
 }

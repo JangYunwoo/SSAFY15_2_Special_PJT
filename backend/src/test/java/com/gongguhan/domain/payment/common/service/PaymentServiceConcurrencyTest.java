@@ -16,9 +16,12 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -26,12 +29,17 @@ import org.springframework.test.context.ActiveProfiles;
  * S15P21B205-70 검증 항목: 동시 요청 부하 테스트에서 ck_group_buys_slots(정원 초과) 위반이
  * 없어야 한다. target_participants=1인 공동구매에 N명이 동시에 슬롯 선점을 시도해 정확히
  * 1건만 성공하는지 실제 DB(H2) 위에서 확인한다.
+ *
+ * <p>H2는 매 테스트마다 create-drop으로 새로 만들어지지만, PaymentService가 의존하는
+ * Redis 슬롯 게이트는 실제(docker-compose) Redis라 재실행 간에 상태가 남는다. 같은
+ * groupBuyId를 재사용하므로 매 실행 전후로 게이트 키를 지워야 한다.
  */
 @SpringBootTest
 @ActiveProfiles("test")
 class PaymentServiceConcurrencyTest {
 
     private static final int THREAD_COUNT = 10;
+    private static final long GROUP_BUY_ID = 900001L;
 
     @Autowired
     private PaymentService paymentService;
@@ -39,9 +47,18 @@ class PaymentServiceConcurrencyTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private StringRedisTemplate redisTemplate;
+
+    @BeforeEach
+    @AfterEach
+    void cleanSlotGateKey() {
+        redisTemplate.delete("slot-gate:group-buy:" + GROUP_BUY_ID);
+    }
+
     @Test
     void onlyOneConcurrentPrepareSucceedsForSingleSlotGroupBuy() throws InterruptedException {
-        long groupBuyId = 900001L;
+        long groupBuyId = GROUP_BUY_ID;
         jdbcTemplate.update("""
                 INSERT INTO group_buys
                   (group_buy_id, product_id, seller_id, target_participants, unit_share_amount,

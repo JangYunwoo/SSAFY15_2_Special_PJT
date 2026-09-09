@@ -1,11 +1,10 @@
 package com.gongguhan.domain.payment.common.service;
 
-import com.gongguhan.domain.account.entity.UserAddress;
-import com.gongguhan.domain.account.repository.UserAddressRepository;
 import com.gongguhan.domain.escrow.entity.Escrow;
 import com.gongguhan.domain.escrow.repository.EscrowRepository;
 import com.gongguhan.domain.groupbuy.entity.GroupBuy;
 import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
+import com.gongguhan.domain.groupbuy.service.GroupBuySlotGate;
 import com.gongguhan.domain.participation.entity.Participation;
 import com.gongguhan.domain.participation.repository.ParticipationRepository;
 import com.gongguhan.domain.payment.common.dto.PaymentPrepareRequest;
@@ -16,44 +15,48 @@ import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
 import java.time.Clock;
 import java.time.LocalDateTime;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional(readOnly = true)
 public class PaymentService {
 
-    private static final String METHOD_CARD = "CARD";
-    private static final String METHOD_KAKAOPAY = "KAKAOPAY";
-    private static final String METHOD_CRYPTO = "CRYPTO";
-    private static final long TTL_CARD_KAKAOPAY_SECONDS = 300;
-    private static final long TTL_CRYPTO_SECONDS = 600;
-
     private final GroupBuyRepository groupBuyRepository;
     private final ParticipationRepository participationRepository;
     private final EscrowRepository escrowRepository;
     private final PaymentRepository paymentRepository;
-    private final UserAddressRepository userAddressRepository;
+    private final GroupBuySlotGate groupBuySlotGate;
+    private final PaymentSlotReservationTransaction slotReservationTransaction;
     private final Clock clock;
 
     public PaymentService(GroupBuyRepository groupBuyRepository,
                            ParticipationRepository participationRepository,
                            EscrowRepository escrowRepository,
                            PaymentRepository paymentRepository,
-                           UserAddressRepository userAddressRepository,
+                           GroupBuySlotGate groupBuySlotGate,
+                           PaymentSlotReservationTransaction slotReservationTransaction,
                            Clock clock) {
         this.groupBuyRepository = groupBuyRepository;
         this.participationRepository = participationRepository;
         this.escrowRepository = escrowRepository;
         this.paymentRepository = paymentRepository;
-        this.userAddressRepository = userAddressRepository;
+        this.groupBuySlotGate = groupBuySlotGate;
+        this.slotReservationTransaction = slotReservationTransaction;
         this.clock = clock;
     }
 
-    @Transactional
+    /**
+     * 의도적으로 트랜잭션 밖에서 실행된다({@code NOT_SUPPORTED}로 클래스 레벨의
+     * readOnly 트랜잭션도 무시). Redis 게이트 왕복 시간 동안 DB 커넥션을 붙잡지
+     * 않아야, 정원 초과로 거부되는 요청이 커넥션 풀 대기열에도 쌓이지 않는다.
+     * 실제 DB 작업(비관적 락 포함)은 게이트를 통과한 요청만
+     * {@link PaymentSlotReservationTransaction#execute}의 자체 트랜잭션에서 수행한다.
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public PaymentResponse prepare(Long userId, Long groupBuyId, PaymentPrepareRequest request,
                                     String idempotencyKey) {
         Payment existing = paymentRepository.findByIdempotencyKey(idempotencyKey).orElse(null);
@@ -62,39 +65,31 @@ public class PaymentService {
             return PaymentResponse.from(existing, existingGroupBuy, LocalDateTime.now(clock));
         }
 
-        GroupBuy groupBuy = groupBuyRepository.findWithLockByGroupBuyId(groupBuyId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "공동구매를 찾을 수 없습니다."));
-
-        boolean hasActiveParticipation = participationRepository
-                .existsByGroupBuyIdAndUserIdAndActiveMarker(groupBuyId, userId, Participation.ACTIVE_MARKER);
-        boolean hasActiveSlot = paymentRepository
-                .existsByGroupBuyIdAndUserIdAndStatus(groupBuyId, userId, Payment.STATUS_PROCESSING);
-        if (hasActiveParticipation || hasActiveSlot) {
-            throw new BusinessException(ErrorCode.DUPLICATE_PARTICIPATION);
+        // Redis fast-fail 게이트: 프로젝션 조회(짧은 자체 트랜잭션, 즉시 커넥션 반납)라
+        // 아래 findWithLockByGroupBuyId와 버전 충돌이 나지 않고, 락도 잡지 않는다.
+        // 정원 초과면 findWithLockByGroupBuyId(비관적 락)까지 가지 않고 여기서 즉시
+        // 거부한다 - 고경합 상황에서 거부될 요청이 MySQL 락/커넥션풀 대기열에 쌓이지
+        // 않게 하는 것이 이 게이트의 유일한 목적이다.
+        GroupBuyRepository.SlotCounts gatePreCheck = groupBuyRepository.findSlotCounts(groupBuyId).orElse(null);
+        boolean gateApplies = gatePreCheck != null;
+        if (gateApplies) {
+            int dbTruth = gatePreCheck.getReservedSlots() + gatePreCheck.getCurrentParticipants();
+            boolean granted = groupBuySlotGate.tryReserve(groupBuyId, gatePreCheck.getTargetParticipants(), dbTruth);
+            if (!granted) {
+                throw new BusinessException(ErrorCode.GROUP_BUY_FULL);
+            }
         }
 
-        UserAddress address = userAddressRepository.findByAddressIdAndUserId(request.addressId(), userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.VALIDATION_ERROR, "본인 소유의 배송지가 아닙니다."));
-        validateMethod(request);
-
-        groupBuy.reserveSlot();
-
-        long totalAmount = groupBuy.getUnitShareAmount() + groupBuy.getShippingFee();
-        long ttlSeconds = METHOD_CRYPTO.equals(request.method()) ? TTL_CRYPTO_SECONDS : TTL_CARD_KAKAOPAY_SECONDS;
-        LocalDateTime slotExpiresAt = LocalDateTime.now(clock).plusSeconds(ttlSeconds);
-
-        // 고른 배송지를 결제 건에 남긴다. 승인 완료 시 참여 건 배송지의 출처가 된다.
-        // 코인 결제는 스케줄러가 완료 처리하므로 그 시점에 요청 컨텍스트가 없다.
-        Payment payment = Payment.prepare(
-                groupBuyId, userId, address.getAddressId(), request.method(), totalAmount,
-                slotExpiresAt, idempotencyKey);
         try {
-            paymentRepository.saveAndFlush(payment);
-        } catch (DataIntegrityViolationException e) {
-            throw new BusinessException(ErrorCode.DUPLICATE_PARTICIPATION);
+            return slotReservationTransaction.execute(userId, groupBuyId, request, idempotencyKey);
+        } catch (RuntimeException e) {
+            // DB 쪽에서 어떤 이유로든 실패하면(중복 참여, 주소 소유권, DB 자체의
+            // GROUP_BUY_FULL, 제약 위반 등) Redis에 잠정 승인해둔 슬롯을 되돌린다.
+            if (gateApplies) {
+                groupBuySlotGate.release(groupBuyId);
+            }
+            throw e;
         }
-
-        return PaymentResponse.from(payment, groupBuy, LocalDateTime.now(clock));
     }
 
     public PaymentResponse getPayment(Long userId, Long paymentId) {
@@ -113,6 +108,7 @@ public class PaymentService {
         GroupBuy groupBuy = groupBuyRepository.findWithLockByGroupBuyId(payment.getGroupBuyId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "공동구매를 찾을 수 없습니다."));
         groupBuy.releaseSlot();
+        groupBuySlotGate.release(payment.getGroupBuyId());
         payment.markFailed("USER_ABORTED");
     }
 
@@ -155,18 +151,6 @@ public class PaymentService {
 
         payment.markPaid(participation.getParticipationId());
         groupBuy.confirmParticipant();
-    }
-
-    private void validateMethod(PaymentPrepareRequest request) {
-        boolean knownMethod = METHOD_CARD.equals(request.method())
-                || METHOD_KAKAOPAY.equals(request.method())
-                || METHOD_CRYPTO.equals(request.method());
-        if (!knownMethod) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "지원하지 않는 결제수단입니다.");
-        }
-        if (METHOD_CRYPTO.equals(request.method()) && request.cryptoAssetId() == null) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "디지털 자산 결제에는 cryptoAssetId가 필요합니다.");
-        }
     }
 
     private Payment findOwnedPayment(Long userId, Long paymentId) {
