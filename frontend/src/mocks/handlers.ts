@@ -733,6 +733,52 @@ export const handlers = [
     ok({ confirmedCount: 0, suspended: false, items: [] }),
   ),
 
+  /* ---------- 에스크로 ---------- */
+  /** ESC-01 참여 건별 보관 상태 */
+  http.get(`${BASE}/users/me/participations/:participationId/escrow`, async ({ params }) => {
+    await delay(150)
+    const id = String(params.participationId)
+    const found = db.participations.find((item) => item.id === id)
+    if (found === undefined) return fail(404, 'RESOURCE_NOT_FOUND', '참여 건을 찾을 수 없습니다.')
+    const released = found.escrowStatus === 'RELEASED'
+    const refunded = found.escrowStatus === 'REFUNDED'
+    return ok({
+      escrowId: `E${id}`,
+      participationId: id,
+      groupBuyId: found.groupBuyId,
+      amount: found.totalAmount,
+      currency: 'KRW',
+      status: found.escrowStatus,
+      heldAt: found.paidAt,
+      releasedAt: released ? iso(-2 * 86_400_000) : null,
+      refundedAt: refunded ? iso(-1 * 86_400_000) : null,
+    })
+  }),
+
+  /** ESC-02 공동구매별 집계 (판매자) */
+  http.get(`${BASE}/sellers/group-buys/:groupBuyId/escrows`, async ({ params }) => {
+    await delay(150)
+    const groupBuyId = String(params.groupBuyId)
+    const summary = db.groupBuys.find((item) => item.id === groupBuyId)
+    const held = summary?.paidCount ?? 0
+    const unit = (summary?.unitShareAmount ?? 0) + (summary?.shippingFee ?? 0)
+    return ok({
+      groupBuyId,
+      summary: {
+        heldCount: held,
+        heldAmount: held * unit,
+        releasedCount: 0,
+        releasedAmount: 0,
+        refundedCount: 0,
+        refundedAmount: 0,
+        totalCount: held,
+        totalAmount: held * unit,
+        currency: 'KRW',
+      },
+      escrows: [],
+    })
+  }),
+
   /* ---------- 알림 ---------- */
   http.get(`${BASE}/notifications/unread-count`, () =>
     ok({ count: db.notifications.filter((item) => item.readAt === null).length }),
