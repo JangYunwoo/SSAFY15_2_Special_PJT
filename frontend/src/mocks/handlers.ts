@@ -63,6 +63,54 @@ async function readUpsert(request: Request): Promise<Record<string, unknown>> {
     ? parsed
     : { ...parsed, images: files.map((_, index) => `mock://image-${String(index + 1)}`) }
 }
+
+/** 필요 컨펌 수. Quote 응답과 같은 값을 씁니다. */
+const REQUIRED_CONFIRMATIONS = 12
+
+/**
+ * 조회 횟수에 따라 단계를 진행시킵니다.
+ * 1회차는 영수증 대기, 이후 컨펌이 3회씩 쌓여 필요 수에 도달하면 확정됩니다.
+ */
+function cryptoStatus(paymentId: string) {
+  const run = db.cryptoRuns.get(paymentId)
+  if (run === undefined) {
+    return {
+      paymentId,
+      phase: 'AWAITING_TX',
+      paymentStatus: 'PROCESSING',
+      txHash: null,
+      receiptStatus: null,
+      blockNumber: null,
+      confirmations: 0,
+      requiredConfirmations: REQUIRED_CONFIRMATIONS,
+      assetAmount: null,
+      rawAmount: null,
+      depositAddress: '0x8Ba1f109551bD432803012645Ac136ddd64DBA72',
+      confirmedAt: null,
+      failReason: null,
+    }
+  }
+
+  const confirmations = Math.min(REQUIRED_CONFIRMATIONS, Math.max(0, run.polls - 1) * 3)
+  const receipted = run.polls >= 2
+  const done = confirmations >= REQUIRED_CONFIRMATIONS
+
+  return {
+    paymentId,
+    phase: done ? 'COMPLETED' : receipted ? 'CONFIRMING' : 'AWAITING_RECEIPT',
+    paymentStatus: done ? 'PAID' : 'PROCESSING',
+    txHash: run.txHash,
+    receiptStatus: receipted ? 'SUCCESS' : null,
+    blockNumber: receipted ? 21_450_000 + run.polls : null,
+    confirmations,
+    requiredConfirmations: REQUIRED_CONFIRMATIONS,
+    assetAmount: receipted ? '0.31250000' : null,
+    rawAmount: receipted ? '312500000000000000' : null,
+    depositAddress: '0x8Ba1f109551bD432803012645Ac136ddd64DBA72',
+    confirmedAt: done ? new Date().toISOString() : null,
+    failReason: null,
+  }
+}
 const iso = (offsetMs: number): string => new Date(Date.now() + offsetMs).toISOString()
 
 /* ---------- 목록 정렬 (목업 SORTERS 와 같은 규칙) ---------- */
@@ -356,6 +404,30 @@ export const handlers = [
   }),
 
   /* ---------- 참여 · 구매확정 ---------- */
+  /**
+   * CRYP-03 트랜잭션 해시 등록.
+   * 등록 시점에는 아직 노드가 트랜잭션을 모르는 상태로 둡니다.
+   */
+  http.post(`${BASE}/payments/:paymentId/crypto/transactions`, async ({ params, request }) => {
+    await delay(400)
+    const paymentId = String(params.paymentId)
+    const body = (await request.json()) as { txHash: string }
+    db.cryptoRuns.set(paymentId, { txHash: body.txHash, polls: 0 })
+    return ok(cryptoStatus(paymentId))
+  }),
+
+  /**
+   * CRYP-04 입금·컨펌 상태.
+   * 조회할 때마다 한 단계씩 진행해 실제 컨펌 과정을 흉내냅니다.
+   */
+  http.get(`${BASE}/payments/:paymentId/crypto/status`, async ({ params }) => {
+    await delay(150)
+    const paymentId = String(params.paymentId)
+    const run = db.cryptoRuns.get(paymentId)
+    if (run !== undefined) run.polls += 1
+    return ok(cryptoStatus(paymentId))
+  }),
+
   http.get(`${BASE}/users/me/participations`, async ({ request }) => {
     await delay(150)
     return paged(db.participations, new URL(request.url))
