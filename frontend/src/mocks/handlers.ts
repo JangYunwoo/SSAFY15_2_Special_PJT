@@ -108,6 +108,11 @@ export const handlers = [
     await delay(200)
     return ok(tokens())
   }),
+  http.post(`${BASE}/auth/refresh`, async () => {
+    await delay(150)
+    // 목에서는 만료를 흉내내지 않으므로 항상 새 토큰을 돌려줍니다.
+    return ok(tokens())
+  }),
   http.post(`${BASE}/auth/logout`, () => ok(null)),
 
   http.get(`${BASE}/users/me`, () => ok(db.me)),

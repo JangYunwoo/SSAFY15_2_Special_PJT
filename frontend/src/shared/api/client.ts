@@ -10,6 +10,11 @@ interface RequestOptions {
   idempotencyKey?: string
   query?: Query
   signal?: AbortSignal
+  /**
+   * 401 을 받아도 토큰 재발급을 시도하지 않습니다.
+   * 재발급 요청 자신이 401 일 때 무한히 되도는 것을 막는 용도입니다.
+   */
+  skipRefresh?: boolean
 }
 
 interface BodyOptions extends RequestOptions {
@@ -22,6 +27,8 @@ interface BodyOptions extends RequestOptions {
  * (스토어 → client → 스토어 형태의 import 고리를 만들지 않기 위함)
  */
 let accessTokenProvider: () => string | null = () => null
+/** 재발급 성공 여부를 돌려줍니다. 브릿지가 연결되기 전에는 항상 실패로 봅니다. */
+let refreshTokens: () => Promise<boolean> = () => Promise.resolve(false)
 /** 브릿지가 연결되기 전에는 아무것도 하지 않습니다. */
 let onUnauthorized: () => void = noop
 
@@ -31,10 +38,22 @@ function noop(): void {
 
 export function configureAuthBridge(options: {
   getAccessToken: () => string | null
+  refresh: () => Promise<boolean>
   onUnauthorized: () => void
 }): void {
   accessTokenProvider = options.getAccessToken
+  refreshTokens = options.refresh
   onUnauthorized = options.onUnauthorized
+}
+
+/** 진행 중인 재발급. 여러 요청이 동시에 401 을 받아도 재발급은 한 번만 합니다. */
+let refreshing: Promise<boolean> | null = null
+
+function ensureRefreshed(): Promise<boolean> {
+  refreshing ??= refreshTokens().finally(() => {
+    refreshing = null
+  })
+  return refreshing
 }
 
 function buildUrl(path: string, query?: Query): string {
@@ -62,11 +81,9 @@ async function parse<TData, TMeta>(response: Response): Promise<ApiResponse<TDat
   }
 }
 
-async function request<TData, TMeta = null>(
-  method: string,
-  path: string,
-  { body, idempotencyKey, query, signal }: BodyOptions = {},
-): Promise<ApiResponse<TData, TMeta>> {
+/** 한 번 보냅니다. 토큰은 보낼 때마다 새로 읽어 재발급된 값이 반영됩니다. */
+async function send(method: string, path: string, options: BodyOptions): Promise<Response> {
+  const { body, idempotencyKey, query, signal } = options
   const headers = new Headers({ Accept: 'application/json' })
 
   const token = accessTokenProvider()
@@ -76,9 +93,8 @@ async function request<TData, TMeta = null>(
   const isFormData = body instanceof FormData
   if (body !== undefined && !isFormData) headers.set('Content-Type', 'application/json')
 
-  let response: Response
   try {
-    response = await fetch(buildUrl(path, query), {
+    return await fetch(buildUrl(path, query), {
       method,
       headers,
       credentials: 'include',
@@ -88,6 +104,23 @@ async function request<TData, TMeta = null>(
   } catch (cause) {
     if (cause instanceof DOMException && cause.name === 'AbortError') throw cause
     throw new NetworkError(cause)
+  }
+}
+
+async function request<TData, TMeta = null>(
+  method: string,
+  path: string,
+  options: BodyOptions = {},
+): Promise<ApiResponse<TData, TMeta>> {
+  let response = await send(method, path, options)
+
+  /*
+   * 액세스 토큰이 만료되면 조용히 재발급하고 같은 요청을 한 번만 다시 보냅니다.
+   * 재발급까지 실패하면 아래에서 세션을 정리합니다.
+   */
+  if (response.status === 401 && options.skipRefresh !== true) {
+    const renewed = await ensureRefreshed()
+    if (renewed) response = await send(method, path, options)
   }
 
   const payload = await parse<TData, TMeta>(response)
@@ -101,7 +134,7 @@ async function request<TData, TMeta = null>(
         })
       : new ApiError(response.status, payload.error, payload.traceId)
 
-    // 토큰이 죽었으면 세션을 정리해 로그인 화면으로 보냅니다.
+    // 재발급으로도 살리지 못한 401 이면 세션을 정리해 로그인 화면으로 보냅니다.
     if (error.isUnauthorized) onUnauthorized()
     throw error
   }
