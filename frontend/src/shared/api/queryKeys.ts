@@ -20,7 +20,9 @@ export const queryKeys = {
     all: ['seller', 'group-buys'] as const,
     list: (params: unknown) => ['seller', 'group-buys', 'list', params] as const,
     detail: (id: string) => ['seller', 'group-buys', 'detail', id] as const,
-    participants: (id: string) => ['seller', 'group-buys', id, 'participants'] as const,
+    preview: (params: unknown) => ['seller', 'group-buys', 'preview', params] as const,
+    participants: (id: string, params: unknown) =>
+      ['seller', 'group-buys', id, 'participants', params] as const,
     deliveries: (id: string) => ['seller', 'group-buys', id, 'deliveries'] as const,
     escrows: (id: string) => ['seller', 'group-buys', id, 'escrows'] as const,
   },

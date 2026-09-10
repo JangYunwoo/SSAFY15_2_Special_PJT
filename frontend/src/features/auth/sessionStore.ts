@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+import { authApi } from '@/entities/auth/api'
 import { configureAuthBridge } from '@/shared/api/client'
 import type { Actor, AuthTokens } from '@/entities/auth/model'
 
@@ -59,9 +60,28 @@ export const useSessionStore = create<SessionState>()(
   ),
 )
 
-/** 스토어 밖(HTTP 클라이언트)에서 토큰을 읽을 수 있게 연결합니다. */
+/**
+ * 스토어 밖(HTTP 클라이언트)에서 토큰을 읽고 재발급할 수 있게 연결합니다.
+ *
+ * 액세스 토큰은 30분(expiresIn 1800)이면 만료됩니다. 재발급이 없으면
+ * 그때마다 로그아웃되므로, 401 을 만나면 refresh 토큰으로 조용히 갱신합니다.
+ */
 configureAuthBridge({
   getAccessToken: () => useSessionStore.getState().accessToken,
+
+  refresh: async () => {
+    const { refreshToken, signIn } = useSessionStore.getState()
+    if (refreshToken === null) return false
+    try {
+      // skipRefresh 로 보내므로 이 요청이 401 이어도 다시 재발급하지 않습니다.
+      signIn(await authApi.refresh(refreshToken))
+      return true
+    } catch {
+      // 재발급도 실패하면 아래 onUnauthorized 가 세션을 정리합니다.
+      return false
+    }
+  },
+
   onUnauthorized: () => {
     useSessionStore.getState().signOut()
   },

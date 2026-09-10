@@ -4,7 +4,7 @@ import { queryKeys } from '@/shared/api/queryKeys'
 import type { Id, PageParams } from '@/shared/api/types'
 
 import { groupBuyApi } from './api'
-import type { GroupBuyListParams } from './model'
+import type { GroupBuyListParams, GroupBuyPreviewRequest } from './model'
 
 /**
  * queryOptions 팩토리로 키와 fetcher 를 묶어둡니다.
@@ -26,6 +26,19 @@ export const groupBuyQueries = {
       queryFn: () => groupBuyApi.detail(groupBuyId),
     }),
 
+  /**
+   * GRP-03 금액 미리보기.
+   *
+   * POST 이지만 서버가 값을 바꾸지 않는 계산이라 쿼리로 다룹니다.
+   * 입력이 바뀌는 동안 숫자가 사라지지 않도록 이전 결과를 유지합니다.
+   */
+  preview: (body: GroupBuyPreviewRequest) =>
+    queryOptions({
+      queryKey: queryKeys.sellerGroupBuys.preview(body),
+      queryFn: () => groupBuyApi.preview(body),
+      placeholderData: keepPreviousData,
+    }),
+
   sellerList: (params: PageParams = {}) =>
     queryOptions({
       queryKey: queryKeys.sellerGroupBuys.list(params),
@@ -38,9 +51,16 @@ export const groupBuyQueries = {
       queryFn: () => groupBuyApi.sellerDetail(groupBuyId),
     }),
 
-  participants: (groupBuyId: Id) =>
+  escrows: (groupBuyId: Id) =>
     queryOptions({
-      queryKey: queryKeys.sellerGroupBuys.participants(groupBuyId),
-      queryFn: () => groupBuyApi.participants(groupBuyId),
+      queryKey: queryKeys.sellerGroupBuys.escrows(groupBuyId),
+      queryFn: () => groupBuyApi.escrows(groupBuyId),
+    }),
+
+  participants: (groupBuyId: Id, params: PageParams = {}) =>
+    queryOptions({
+      queryKey: queryKeys.sellerGroupBuys.participants(groupBuyId, params),
+      queryFn: () => groupBuyApi.participants(groupBuyId, params),
+      placeholderData: keepPreviousData,
     }),
 } as const

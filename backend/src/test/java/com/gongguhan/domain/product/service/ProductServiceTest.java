@@ -124,6 +124,25 @@ class ProductServiceTest {
         verify(imageStorage, never()).store(any());
     }
 
+    @Test
+    void reviewedAiValuesAreRecordedOnlyWhenProductIsFinallyCreated() {
+        Category category = category(1L, "가전");
+        when(productRepository.countUsableSeller(10L)).thenReturn(1L);
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        when(imageStorage.store(any())).thenReturn(
+                new ProductImageStorage.StoredImage("one.jpg", "/api/v1/product-images/one.jpg"));
+        when(productRepository.saveAndFlush(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        ProductUpsertRequest aiReviewed = new ProductUpsertRequest(
+                1L, "상품", "브랜드", "모델", "검정", "설명", 1000L, 0,
+                true, null, null);
+
+        productService.create(10L, aiReviewed, List.of(image("one.jpg")));
+
+        ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
+        verify(productRepository).saveAndFlush(captor.capture());
+        assertEquals(true, captor.getValue().isAiExtracted());
+    }
+
     private ProductUpsertRequest request(int thumbnailIndex) {
         return new ProductUpsertRequest(
                 1L, "상품", "브랜드", "모델", "검정", "설명", 1000L, thumbnailIndex,

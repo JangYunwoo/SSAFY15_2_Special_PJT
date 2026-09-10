@@ -29,7 +29,7 @@ import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest(properties = "spring.task.scheduling.enabled=false")
+@SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @RecordApplicationEvents

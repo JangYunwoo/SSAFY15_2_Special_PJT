@@ -83,7 +83,9 @@ export default function SellerHomePage() {
                       return (
                         <tr key={item.id}>
                           <td>
-                            <b>{item.productName}</b>
+                            <Link className="link" to={`/seller/group-buys/${item.id}`}>
+                              <b>{item.productName}</b>
+                            </Link>
                             <br />
                             <span className="small muted">
                               {groupBuyNo(item.id)} · 마감 {date(item.recruitEndAt)}

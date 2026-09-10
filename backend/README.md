@@ -62,6 +62,19 @@ docker compose up -d
 Configuration으로 직접 실행할 때는 `.env`가 자동 반영되지 않으니, EnvFile 플러그인을 설치해서
 Run Configuration에 `backend/.env`를 지정하거나 Environment variables에 직접 붙여넣는다.
 
+## AI 상품 정보 추출
+
+`POST /api/v1/sellers/products/ai-extraction`은 업로드된 첫 번째 이미지만 대표 이미지로 FastAPI에
+동기 전달한다. 기본 제한시간은 10초이며, 장애·시간 초과·빈 응답은 `FAILED`와 빈 필드로 변환해
+판매자가 수동 입력을 계속할 수 있게 한다. AI가 반환한 카테고리 문자열은 활성 DB 카테고리 이름과
+대조해 ID로 바꾸며, 매칭되지 않으면 해당 필드만 비우고 경고를 반환한다.
+
+| 환경변수 | 설명 |
+| --- | --- |
+| `AI_EXTRACTION_BASE_URL` | FastAPI 서버 주소, 기본값 `http://localhost:8000` |
+| `AI_EXTRACTION_PATH` | 이미지 분석 경로, 기본값 `/api/v1/products/extract` |
+| `AI_EXTRACTION_TIMEOUT_MS` | 연결·응답 제한시간, 기본값 `10000` |
+
 ## API 기본 경로
 
 `server.servlet.context-path=/api/v1`이 설정되어 있으므로, 컨트롤러의 `@RequestMapping`은
