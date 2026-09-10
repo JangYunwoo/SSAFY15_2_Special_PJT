@@ -18,6 +18,7 @@ export interface Product {
   withdrawalRestrictionReasonId: Id | null
   withdrawalRestrictionReason: string | null
   restrictionReviewStatus: RestrictionReviewStatus
+  restrictionEvidenceUrl: string | null
   /** 연결된 공동구매. 있으면 상품을 수정할 수 없습니다. */
   linkedGroupBuyId: Id | null
   linkedGroupBuyStatus: string | null
@@ -42,12 +43,9 @@ export interface ProductInput {
   description: string
   /** 대표 이미지로 쓸 images 파트의 순번 */
   thumbnailIndex: number
-  /**
-   * 아래 두 값은 백엔드 ProductUpsertRequest 에 아직 없습니다.
-   * 알 수 없는 필드는 무시되므로, 백엔드가 받게 되는 날 그대로 동작하도록 함께 보냅니다.
-   */
   aiExtracted: boolean
   withdrawalRestrictionReasonId: Id | null
+  restrictionEvidenceUrl: string | null
 }
 
 /** WDR-01 활성 청약철회 제한 사유 */
@@ -55,6 +53,8 @@ export interface WithdrawalRestrictionReason {
   id: Id
   code: string
   description: string
+  name: string
+  requiresEvidence: boolean
 }
 
 /* ---------- AI-01 이미지 기반 상품 정보 추출 ---------- */

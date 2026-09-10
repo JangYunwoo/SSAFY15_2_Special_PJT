@@ -13,6 +13,7 @@ import com.gongguhan.domain.product.entity.Category;
 import com.gongguhan.domain.product.entity.Product;
 import com.gongguhan.domain.product.repository.CategoryRepository;
 import com.gongguhan.domain.product.repository.ProductRepository;
+import com.gongguhan.domain.product.repository.WithdrawalRestrictionReasonRepository;
 import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
 import java.util.List;
@@ -27,6 +28,7 @@ class ProductServiceTest {
     private ProductRepository productRepository;
     private CategoryRepository categoryRepository;
     private ProductImageStorage imageStorage;
+    private WithdrawalRestrictionReasonRepository restrictionReasonRepository;
     private ProductService productService;
 
     @BeforeEach
@@ -34,7 +36,9 @@ class ProductServiceTest {
         productRepository = mock(ProductRepository.class);
         categoryRepository = mock(CategoryRepository.class);
         imageStorage = mock(ProductImageStorage.class);
-        productService = new ProductService(productRepository, categoryRepository, imageStorage);
+        restrictionReasonRepository = mock(WithdrawalRestrictionReasonRepository.class);
+        productService = new ProductService(
+                productRepository, categoryRepository, imageStorage, restrictionReasonRepository);
     }
 
     @Test
@@ -99,8 +103,31 @@ class ProductServiceTest {
         verify(imageStorage, never()).store(any());
     }
 
+    @Test
+    void evidenceRequiredReasonRejectsProductWithoutEvidenceUrl() {
+        Category category = category(1L, "가전");
+        var reason = mock(com.gongguhan.domain.product.entity.WithdrawalRestrictionReason.class);
+        when(productRepository.countUsableSeller(10L)).thenReturn(1L);
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        when(restrictionReasonRepository.findById(3L)).thenReturn(Optional.of(reason));
+        when(reason.isActive()).thenReturn(true);
+        when(reason.isRequiresEvidence()).thenReturn(true);
+
+        ProductUpsertRequest restricted = new ProductUpsertRequest(
+                1L, "상품", "브랜드", "모델", "검정", "설명", 1000L, 0, false, 3L, null);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> productService.create(10L, restricted, List.of(image("one.jpg"))));
+
+        assertEquals(ErrorCode.VALIDATION_ERROR, exception.getErrorCode());
+        verify(imageStorage, never()).store(any());
+    }
+
     private ProductUpsertRequest request(int thumbnailIndex) {
-        return new ProductUpsertRequest(1L, "상품", "브랜드", "모델", "검정", "설명", 1000L, thumbnailIndex);
+        return new ProductUpsertRequest(
+                1L, "상품", "브랜드", "모델", "검정", "설명", 1000L, thumbnailIndex,
+                false, null, null);
     }
 
     private MockMultipartFile image(String name) {

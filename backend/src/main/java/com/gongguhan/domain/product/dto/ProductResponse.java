@@ -15,6 +15,11 @@ public record ProductResponse(
         String description,
         long price,
         boolean aiExtracted,
+        boolean withdrawalRestricted,
+        String withdrawalRestrictionReasonId,
+        String withdrawalRestrictionReason,
+        String restrictionEvidenceUrl,
+        String restrictionReviewStatus,
         String status,
         List<ProductImageResponse> images
 ) {
@@ -32,6 +37,11 @@ public record ProductResponse(
                 product.getDescription(),
                 product.getPrice(),
                 product.isAiExtracted(),
+                product.isWithdrawalRestricted(),
+                product.getRestrictionReasonId() == null ? null : String.valueOf(product.getRestrictionReasonId()),
+                product.getRestrictionReasonName(),
+                product.getRestrictionEvidenceUrl(),
+                product.getRestrictionReviewStatus().name(),
                 product.getStatus(),
                 product.getImages().stream().map(ProductImageResponse::from).toList());
     }

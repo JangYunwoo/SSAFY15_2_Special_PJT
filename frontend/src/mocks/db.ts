@@ -157,6 +157,7 @@ const products: Product[] = [
     withdrawalRestrictionReasonId: null,
     withdrawalRestrictionReason: null,
     restrictionReviewStatus: 'NONE',
+    restrictionEvidenceUrl: null,
     linkedGroupBuyId: '1024',
     linkedGroupBuyStatus: 'RECRUITING',
     createdAt: iso(-20 * DAY_MS),
@@ -176,6 +177,7 @@ const products: Product[] = [
     withdrawalRestrictionReasonId: null,
     withdrawalRestrictionReason: null,
     restrictionReviewStatus: 'NONE',
+    restrictionEvidenceUrl: null,
     linkedGroupBuyId: '1008',
     linkedGroupBuyStatus: 'FULFILLED',
     createdAt: iso(-40 * DAY_MS),
@@ -195,6 +197,7 @@ const products: Product[] = [
     withdrawalRestrictionReasonId: null,
     withdrawalRestrictionReason: null,
     restrictionReviewStatus: 'NONE',
+    restrictionEvidenceUrl: null,
     linkedGroupBuyId: null,
     linkedGroupBuyStatus: null,
     createdAt: iso(-60 * DAY_MS),
@@ -214,6 +217,7 @@ const products: Product[] = [
     withdrawalRestrictionReasonId: null,
     withdrawalRestrictionReason: null,
     restrictionReviewStatus: 'NONE',
+    restrictionEvidenceUrl: null,
     linkedGroupBuyId: null,
     linkedGroupBuyStatus: null,
     createdAt: iso(-5 * DAY_MS),
@@ -315,7 +319,6 @@ const settlements: SettlementSummary[] = [
   },
 ]
 
-
 /** 내 프로필 (USR-01/02) */
 const me = {
   id: '101',
@@ -325,7 +328,6 @@ const me = {
   isSeller: false,
   createdAt: iso(-90 * DAY_MS),
 }
-
 
 const notifications: Notification[] = [
   {

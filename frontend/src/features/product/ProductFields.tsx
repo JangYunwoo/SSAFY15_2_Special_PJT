@@ -23,6 +23,7 @@ interface ProductFieldsProps {
 export function ProductFields({ form, onChange, ai = null }: ProductFieldsProps) {
   const categories = useQuery(categoryQueries.tree())
   const withdrawalReasons = useQuery(productQueries.withdrawalReasons())
+  const selectedReason = withdrawalReasons.data?.find((reason) => reason.id === form.reasonId)
 
   return (
     <>
@@ -122,7 +123,11 @@ export function ProductFields({ form, onChange, ai = null }: ProductFieldsProps)
           legend="청약철회 제한"
           value={form.restricted}
           onChange={(restricted) => {
-            onChange({ restricted })
+            onChange(
+              restricted === 'NONE'
+                ? { restricted, reasonId: '', evidenceUrl: '' }
+                : { restricted },
+            )
           }}
           options={[
             { value: 'NONE', label: '제한 없음' },
@@ -144,10 +149,25 @@ export function ProductFields({ form, onChange, ai = null }: ProductFieldsProps)
           }))}
         />
 
+        <TextField
+          label="증빙 URL"
+          required={form.restricted === 'RESTRICTED' && selectedReason?.requiresEvidence === true}
+          disabled={form.restricted === 'NONE'}
+          placeholder="https://..."
+          value={form.evidenceUrl}
+          onChange={(event) => {
+            onChange({ evidenceUrl: event.target.value })
+          }}
+          hint={
+            selectedReason?.requiresEvidence === true
+              ? '선택한 사유는 증빙 URL이 필수입니다.'
+              : undefined
+          }
+        />
+
         <p className="small muted mt16" style={{ marginBottom: 0, lineHeight: 1.8 }}>
-          제한 상품으로 지정하면 관리자 검토를 거친 뒤 공동구매 상세 화면에 사유가 함께
-          표시됩니다. 제한 상품이라도 상품 하자·오배송·표시광고 불일치의 경우에는 반품이
-          가능합니다.
+          제한 상품으로 지정하면 관리자 검토를 거친 뒤 공동구매 상세 화면에 사유가 함께 표시됩니다.
+          제한 상품이라도 상품 하자·오배송·표시광고 불일치의 경우에는 반품이 가능합니다.
         </p>
       </Panel>
     </>

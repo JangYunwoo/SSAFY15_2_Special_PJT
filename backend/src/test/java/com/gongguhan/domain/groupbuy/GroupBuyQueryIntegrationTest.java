@@ -236,8 +236,11 @@ class GroupBuyQueryIntegrationTest {
                 "INSERT INTO categories (category_id, name, depth, sort_order) VALUES (11, '전자제품', 1, 1)");
         jdbcTemplate.update(
                 "INSERT INTO categories (category_id, name, depth, sort_order) VALUES (12, '생활', 1, 2)");
-        jdbcTemplate.update(
-                "INSERT INTO withdrawal_restriction_reasons (reason_id, name) VALUES (1, '주문 제작 상품')");
+        jdbcTemplate.update("""
+                INSERT INTO withdrawal_restriction_reasons
+                    (reason_id, code, name, requires_evidence, active, sort_order)
+                VALUES (1, 'CUSTOM_MADE', '주문 제작 상품', TRUE, TRUE, 1)
+                """);
         insertProduct(301L, 11L, "무선 키보드", true);
         insertProduct(302L, 11L, "휴대용 키보드", false);
         insertProduct(303L, 12L, "캠핑 테이블", false);
