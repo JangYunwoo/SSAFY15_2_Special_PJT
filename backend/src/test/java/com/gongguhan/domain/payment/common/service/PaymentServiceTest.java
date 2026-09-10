@@ -341,4 +341,42 @@ class PaymentServiceTest {
         assertEquals(ErrorCode.RESOURCE_NOT_FOUND, exception.getErrorCode());
         verify(payment, never()).markExpired();
     }
+
+    @Test
+    void failPaymentFailsWhenPaymentMissing() {
+        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.empty());
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> paymentService.failPayment(PAYMENT_ID, "H1054"));
+
+        assertEquals(ErrorCode.RESOURCE_NOT_FOUND, exception.getErrorCode());
+    }
+
+    @Test
+    void failPaymentDoesNothingWhenAlreadyResolved() {
+        Payment payment = mock(Payment.class);
+        when(payment.isProcessing()).thenReturn(false);
+        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
+
+        paymentService.failPayment(PAYMENT_ID, "H1054");
+
+        verify(groupBuyRepository, never()).findWithLockByGroupBuyId(any());
+        verify(payment, never()).markFailed(any());
+    }
+
+    @Test
+    void failPaymentReleasesSlotAndMarksFailed() {
+        Payment payment = mock(Payment.class);
+        when(payment.isProcessing()).thenReturn(true);
+        when(payment.getGroupBuyId()).thenReturn(GROUP_BUY_ID);
+        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
+        GroupBuy groupBuy = mock(GroupBuy.class);
+        when(groupBuyRepository.findWithLockByGroupBuyId(GROUP_BUY_ID)).thenReturn(Optional.of(groupBuy));
+
+        paymentService.failPayment(PAYMENT_ID, "H1054");
+
+        verify(groupBuy).releaseSlot();
+        verify(groupBuySlotGate).release(GROUP_BUY_ID);
+        verify(payment).markFailed("H1054");
+    }
 }

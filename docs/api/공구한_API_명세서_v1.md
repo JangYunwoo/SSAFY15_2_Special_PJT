@@ -585,6 +585,7 @@ AI 분석은 ERD v2에 따라 동기 요청으로 처리한다. 분석 결과를
 | 422 | `RETURN_NOT_ELIGIBLE` | 반품 기간·제한 사유 위반 |
 | 422 | `QUOTE_EXPIRED` | 만료된 디지털 자산 Quote |
 | 422 | `CRYPTO_AMOUNT_MISMATCH` | 입금액 과소·과다 또는 자산 불일치 |
+| 422 | `SSAFY_MEMBER_NOT_LINKED` | SSAFY 금융망 회원(userKey) 미연동 |
 | 502 | `EXTERNAL_PAYMENT_ERROR` | 외부 결제기관 오류 |
 | 503 | `EXTERNAL_SERVICE_UNAVAILABLE` | AI·시세·체인·금융망 일시 장애 |
 

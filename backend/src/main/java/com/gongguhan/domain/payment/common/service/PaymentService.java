@@ -192,6 +192,28 @@ public class PaymentService {
         payment.markExpired();
     }
 
+    /**
+     * 외부 승인(카드/카카오페이/코인) 실패 후 슬롯을 되돌린다. {@link #abort}와 같은
+     * 시퀀스(비관적 락으로 group_buys 재조회 → releaseSlot → 게이트 해제 → markFailed)를
+     * 쓰지만, 사용자가 직접 요청하는 abort와 달리 외부 콜백 경로에서 호출되므로 이미
+     * 처리된 결제를 만나도 예외 대신 조용히 무시한다 - {@link #expireSlotIfDue}와 같은 이유로,
+     * 배치의 만료 처리와 경합해도 안전해야 한다.
+     */
+    @Transactional
+    public void failPayment(Long paymentId, String reason) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "결제를 찾을 수 없습니다."));
+        if (!payment.isProcessing()) {
+            return;
+        }
+
+        GroupBuy groupBuy = groupBuyRepository.findWithLockByGroupBuyId(payment.getGroupBuyId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "공동구매를 찾을 수 없습니다."));
+        groupBuy.releaseSlot();
+        groupBuySlotGate.release(payment.getGroupBuyId());
+        payment.markFailed(reason);
+    }
+
     public Page<PaymentResponse> listHistory(Long userId, Pageable pageable) {
         return paymentRepository.findByUserId(userId, pageable)
                 .map(payment -> PaymentResponse.from(
