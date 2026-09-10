@@ -47,8 +47,10 @@ export const groupBuyApi = {
     api.post<NoContent>(`/sellers/group-buys/${groupBuyId}/cancel`, { reason }),
 
   /** GRP-09 결제 완료 참여자 현황 */
-  participants: (groupBuyId: Id) =>
-    api.getPage<Participant>(`/sellers/group-buys/${groupBuyId}/participants`),
+  participants: (groupBuyId: Id, params: PageParams = {}) =>
+    api.getPage<Participant>(`/sellers/group-buys/${groupBuyId}/participants`, {
+      query: { ...params },
+    }),
 
   /** GRP-10 판매자 귀책 판매 철회. 사유가 필수입니다. */
   withdraw: (groupBuyId: Id, reason: string) =>
