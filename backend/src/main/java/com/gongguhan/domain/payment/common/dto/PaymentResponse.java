@@ -1,7 +1,7 @@
 package com.gongguhan.domain.payment.common.dto;
 
-import com.gongguhan.domain.groupbuy.entity.GroupBuy;
 import com.gongguhan.domain.payment.common.entity.Payment;
+import com.gongguhan.domain.payment.common.port.GroupBuySlotPort;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
@@ -23,10 +23,11 @@ public record PaymentResponse(
     ) {
     }
 
-    public static PaymentResponse from(Payment payment, GroupBuy groupBuy, LocalDateTime now) {
+    public static PaymentResponse from(Payment payment, GroupBuySlotPort.GroupBuySlot groupBuySlot,
+                                        LocalDateTime now) {
         AmountResponse amount = new AmountResponse(
-                groupBuy.getUnitShareAmount(),
-                groupBuy.getShippingFee(),
+                groupBuySlot.unitShareAmount(),
+                groupBuySlot.shippingFee(),
                 payment.getKrwAmount(),
                 "KRW");
         long remainingSeconds = Math.max(0,

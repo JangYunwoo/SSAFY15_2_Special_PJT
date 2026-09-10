@@ -4,21 +4,22 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.gongguhan.domain.escrow.repository.EscrowRepository;
 import com.gongguhan.domain.groupbuy.entity.GroupBuy;
 import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
 import com.gongguhan.domain.groupbuy.service.GroupBuySlotGate;
-import com.gongguhan.domain.participation.entity.Participation;
-import com.gongguhan.domain.participation.repository.ParticipationRepository;
 import com.gongguhan.domain.payment.common.dto.PaymentPrepareRequest;
 import com.gongguhan.domain.payment.common.dto.PaymentResponse;
 import com.gongguhan.domain.payment.common.entity.Payment;
+import com.gongguhan.domain.payment.common.port.EscrowWriterPort;
+import com.gongguhan.domain.payment.common.port.GroupBuySlotPort;
+import com.gongguhan.domain.payment.common.port.ParticipationWriterPort;
 import com.gongguhan.domain.payment.common.repository.PaymentRepository;
 import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
@@ -41,25 +43,34 @@ class PaymentServiceTest {
     private static final String IDEMPOTENCY_KEY = "idem-key-1";
 
     private GroupBuyRepository groupBuyRepository;
-    private ParticipationRepository participationRepository;
-    private EscrowRepository escrowRepository;
     private PaymentRepository paymentRepository;
     private GroupBuySlotGate groupBuySlotGate;
+    private GroupBuySlotPort groupBuySlotPort;
+    private ParticipationWriterPort participationWriterPort;
+    private EscrowWriterPort escrowWriterPort;
     private PaymentSlotReservationTransaction slotReservationTransaction;
     private PaymentService paymentService;
 
     @BeforeEach
     void setUp() {
         groupBuyRepository = mock(GroupBuyRepository.class);
-        participationRepository = mock(ParticipationRepository.class);
-        escrowRepository = mock(EscrowRepository.class);
         paymentRepository = mock(PaymentRepository.class);
         groupBuySlotGate = mock(GroupBuySlotGate.class);
+        groupBuySlotPort = mock(GroupBuySlotPort.class);
+        participationWriterPort = mock(ParticipationWriterPort.class);
+        escrowWriterPort = mock(EscrowWriterPort.class);
         slotReservationTransaction = mock(PaymentSlotReservationTransaction.class);
         Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
         paymentService = new PaymentService(
-                groupBuyRepository, participationRepository, escrowRepository,
-                paymentRepository, groupBuySlotGate, slotReservationTransaction, clock);
+                groupBuyRepository, paymentRepository, groupBuySlotGate,
+                groupBuySlotPort, participationWriterPort, escrowWriterPort,
+                slotReservationTransaction, clock);
+    }
+
+    private GroupBuySlotPort.GroupBuySlot slotView() {
+        return new GroupBuySlotPort.GroupBuySlot(
+                GROUP_BUY_ID, 50000L, 3000L, 50, 0, 0,
+                LocalDateTime.now(), GroupBuy.STATUS_RECRUITING);
     }
 
     private PaymentPrepareRequest cardRequest() {
@@ -76,8 +87,7 @@ class PaymentServiceTest {
         when(existing.isProcessing()).thenReturn(true);
         when(existing.getSlotExpiresAt()).thenReturn(java.time.LocalDateTime.now());
         when(paymentRepository.findByIdempotencyKey(IDEMPOTENCY_KEY)).thenReturn(Optional.of(existing));
-        GroupBuy groupBuy = mock(GroupBuy.class);
-        when(groupBuyRepository.findById(GROUP_BUY_ID)).thenReturn(Optional.of(groupBuy));
+        when(groupBuySlotPort.get(GROUP_BUY_ID)).thenReturn(slotView());
 
         paymentService.prepare(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY);
 
@@ -252,12 +262,10 @@ class PaymentServiceTest {
         when(payment.isProcessing()).thenReturn(true);
         when(payment.getGroupBuyId()).thenReturn(GROUP_BUY_ID);
         when(paymentRepository.findByPaymentIdAndUserId(PAYMENT_ID, USER_ID)).thenReturn(Optional.of(payment));
-        GroupBuy groupBuy = mock(GroupBuy.class);
-        when(groupBuyRepository.findWithLockByGroupBuyId(GROUP_BUY_ID)).thenReturn(Optional.of(groupBuy));
 
         paymentService.abort(USER_ID, PAYMENT_ID);
 
-        verify(groupBuy).releaseSlot();
+        verify(groupBuySlotPort).release(GROUP_BUY_ID);
         verify(groupBuySlotGate).release(GROUP_BUY_ID);
         verify(payment).markFailed("USER_ABORTED");
     }
@@ -281,7 +289,7 @@ class PaymentServiceTest {
 
         paymentService.expireSlotIfDue(PAYMENT_ID);
 
-        verify(groupBuyRepository, never()).findWithLockByGroupBuyId(any());
+        verify(groupBuySlotPort, never()).release(any());
     }
 
     @Test
@@ -292,7 +300,7 @@ class PaymentServiceTest {
 
         paymentService.expireSlotIfDue(PAYMENT_ID);
 
-        verify(groupBuyRepository, never()).findWithLockByGroupBuyId(any());
+        verify(groupBuySlotPort, never()).release(any());
         verify(payment, never()).markExpired();
     }
 
@@ -305,7 +313,7 @@ class PaymentServiceTest {
 
         paymentService.expireSlotIfDue(PAYMENT_ID);
 
-        verify(groupBuyRepository, never()).findWithLockByGroupBuyId(any());
+        verify(groupBuySlotPort, never()).release(any());
         verify(payment, never()).markExpired();
     }
 
@@ -316,12 +324,10 @@ class PaymentServiceTest {
         when(payment.isExpired(any())).thenReturn(true);
         when(payment.getGroupBuyId()).thenReturn(GROUP_BUY_ID);
         when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
-        GroupBuy groupBuy = mock(GroupBuy.class);
-        when(groupBuyRepository.findWithLockByGroupBuyId(GROUP_BUY_ID)).thenReturn(Optional.of(groupBuy));
 
         paymentService.expireSlotIfDue(PAYMENT_ID);
 
-        verify(groupBuy).releaseSlot();
+        verify(groupBuySlotPort).release(GROUP_BUY_ID);
         verify(groupBuySlotGate).release(GROUP_BUY_ID);
         verify(payment).markExpired();
     }
@@ -333,12 +339,74 @@ class PaymentServiceTest {
         when(payment.isExpired(any())).thenReturn(true);
         when(payment.getGroupBuyId()).thenReturn(GROUP_BUY_ID);
         when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
-        when(groupBuyRepository.findWithLockByGroupBuyId(GROUP_BUY_ID)).thenReturn(Optional.empty());
+        when(groupBuySlotPort.release(GROUP_BUY_ID)).thenThrow(
+                new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "공동구매를 찾을 수 없습니다."));
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> paymentService.expireSlotIfDue(PAYMENT_ID));
 
         assertEquals(ErrorCode.RESOURCE_NOT_FOUND, exception.getErrorCode());
         verify(payment, never()).markExpired();
+    }
+
+    private PaymentService.ParticipationSnapshot snapshot() {
+        return new PaymentService.ParticipationSnapshot(
+                "홍길동", "010-1234-5678", "06236", "서울시 강남구", "101동 101호");
+    }
+
+    @Test
+    void completePaymentFailsWhenAlreadyProcessed() {
+        Payment payment = mock(Payment.class);
+        when(payment.isProcessing()).thenReturn(false);
+        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> paymentService.completePayment(PAYMENT_ID, snapshot()));
+
+        assertEquals(ErrorCode.PAYMENT_ALREADY_PROCESSED, exception.getErrorCode());
+        verify(groupBuySlotPort, never()).confirm(any());
+    }
+
+    @Test
+    void completePaymentFailsWhenSlotExpired() {
+        Payment payment = mock(Payment.class);
+        when(payment.isProcessing()).thenReturn(true);
+        when(payment.isExpired(any())).thenReturn(true);
+        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> paymentService.completePayment(PAYMENT_ID, snapshot()));
+
+        assertEquals(ErrorCode.PAYMENT_SLOT_EXPIRED, exception.getErrorCode());
+        verify(groupBuySlotPort, never()).confirm(any());
+    }
+
+    @Test
+    void completePaymentConfirmsSlotCreatesParticipationHoldsEscrowAndMarksPaid() {
+        Payment payment = mock(Payment.class);
+        when(payment.isProcessing()).thenReturn(true);
+        when(payment.isExpired(any())).thenReturn(false);
+        when(payment.getGroupBuyId()).thenReturn(GROUP_BUY_ID);
+        when(payment.getUserId()).thenReturn(USER_ID);
+        when(payment.getKrwAmount()).thenReturn(53000L);
+        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
+        when(groupBuySlotPort.confirm(GROUP_BUY_ID)).thenReturn(slotView());
+        ParticipationWriterPort.ParticipationRecord participationRecord =
+                new ParticipationWriterPort.ParticipationRecord(300L, GROUP_BUY_ID, USER_ID);
+        when(participationWriterPort.create(any())).thenReturn(participationRecord);
+
+        paymentService.completePayment(PAYMENT_ID, snapshot());
+
+        ArgumentCaptor<ParticipationWriterPort.ParticipationCreateCommand> commandCaptor =
+                ArgumentCaptor.forClass(ParticipationWriterPort.ParticipationCreateCommand.class);
+        verify(participationWriterPort).create(commandCaptor.capture());
+        ParticipationWriterPort.ParticipationCreateCommand command = commandCaptor.getValue();
+        assertEquals(GROUP_BUY_ID, command.groupBuyId());
+        assertEquals(USER_ID, command.userId());
+        assertEquals(53000L, command.totalAmount());
+        assertEquals("홍길동", command.recipientName());
+
+        verify(escrowWriterPort).hold(eq(300L), eq(GROUP_BUY_ID), eq(53000L), any());
+        verify(payment).markPaid(300L);
     }
 }
