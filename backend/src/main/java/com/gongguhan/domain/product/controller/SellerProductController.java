@@ -1,7 +1,9 @@
 package com.gongguhan.domain.product.controller;
 
 import com.gongguhan.domain.product.dto.ProductResponse;
+import com.gongguhan.domain.product.dto.AiExtractionResponse;
 import com.gongguhan.domain.product.dto.ProductUpsertRequest;
+import com.gongguhan.domain.product.service.AiExtractionService;
 import com.gongguhan.domain.product.service.ProductService;
 import com.gongguhan.global.common.ApiResponse;
 import com.gongguhan.global.common.PageResponse;
@@ -31,9 +33,19 @@ import org.springframework.web.multipart.MultipartFile;
 public class SellerProductController {
 
     private final ProductService productService;
+    private final AiExtractionService aiExtractionService;
 
-    public SellerProductController(ProductService productService) {
+    public SellerProductController(ProductService productService, AiExtractionService aiExtractionService) {
         this.productService = productService;
+        this.aiExtractionService = aiExtractionService;
+    }
+
+    @PostMapping(path = "/ai-extraction", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<AiExtractionResponse>> extract(
+            @RequestPart("images") List<MultipartFile> images,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(ApiResponse.success(
+                aiExtractionService.extract(images), TraceIdUtils.from(httpRequest)));
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
