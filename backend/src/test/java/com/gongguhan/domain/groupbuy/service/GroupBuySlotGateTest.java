@@ -5,28 +5,34 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 
+@ExtendWith(MockitoExtension.class)
 class GroupBuySlotGateTest {
 
+    @Mock
     private StringRedisTemplate redisTemplate;
+
+    @Mock
     private RedisScript<Long> reserveScript;
+
+    @Mock
     private RedisScript<Long> releaseScript;
+
     private GroupBuySlotGate gate;
 
     @BeforeEach
     void setUp() {
-        redisTemplate = mock(StringRedisTemplate.class);
-        reserveScript = mock(RedisScript.class);
-        releaseScript = mock(RedisScript.class);
         gate = new GroupBuySlotGate(redisTemplate, reserveScript, releaseScript);
     }
 
