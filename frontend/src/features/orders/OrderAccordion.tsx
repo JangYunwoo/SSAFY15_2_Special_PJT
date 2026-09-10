@@ -1,14 +1,16 @@
 import { useId, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router'
 
-import { PARTICIPATION_STATUS_DISPLAY } from '@/entities/model'
+import { PARTICIPATION_STATUS_DISPLAY, type EscrowStatus } from '@/entities/model'
 import { participationApi } from '@/entities/participation/api'
-import type { ParticipationSummary } from '@/entities/participation/model'
+import type { Escrow, ParticipationSummary } from '@/entities/participation/model'
+import { participationQueries } from '@/entities/participation/queries'
+import type { IsoDateTime } from '@/shared/api/types'
 import { queryKeys } from '@/shared/api/queryKeys'
 import { toMessage } from '@/shared/api/errors'
 import { cx } from '@/shared/lib/cx'
-import { date, dday, groupBuyNo, number, won } from '@/shared/lib/format'
+import { date, dateTime, dday, groupBuyNo, number, won } from '@/shared/lib/format'
 import { Button } from '@/shared/ui/Button'
 import { DataRow } from '@/shared/ui/DataRow'
 import { StateChip } from '@/shared/ui/StateChip'
@@ -104,9 +106,7 @@ export function OrderAccordion({ item, defaultOpen = false }: OrderAccordionProp
               <DataRow label="구매확정">
                 {date(item.confirmedAt)} · {item.autoConfirmed ? '자동 확정' : '직접 확정'}
               </DataRow>
-              <DataRow label="에스크로">
-                {item.escrowStatus === 'RELEASED' ? '해제 · 판매자 정산 완료' : '보관중'}
-              </DataRow>
+              <EscrowRow participationId={item.id} />
             </>
           )}
         </div>
@@ -149,5 +149,51 @@ export function OrderAccordion({ item, defaultOpen = false }: OrderAccordionProp
         )}
       </div>
     </div>
+  )
+}
+
+/** 상태별 표기. 목록의 escrowStatus 대신 ESC-01 응답을 그대로 씁니다. */
+const ESCROW_LABEL: Record<EscrowStatus, string> = {
+  HELD: '보관중',
+  RELEASED: '해제 · 판매자 정산',
+  REFUNDED: '환불 완료',
+}
+
+/**
+ * 어느 시각을 보여줄지 고릅니다.
+ *
+ * 상태에 따라 의미가 달라지므로 시각만 적으면 보관 시작인지 해제인지
+ * 구분되지 않습니다. 무엇의 시각인지 이름을 함께 돌려줍니다.
+ */
+function escrowMoment(escrow: Escrow): { label: string; at: IsoDateTime } {
+  if (escrow.refundedAt !== null) return { label: '환불', at: escrow.refundedAt }
+  if (escrow.releasedAt !== null) return { label: '해제', at: escrow.releasedAt }
+  return { label: '보관 시작', at: escrow.heldAt }
+}
+
+/**
+ * 에스크로 보관 상태 (ESC-01).
+ *
+ * 펼친 참여 건만 조회합니다. 목록 응답의 escrowStatus 로도 상태는 알 수 있지만,
+ * 보관 금액과 시각은 이 응답에만 있습니다.
+ */
+function EscrowRow({ participationId }: { participationId: string }) {
+  const escrow = useQuery(participationQueries.escrow(participationId))
+
+  if (escrow.isPending) return <DataRow label="에스크로">불러오는 중…</DataRow>
+  if (escrow.isError) {
+    return <DataRow label="에스크로">{toMessage(escrow.error)}</DataRow>
+  }
+
+  const moment = escrowMoment(escrow.data)
+
+  return (
+    <DataRow label="에스크로">
+      {ESCROW_LABEL[escrow.data.status]} · {won(escrow.data.amount)}
+      <br />
+      <span className="small muted">
+        {moment.label} {dateTime(moment.at)}
+      </span>
+    </DataRow>
   )
 }

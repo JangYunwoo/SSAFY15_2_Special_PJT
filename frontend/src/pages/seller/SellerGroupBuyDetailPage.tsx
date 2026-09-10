@@ -5,6 +5,7 @@ import { GROUP_BUY_STATUS_DISPLAY } from '@/entities/model'
 import type { Participant, SellerGroupBuySummary } from '@/entities/groupBuy/model'
 import { groupBuyQueries } from '@/entities/groupBuy/queries'
 import { date, dateTime, groupBuyNo, maskName, won } from '@/shared/lib/format'
+import { sameId } from '@/shared/lib/id'
 import { usePageParam } from '@/shared/lib/hooks/usePageParam'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
 import { ButtonLink } from '@/shared/ui/Button'
@@ -30,9 +31,7 @@ export default function SellerGroupBuyDetailPage() {
    */
   const summary = useQuery({
     ...groupBuyQueries.sellerList(SELLER_LIST_PARAMS),
-    // 공동구매 응답의 id 는 JSON number 로 옵니다(S15P21B205-121). URL 파라미터는
-    // 항상 문자열이라 문자열로 맞춰 비교합니다.
-    select: (result) => result.items.find((item) => String(item.id) === groupBuyId),
+    select: (result) => result.items.find((item) => sameId(item.id, groupBuyId)),
   })
 
   const participants = useQuery(groupBuyQueries.participants(groupBuyId, { page }))
@@ -81,6 +80,7 @@ export default function SellerGroupBuyDetailPage() {
 
             <aside className="sticky">
               <SummaryPanel item={found} />
+              <EscrowPanel groupBuyId={groupBuyId} />
             </aside>
           </div>
         )}
@@ -159,5 +159,41 @@ function ParticipantTable({ items }: { items: readonly Participant[] }) {
         ))}
       </tbody>
     </table>
+  )
+}
+
+/**
+ * ESC-02 이 공동구매의 에스크로 집계.
+ * 보관 중인 돈과 이미 풀린 돈을 나눠 보여줍니다.
+ */
+function EscrowPanel({ groupBuyId }: { groupBuyId: string }) {
+  const escrows = useQuery(groupBuyQueries.escrows(groupBuyId))
+
+  return (
+    <Panel className="mt16" title="에스크로" description="구매확정 전까지 플랫폼이 보관합니다">
+      <QueryBoundary query={escrows}>
+        {(result) => (
+          <>
+            <DataRow label="보관 중">
+              {result.summary.heldCount}건 · {won(result.summary.heldAmount)}
+            </DataRow>
+            <DataRow label="해제 (정산 대상)">
+              {result.summary.releasedCount}건 · {won(result.summary.releasedAmount)}
+            </DataRow>
+            <DataRow label="환불">
+              {result.summary.refundedCount}건 · {won(result.summary.refundedAmount)}
+            </DataRow>
+            <DataRow label="합계">
+              {result.summary.totalCount}건 · {won(result.summary.totalAmount)}
+            </DataRow>
+          </>
+        )}
+      </QueryBoundary>
+
+      <p className="small muted mt16" style={{ marginBottom: 0, lineHeight: 1.8 }}>
+        보관 중인 금액은 구매확정 전이라 아직 정산 대상이 아닙니다. 배송완료 후 7일이 지나면
+        자동으로 확정됩니다.
+      </p>
+    </Panel>
   )
 }

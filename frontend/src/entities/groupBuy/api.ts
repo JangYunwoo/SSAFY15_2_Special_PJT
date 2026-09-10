@@ -1,4 +1,5 @@
 import { api } from '@/shared/api/client'
+import type { GroupBuyEscrow } from '@/entities/participation/model'
 import type { Id, NoContent, PageParams, Paged } from '@/shared/api/types'
 
 import type {
@@ -47,6 +48,10 @@ export const groupBuyApi = {
     api.post<NoContent>(`/sellers/group-buys/${groupBuyId}/cancel`, { reason }),
 
   /** GRP-09 결제 완료 참여자 현황 */
+  /** ESC-02 공동구매별 에스크로 (판매자) */
+  escrows: (groupBuyId: Id) =>
+    api.get<GroupBuyEscrow>(`/sellers/group-buys/${groupBuyId}/escrows`),
+
   participants: (groupBuyId: Id, params: PageParams = {}) =>
     api.getPage<Participant>(`/sellers/group-buys/${groupBuyId}/participants`, {
       query: { ...params },
