@@ -613,6 +613,29 @@ export const handlers = [
     return paged(items, new URL(request.url))
   }),
 
+  /**
+   * GRP-09 참여자 현황.
+   * 공동구매 하나에 목표 인원만큼 참여자를 만들어 페이지 이동을 확인할 수 있게 합니다.
+   */
+  http.get(`${BASE}/sellers/group-buys/:groupBuyId/participants`, async ({ params, request }) => {
+    await delay(150)
+    const summary = db.groupBuys.find((item) => item.id === String(params.groupBuyId))
+    const count = summary?.paidCount ?? 0
+    const names = ['김민수', '이수연', '박정훈', '정하원', '최유진', '한지우', '오세라']
+    const items = Array.from({ length: count }, (_, index) => ({
+      participationId: `${String(params.groupBuyId)}-${String(index + 1)}`,
+      buyerName: names[index % names.length] ?? '참여자',
+      recipientName: names[index % names.length] ?? '참여자',
+      zipcode: '06236',
+      address1: '서울특별시 강남구 테헤란로 152',
+      address2: `${String(101 + index)}동 ${String(1001 + index)}호`,
+      paidAt: iso(-(index + 1) * 3_600_000),
+      amount: (summary?.unitShareAmount ?? 0) + (summary?.shippingFee ?? 0),
+      status: 'PAID',
+    }))
+    return paged(items, new URL(request.url))
+  }),
+
   http.post(`${BASE}/sellers/group-buys/preview`, async ({ request }) => {
     await delay(120)
     const body = (await request.json()) as {
