@@ -49,7 +49,6 @@ function paged(items: readonly unknown[], url: URL) {
   return ok(items.slice(page * size, page * size + size), meta)
 }
 
-
 /**
  * 등록·수정 multipart 요청에서 product 파트(JSON)를 읽습니다.
  * 목에는 파일 저장소가 없으므로 images 파트는 개수만 세어 자리만 만듭니다.
@@ -96,7 +95,12 @@ export const handlers = [
     const body = (await request.json()) as { email: string; nickname: string }
     // AUTH-01 은 계정만 만들고 토큰은 주지 않습니다 (백엔드 SignupResponse).
     return HttpResponse.json(
-      { success: true, data: { id: '101', email: body.email, nickname: body.nickname }, meta: null, traceId: traceId() },
+      {
+        success: true,
+        data: { id: '101', email: body.email, nickname: body.nickname },
+        meta: null,
+        traceId: traceId(),
+      },
       { status: 201 },
     )
   }),
@@ -111,7 +115,11 @@ export const handlers = [
     await delay(250)
     const body = (await request.json()) as Partial<typeof db.me>
     // 이메일과 가입일은 수정 대상이 아닙니다 (USR-02).
-    db.me = { ...db.me, nickname: body.nickname ?? db.me.nickname, phone: body.phone ?? db.me.phone }
+    db.me = {
+      ...db.me,
+      nickname: body.nickname ?? db.me.nickname,
+      phone: body.phone ?? db.me.phone,
+    }
     return ok(db.me)
   }),
   http.get(`${BASE}/sellers/me`, () =>
@@ -504,9 +512,27 @@ export const handlers = [
 
   http.get(`${BASE}/withdrawal-restriction-reasons`, () =>
     ok([
-      { id: '1', code: 'CUSTOM_MADE', description: '주문 제작 상품 · 개봉 시 재판매 불가' },
-      { id: '2', code: 'SEALED_MEDIA', description: '복제 가능한 디지털 콘텐츠 · 포장 훼손' },
-      { id: '3', code: 'PERISHABLE', description: '신선식품 등 재판매가 곤란한 상품' },
+      {
+        id: '1',
+        code: 'CUSTOM_MADE',
+        name: '주문 제작 상품',
+        description: '주문 제작 상품 · 개봉 시 재판매 불가',
+        requiresEvidence: true,
+      },
+      {
+        id: '2',
+        code: 'SEALED_MEDIA',
+        name: '복제 가능한 디지털 콘텐츠',
+        description: '복제 가능한 디지털 콘텐츠 · 포장 훼손',
+        requiresEvidence: false,
+      },
+      {
+        id: '3',
+        code: 'PERISHABLE',
+        name: '신선식품',
+        description: '신선식품 등 재판매가 곤란한 상품',
+        requiresEvidence: true,
+      },
     ]),
   ),
 

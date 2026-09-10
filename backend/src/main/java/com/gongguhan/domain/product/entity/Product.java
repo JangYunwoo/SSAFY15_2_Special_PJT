@@ -4,6 +4,8 @@ import com.gongguhan.global.common.BaseTimeEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -61,14 +63,16 @@ public class Product extends BaseTimeEntity {
     @Column(name = "withdrawal_restricted", nullable = false)
     private boolean withdrawalRestricted;
 
-    @Column(name = "restriction_reason_id")
-    private Long restrictionReasonId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "restriction_reason_id")
+    private WithdrawalRestrictionReason restrictionReason;
 
     @Column(name = "restriction_evidence_url", length = 500)
     private String restrictionEvidenceUrl;
 
     @Column(name = "restriction_review_status", nullable = false, length = 20)
-    private String restrictionReviewStatus;
+    @Enumerated(EnumType.STRING)
+    private RestrictionReviewStatus restrictionReviewStatus;
 
     @Column(name = "restriction_reviewed_by")
     private Long restrictionReviewedBy;
@@ -106,7 +110,7 @@ public class Product extends BaseTimeEntity {
         product.price = price;
         product.aiExtracted = false;
         product.withdrawalRestricted = false;
-        product.restrictionReviewStatus = "NONE";
+        product.restrictionReviewStatus = RestrictionReviewStatus.NONE;
         product.status = STATUS_ACTIVE;
         return product;
     }
@@ -126,6 +130,48 @@ public class Product extends BaseTimeEntity {
         this.color = color;
         this.description = description;
         this.price = price;
+    }
+
+    public void applyRegistrationMetadata(
+            boolean aiExtracted,
+            WithdrawalRestrictionReason restrictionReason,
+            String restrictionEvidenceUrl) {
+        this.aiExtracted = aiExtracted;
+        if (restrictionReason == null) {
+            clearWithdrawalRestriction();
+            return;
+        }
+        this.withdrawalRestricted = true;
+        this.restrictionReason = restrictionReason;
+        this.restrictionEvidenceUrl = normalize(restrictionEvidenceUrl);
+        this.restrictionReviewStatus = RestrictionReviewStatus.PENDING;
+        this.restrictionReviewedBy = null;
+        this.restrictionReviewedAt = null;
+    }
+
+    public void reviewWithdrawalRestriction(Long adminId, RestrictionReviewStatus decision, LocalDateTime reviewedAt) {
+        if (restrictionReviewStatus != RestrictionReviewStatus.PENDING) {
+            throw new IllegalStateException("검토 대기 중인 상품만 승인하거나 반려할 수 있습니다.");
+        }
+        if (decision != RestrictionReviewStatus.APPROVED && decision != RestrictionReviewStatus.REJECTED) {
+            throw new IllegalArgumentException("승인 또는 반려 상태만 지정할 수 있습니다.");
+        }
+        this.restrictionReviewStatus = decision;
+        this.restrictionReviewedBy = adminId;
+        this.restrictionReviewedAt = reviewedAt;
+    }
+
+    private void clearWithdrawalRestriction() {
+        this.withdrawalRestricted = false;
+        this.restrictionReason = null;
+        this.restrictionEvidenceUrl = null;
+        this.restrictionReviewStatus = RestrictionReviewStatus.NONE;
+        this.restrictionReviewedBy = null;
+        this.restrictionReviewedAt = null;
+    }
+
+    private String normalize(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     public void addImage(String imageUrl, int sortOrder, boolean thumbnail) {
@@ -179,6 +225,34 @@ public class Product extends BaseTimeEntity {
 
     public boolean isAiExtracted() {
         return aiExtracted;
+    }
+
+    public boolean isWithdrawalRestricted() {
+        return withdrawalRestricted;
+    }
+
+    public Long getRestrictionReasonId() {
+        return restrictionReason == null ? null : restrictionReason.getReasonId();
+    }
+
+    public String getRestrictionReasonName() {
+        return restrictionReason == null ? null : restrictionReason.getName();
+    }
+
+    public String getRestrictionEvidenceUrl() {
+        return restrictionEvidenceUrl;
+    }
+
+    public RestrictionReviewStatus getRestrictionReviewStatus() {
+        return restrictionReviewStatus;
+    }
+
+    public Long getRestrictionReviewedBy() {
+        return restrictionReviewedBy;
+    }
+
+    public LocalDateTime getRestrictionReviewedAt() {
+        return restrictionReviewedAt;
     }
 
     public String getStatus() {

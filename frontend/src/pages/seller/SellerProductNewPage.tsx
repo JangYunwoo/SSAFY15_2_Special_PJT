@@ -68,6 +68,8 @@ export default function SellerProductNewPage() {
           aiExtracted: ai !== null,
           withdrawalRestrictionReasonId:
             form.restricted === 'RESTRICTED' ? form.reasonId || null : null,
+          restrictionEvidenceUrl:
+            form.restricted === 'RESTRICTED' ? form.evidenceUrl || null : null,
         },
         images.map((image) => image.file),
       ),

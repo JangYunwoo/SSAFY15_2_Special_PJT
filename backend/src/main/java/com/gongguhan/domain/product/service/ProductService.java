@@ -7,10 +7,12 @@ import com.gongguhan.domain.product.entity.Product;
 import com.gongguhan.domain.product.entity.ProductImage;
 import com.gongguhan.domain.product.repository.CategoryRepository;
 import com.gongguhan.domain.product.repository.ProductRepository;
+import com.gongguhan.domain.product.repository.WithdrawalRestrictionReasonRepository;
 import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
 import java.util.ArrayList;
 import java.util.List;
+import java.net.URI;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -26,14 +28,17 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final ProductImageStorage imageStorage;
+    private final WithdrawalRestrictionReasonRepository restrictionReasonRepository;
 
     public ProductService(
             ProductRepository productRepository,
             CategoryRepository categoryRepository,
-            ProductImageStorage imageStorage) {
+            ProductImageStorage imageStorage,
+            WithdrawalRestrictionReasonRepository restrictionReasonRepository) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
         this.imageStorage = imageStorage;
+        this.restrictionReasonRepository = restrictionReasonRepository;
     }
 
     @Transactional
@@ -41,6 +46,8 @@ public class ProductService {
         ensureUsableSeller(sellerId);
         Category category = findCategory(request.categoryId());
         validateImages(images, request.thumbnailIndex(), true);
+        var restrictionReason = findRestrictionReason(
+                request.withdrawalRestrictionReasonId(), request.restrictionEvidenceUrl());
 
         List<ProductImageStorage.StoredImage> storedImages = storeAll(images);
         cleanupOnRollback(storedImages);
@@ -54,6 +61,10 @@ public class ProductService {
                 request.color(),
                 request.description(),
                 request.price());
+        product.applyRegistrationMetadata(
+                request.aiExtracted(),
+                restrictionReason,
+                request.restrictionEvidenceUrl());
         addImages(product, storedImages, request.thumbnailIndex());
         return ProductResponse.from(productRepository.saveAndFlush(product));
     }
@@ -68,6 +79,8 @@ public class ProductService {
         Product product = findOwnedProduct(sellerId, productId);
         ensureNoActiveGroupBuy(productId);
         Category category = findCategory(request.categoryId());
+        var restrictionReason = findRestrictionReason(
+                request.withdrawalRestrictionReasonId(), request.restrictionEvidenceUrl());
 
         product.update(
                 category,
@@ -77,6 +90,10 @@ public class ProductService {
                 request.color(),
                 request.description(),
                 request.price());
+        product.applyRegistrationMetadata(
+                request.aiExtracted(),
+                restrictionReason,
+                request.restrictionEvidenceUrl());
 
         if (replacementImages != null && !replacementImages.isEmpty()) {
             validateImages(replacementImages, request.thumbnailIndex(), false);
@@ -123,6 +140,38 @@ public class ProductService {
     private Product findOwnedProduct(Long sellerId, Long productId) {
         return productRepository.findByProductIdAndSellerIdAndStatus(productId, sellerId, Product.STATUS_ACTIVE)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "상품을 찾을 수 없습니다."));
+    }
+
+    private com.gongguhan.domain.product.entity.WithdrawalRestrictionReason findRestrictionReason(
+            Long reasonId, String evidenceUrl) {
+        if (reasonId == null) {
+            return null;
+        }
+        var reason = restrictionReasonRepository.findById(reasonId)
+                .filter(com.gongguhan.domain.product.entity.WithdrawalRestrictionReason::isActive)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.RESOURCE_NOT_FOUND, "활성 청약철회 제한 사유를 찾을 수 없습니다."));
+        if (reason.isRequiresEvidence() && (evidenceUrl == null || evidenceUrl.isBlank())) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "선택한 제한 사유에는 증빙 URL이 필요합니다.");
+        }
+        validateEvidenceUrl(evidenceUrl);
+        return reason;
+    }
+
+    private void validateEvidenceUrl(String evidenceUrl) {
+        if (evidenceUrl == null || evidenceUrl.isBlank()) {
+            return;
+        }
+        try {
+            URI uri = URI.create(evidenceUrl.trim());
+            if (("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme()))
+                    && uri.getHost() != null) {
+                return;
+            }
+        } catch (IllegalArgumentException ignored) {
+            // 공통 검증 오류로 변환한다.
+        }
+        throw new BusinessException(ErrorCode.VALIDATION_ERROR, "증빙 URL 형식이 올바르지 않습니다.");
     }
 
     private void ensureNoActiveGroupBuy(Long productId) {

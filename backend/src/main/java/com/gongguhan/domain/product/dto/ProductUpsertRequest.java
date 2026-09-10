@@ -14,6 +14,9 @@ public record ProductUpsertRequest(
         @Size(max = 50) String color,
         String description,
         @Positive long price,
-        @PositiveOrZero int thumbnailIndex
+        @PositiveOrZero int thumbnailIndex,
+        boolean aiExtracted,
+        Long withdrawalRestrictionReasonId,
+        @Size(max = 500) String restrictionEvidenceUrl
 ) {
 }

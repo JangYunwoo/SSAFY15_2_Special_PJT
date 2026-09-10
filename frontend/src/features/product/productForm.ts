@@ -10,6 +10,7 @@ export interface ProductFormState {
   description: string
   restricted: 'NONE' | 'RESTRICTED'
   reasonId: string
+  evidenceUrl: string
 }
 
 export const EMPTY_PRODUCT_FORM: ProductFormState = {
@@ -22,6 +23,7 @@ export const EMPTY_PRODUCT_FORM: ProductFormState = {
   description: '',
   restricted: 'NONE',
   reasonId: '',
+  evidenceUrl: '',
 }
 
 /** 필수 항목이 모두 찼는지 (이미지 여부는 화면마다 달라 여기서 보지 않습니다) */
@@ -30,6 +32,7 @@ export function isProductFormReady(form: ProductFormState): boolean {
     form.name.trim() !== '' &&
     form.description.trim() !== '' &&
     form.categoryId !== '' &&
-    Number(form.price) > 0
+    Number(form.price) > 0 &&
+    (form.restricted === 'NONE' || form.reasonId !== '')
   )
 }

@@ -8,10 +8,7 @@ import type { Product } from '@/entities/product/model'
 import { productQueries } from '@/entities/product/queries'
 import { ImageUploader, type PickedImage } from '@/features/product/ImageUploader'
 import { ProductFields } from '@/features/product/ProductFields'
-import {
-  isProductFormReady,
-  type ProductFormState,
-} from '@/features/product/productForm'
+import { isProductFormReady, type ProductFormState } from '@/features/product/productForm'
 import { toMessage } from '@/shared/api/errors'
 import { queryKeys } from '@/shared/api/queryKeys'
 import type { SubmitHandlerEvent } from '@/shared/lib/dom'
@@ -33,6 +30,7 @@ function toFormState(product: Product): ProductFormState {
     description: product.description,
     restricted: product.withdrawalRestrictionReasonId === null ? 'NONE' : 'RESTRICTED',
     reasonId: product.withdrawalRestrictionReasonId ?? '',
+    evidenceUrl: product.restrictionEvidenceUrl ?? '',
   }
 }
 
@@ -70,7 +68,8 @@ function EditForm({ product }: { product: Product }) {
     setForm((current) => ({ ...current, ...next }))
   }
 
-  const refreshList = () => queryClient.invalidateQueries({ queryKey: queryKeys.sellerProducts.all })
+  const refreshList = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.sellerProducts.all })
 
   const update = useMutation({
     mutationFn: () =>
@@ -88,6 +87,8 @@ function EditForm({ product }: { product: Product }) {
           aiExtracted: product.aiExtracted,
           withdrawalRestrictionReasonId:
             form.restricted === 'RESTRICTED' ? form.reasonId || null : null,
+          restrictionEvidenceUrl:
+            form.restricted === 'RESTRICTED' ? form.evidenceUrl || null : null,
         },
         images.map((image) => image.file),
       ),
