@@ -18,7 +18,8 @@ export const authApi = {
   /** AUTH-02 통합 로그인 */
   login: (body: LoginRequest) => api.post<AuthTokens>('/auth/login', body),
   /** AUTH-03 */
-  refresh: (refreshToken: string) => api.post<AuthTokens>('/auth/refresh', { refreshToken }),
+  refresh: (refreshToken: string) =>
+    api.post<AuthTokens>('/auth/refresh', { refreshToken }, { skipRefresh: true }),
   /** AUTH-04 */
   logout: () => api.post<NoContent>('/auth/logout'),
 
