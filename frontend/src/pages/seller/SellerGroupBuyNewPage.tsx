@@ -4,12 +4,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router'
 
 import { groupBuyApi } from '@/entities/groupBuy/api'
+import { groupBuyQueries } from '@/entities/groupBuy/queries'
 import { productQueries } from '@/entities/product/queries'
 import { toMessage } from '@/shared/api/errors'
 import { queryKeys } from '@/shared/api/queryKeys'
 import { calculateAmounts, POLICY_DEFAULTS } from '@/shared/config/policy'
 import { number, percent, won } from '@/shared/lib/format'
 import type { SubmitHandlerEvent } from '@/shared/lib/dom'
+import { useDebouncedValue } from '@/shared/lib/hooks/useDebouncedValue'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
 import { Button } from '@/shared/ui/Button'
 import { DataRow, TotalRow } from '@/shared/ui/DataRow'
@@ -107,15 +109,45 @@ function GroupBuyForm({
   )
 
   /**
-   * 입력할 때마다 서버(GRP-03)를 부르지 않고 같은 공식으로 미리 계산합니다.
-   * 최종 금액은 생성 시 서버가 확정합니다.
+   * GRP-03. 입력이 멈춘 뒤 서버에 금액을 물어봅니다.
+   *
+   * 예전에는 policy.ts 의 같은 공식으로 화면에서 계산했는데, 서버와 어긋나면
+   * 판매자가 본 금액과 실제 청구·정산액이 달라집니다. 금액은 서버가 확정합니다.
    */
-  const breakdown = useMemo(() => calculateAmounts(terms), [terms])
-  /** 반품 1건이 생겼을 때의 정산액 */
-  const afterOneReturn = useMemo(
-    () => calculateAmounts(terms, { confirmedCount: Math.max(0, terms.targetCount - 1) }),
-    [terms],
-  )
+  const debounced = useDebouncedValue(terms, 300)
+  const canPreview =
+    selectedId !== '' &&
+    debounced.productPrice > 0 &&
+    debounced.targetCount >= POLICY_DEFAULTS.minTargetCount
+
+  const previewQuery = useQuery({
+    ...groupBuyQueries.preview({ productId: selectedId, ...debounced }),
+    enabled: canPreview,
+  })
+  const preview = previewQuery.data
+
+  /**
+   * 반품 1건이 생겼을 때의 정산액.
+   * 서버 미리보기는 전원 구매확정 기준만 주므로 이 가정만 화면에서 계산하되,
+   * 수수료율은 서버가 알려준 값을 씁니다.
+   */
+  const afterOneReturn = useMemo(() => {
+    if (preview === undefined) return undefined
+    return calculateAmounts(
+      {
+        productPrice: preview.productPrice,
+        targetCount: preview.targetCount,
+        shippingFee: preview.shippingFee,
+      },
+      {
+        confirmedCount: Math.max(0, preview.targetCount - 1),
+        platformFeeRate: preview.platformFeeRate,
+      },
+    )
+  }, [preview])
+
+  /** 서버 값이 아직 없으면 숫자 대신 줄표를 보여줍니다. */
+  const amount = (value: number | undefined): string => (value === undefined ? '—' : won(value))
 
   const create = useMutation({
     mutationFn: () => {
@@ -244,9 +276,11 @@ function GroupBuyForm({
         >
           <DataRow label="상품 가격">{won(terms.productPrice)}</DataRow>
           <DataRow label="목표 모집 인원">{terms.targetCount}명</DataRow>
-          <DataRow label="상품 분담금">{won(breakdown.unitShareAmount)}</DataRow>
+          <DataRow label="상품 분담금">{amount(preview?.unitShareAmount)}</DataRow>
           <DataRow label="배송비 (참여자 부담)">{won(terms.shippingFee)}</DataRow>
-          <TotalRow label="개인 결제금액">{won(breakdown.totalAmount)}</TotalRow>
+          <TotalRow label="개인 결제금액">
+            {amount(preview && preview.unitShareAmount + preview.shippingFee)}
+          </TotalRow>
 
           <div className="notice">
             <div className="notice-head">예상 정산 · 전원 구매확정 기준</div>
@@ -257,9 +291,11 @@ function GroupBuyForm({
                 </>
               }
             >
-              {won(breakdown.unitShareAmount * terms.targetCount)}
+              {amount(preview && preview.unitShareAmount * preview.targetCount)}
             </DataRow>
-            <DataRow label="배송비 합계">{won(terms.shippingFee * terms.targetCount)}</DataRow>
+            <DataRow label="배송비 합계">
+              {amount(preview && preview.shippingFee * preview.targetCount)}
+            </DataRow>
             <DataRow
               label={
                 <>
@@ -267,26 +303,34 @@ function GroupBuyForm({
                 </>
               }
             >
-              {won(breakdown.roundingSurplus)}
+              {amount(preview?.roundingSurplus)}
             </DataRow>
             <DataRow
               label={
                 <>
                   플랫폼 수수료{' '}
-                  <span className="small muted">분담금의 {percent(breakdown.platformFeeRate)}</span>
+                  <span className="small muted">
+                    분담금의 {preview ? percent(preview.platformFeeRate) : '—'}
+                  </span>
                 </>
               }
             >
-              − {won(breakdown.estimatedPlatformFee)}
+              − {amount(preview?.estimatedPlatformFee)}
             </DataRow>
-            <TotalRow label="예상 정산금액">{won(breakdown.estimatedSettlementAmount)}</TotalRow>
+            <TotalRow label="예상 정산금액">{amount(preview?.estimatedSettlementAmount)}</TotalRow>
 
             <p className="small muted mt16" style={{ lineHeight: 1.8, marginBottom: 0 }}>
               반품이 발생하면 해당 건은 정산에서 제외됩니다.
               <br />
-              반품 1건 발생 시 정산금액 <b>{won(afterOneReturn.estimatedSettlementAmount)}</b>
+              반품 1건 발생 시 정산금액 <b>{amount(afterOneReturn?.estimatedSettlementAmount)}</b>
             </p>
           </div>
+
+          {previewQuery.isError && (
+            <p className="ai-hint" role="alert">
+              금액을 불러오지 못했습니다. {toMessage(previewQuery.error)}
+            </p>
+          )}
 
           {create.isError && (
             <p className="ai-hint" role="alert">
