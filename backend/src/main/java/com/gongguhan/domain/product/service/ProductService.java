@@ -1,6 +1,7 @@
 package com.gongguhan.domain.product.service;
 
 import com.gongguhan.domain.account.repository.SellerProfileRepository;
+import com.gongguhan.domain.groupbuy.entity.GroupBuy;
 import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
 import com.gongguhan.domain.product.dto.ProductResponse;
 import com.gongguhan.domain.product.dto.ProductUpsertRequest;
@@ -12,9 +13,12 @@ import com.gongguhan.domain.product.repository.ProductRepository;
 import com.gongguhan.domain.product.repository.WithdrawalRestrictionReasonRepository;
 import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
-import java.util.ArrayList;
-import java.util.List;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -134,8 +138,34 @@ public class ProductService {
     }
 
     public Page<ProductResponse> getSellerProducts(Long sellerId, Pageable pageable) {
-        return productRepository.findBySellerIdAndStatus(sellerId, Product.STATUS_ACTIVE, pageable)
-                .map(ProductResponse::from);
+        Page<Product> products =
+                productRepository.findBySellerIdAndStatus(sellerId, Product.STATUS_ACTIVE, pageable);
+        Map<Long, GroupBuy> linkedGroupBuys = findLinkedGroupBuys(products.getContent());
+        return products.map(product -> ProductResponse.from(
+                product, linkedGroupBuys.get(product.getProductId())));
+    }
+
+    public ProductResponse getSellerProduct(Long sellerId, Long productId) {
+        ensureUsableSeller(sellerId);
+        Product product = findOwnedProduct(sellerId, productId);
+        var linked = groupBuyRepository
+                .findFirstByProductIdAndStatusInOrderByGroupBuyIdDesc(
+                        productId, ACTIVE_GROUP_BUY_STATUSES)
+                .orElse(null);
+        return ProductResponse.from(product, linked);
+    }
+
+    private Map<Long, GroupBuy> findLinkedGroupBuys(List<Product> products) {
+        if (products.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> productIds = products.stream().map(Product::getProductId).toList();
+        Map<Long, GroupBuy> result = new HashMap<>();
+        groupBuyRepository.findByProductIdInAndStatusIn(productIds, ACTIVE_GROUP_BUY_STATUSES)
+                .stream()
+                .sorted(Comparator.comparing(GroupBuy::getGroupBuyId).reversed())
+                .forEach(groupBuy -> result.putIfAbsent(groupBuy.getProductId(), groupBuy));
+        return result;
     }
 
     private void ensureUsableSeller(Long sellerId) {
@@ -147,7 +177,7 @@ public class ProductService {
     }
 
     private Category findCategory(Long categoryId) {
-        return categoryRepository.findById(categoryId)
+        return categoryRepository.findByCategoryIdAndActiveTrue(categoryId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "카테고리를 찾을 수 없습니다."));
     }
 

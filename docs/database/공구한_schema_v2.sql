@@ -141,6 +141,7 @@ CREATE TABLE categories (
     name        VARCHAR(50) NOT NULL,
     depth       INT         NOT NULL DEFAULT 1,
     sort_order  INT         NOT NULL DEFAULT 0,
+    active      BOOLEAN     NOT NULL DEFAULT TRUE,
     PRIMARY KEY (category_id),
     KEY idx_categories_parent (parent_id, sort_order),
     CONSTRAINT fk_categories_parent
@@ -838,6 +839,30 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- =====================================================================
 -- 초기 데이터
 -- =====================================================================
+
+-- 상품 카테고리
+INSERT INTO categories
+    (category_id, parent_id, name, depth, sort_order, active) VALUES
+    (10001, NULL, '디지털기기',       1,  1, TRUE),
+    (10002, NULL, '생활가전',         1,  2, TRUE),
+    (10003, NULL, '가구/인테리어',    1,  3, TRUE),
+    (10004, NULL, '생활/주방',        1,  4, TRUE),
+    (10005, NULL, '유아동',           1,  5, TRUE),
+    (10006, NULL, '유아도서',         1,  6, TRUE),
+    (10007, NULL, '여성의류',         1,  7, TRUE),
+    (10008, NULL, '여성잡화',         1,  8, TRUE),
+    (10009, NULL, '남성패션/잡화',    1,  9, TRUE),
+    (10010, NULL, '뷰티/미용',        1, 10, TRUE),
+    (10011, NULL, '스포츠/레저',      1, 11, TRUE),
+    (10012, NULL, '취미/게임/음반',   1, 12, TRUE),
+    (10013, NULL, '도서',             1, 13, TRUE),
+    (10014, NULL, '티켓/교환권',      1, 14, TRUE),
+    (10015, NULL, 'e쿠폰',            1, 15, TRUE),
+    (10016, NULL, '가공식품',         1, 16, TRUE),
+    (10017, NULL, '건강기능식품',     1, 17, TRUE),
+    (10018, NULL, '반려동물용품',     1, 18, TRUE),
+    (10019, NULL, '식물',             1, 19, TRUE),
+    (10020, NULL, '기타',             1, 20, TRUE);
 
 -- 청약철회 제한 사유
 INSERT INTO withdrawal_restriction_reasons

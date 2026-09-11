@@ -1,6 +1,9 @@
 package com.gongguhan.domain.product.dto;
 
 import com.gongguhan.domain.product.entity.Product;
+import com.gongguhan.domain.groupbuy.entity.GroupBuy;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 public record ProductResponse(
@@ -21,10 +24,17 @@ public record ProductResponse(
         String restrictionEvidenceUrl,
         String restrictionReviewStatus,
         String status,
-        List<ProductImageResponse> images
+        List<ProductImageResponse> images,
+        String linkedGroupBuyId,
+        String linkedGroupBuyStatus,
+        OffsetDateTime createdAt
 ) {
 
     public static ProductResponse from(Product product) {
+        return from(product, null);
+    }
+
+    public static ProductResponse from(Product product, GroupBuy linkedGroupBuy) {
         return new ProductResponse(
                 product.getProductId() == null ? null : String.valueOf(product.getProductId()),
                 String.valueOf(product.getSellerId()),
@@ -43,6 +53,10 @@ public record ProductResponse(
                 product.getRestrictionEvidenceUrl(),
                 product.getRestrictionReviewStatus().name(),
                 product.getStatus(),
-                product.getImages().stream().map(ProductImageResponse::from).toList());
+                product.getImages().stream().map(ProductImageResponse::from).toList(),
+                linkedGroupBuy == null ? null : String.valueOf(linkedGroupBuy.getGroupBuyId()),
+                linkedGroupBuy == null ? null : linkedGroupBuy.getStatus(),
+                product.getCreatedAt() == null ? null
+                        : product.getCreatedAt().atOffset(ZoneOffset.UTC));
     }
 }

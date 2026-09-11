@@ -13,7 +13,7 @@ import type {
   Payment,
   PreparePaymentRequest,
 } from '@/entities/payment/model'
-import type { AiExtraction } from '@/entities/product/model'
+import type { AiExtraction, Product } from '@/entities/product/model'
 import type { ReturnPreview, ReturnPreviewRequest } from '@/entities/returnRequest/model'
 import type { SettlementDetail } from '@/entities/settlement/model'
 import { isSellerFault } from '@/entities/model'
@@ -62,6 +62,23 @@ async function readUpsert(request: Request): Promise<Record<string, unknown>> {
   return files.length === 0
     ? parsed
     : { ...parsed, images: files.map((_, index) => `mock://image-${String(index + 1)}`) }
+}
+
+/** 프론트 화면 모델을 실제 백엔드 ProductResponse 계약으로 바꿉니다. */
+function productResponse(product: Product) {
+  const { id, images, ...fields } = product
+  return {
+    ...fields,
+    productId: id,
+    sellerId: '201',
+    status: 'ACTIVE',
+    images: images.map((imageUrl, index) => ({
+      imageId: String(index + 1),
+      imageUrl,
+      sortOrder: index,
+      thumbnail: index === 0,
+    })),
+  }
 }
 
 /** 필요 컨펌 수. Quote 응답과 같은 값을 씁니다. */
@@ -531,13 +548,13 @@ export const handlers = [
   /* ---------- 판매자 상품 ---------- */
   http.get(`${BASE}/sellers/products`, async ({ request }) => {
     await delay(150)
-    return paged(db.products, new URL(request.url))
+    return paged(db.products.map(productResponse), new URL(request.url))
   }),
   http.get(`${BASE}/sellers/products/:productId`, async ({ params }) => {
     await delay(150)
     const found = db.products.find((item) => item.id === String(params.productId))
     if (found === undefined) return fail(404, 'RESOURCE_NOT_FOUND', '상품을 찾을 수 없습니다.')
-    return ok(found)
+    return ok(productResponse(found))
   }),
 
   /**
@@ -558,10 +575,10 @@ export const handlers = [
       createdAt: new Date().toISOString(),
     }
     db.products.unshift(created)
-    return ok(created)
+    return ok(productResponse(created))
   }),
 
-  http.put(`${BASE}/sellers/products/:productId`, async ({ params, request }) => {
+  http.patch(`${BASE}/sellers/products/:productId`, async ({ params, request }) => {
     await delay(400)
     const index = db.products.findIndex((item) => item.id === String(params.productId))
     const current = db.products[index]
@@ -572,7 +589,7 @@ export const handlers = [
     }
     const updated = { ...current, ...(await readUpsert(request)) }
     db.products[index] = updated
-    return ok(updated)
+    return ok(productResponse(updated))
   }),
 
   http.delete(`${BASE}/sellers/products/:productId`, async ({ params }) => {

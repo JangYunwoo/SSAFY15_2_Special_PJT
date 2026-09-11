@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.gongguhan.domain.account.repository.SellerProfileRepository;
+import com.gongguhan.domain.groupbuy.entity.GroupBuy;
 import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
 import com.gongguhan.domain.product.dto.ProductUpsertRequest;
 import com.gongguhan.domain.product.entity.Category;
@@ -52,7 +53,7 @@ class ProductServiceTest {
     void createStoresImagesAndAssignsExactlyOneThumbnail() {
         Category category = category(1L, "가전");
         allowSeller();
-        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        when(categoryRepository.findByCategoryIdAndActiveTrue(1L)).thenReturn(Optional.of(category));
         when(imageStorage.store(any())).thenReturn(
                 new ProductImageStorage.StoredImage("one.jpg", "/api/v1/product-images/one.jpg"),
                 new ProductImageStorage.StoredImage("two.png", "/api/v1/product-images/two.png"));
@@ -97,10 +98,43 @@ class ProductServiceTest {
     }
 
     @Test
+    void sellerCanReadOnlyAnOwnedActiveProduct() {
+        Product product = Product.create(
+                10L, category(1L, "가전"), "상품", null, null, null, null, 1000L);
+        allowSeller();
+        when(productRepository.findByProductIdAndSellerIdAndStatus(
+                1L, 10L, Product.STATUS_ACTIVE)).thenReturn(Optional.of(product));
+        GroupBuy linkedGroupBuy = mock(GroupBuy.class);
+        when(linkedGroupBuy.getGroupBuyId()).thenReturn(30L);
+        when(linkedGroupBuy.getStatus()).thenReturn(GroupBuy.STATUS_RECRUITING);
+        when(groupBuyRepository.findFirstByProductIdAndStatusInOrderByGroupBuyIdDesc(
+                any(), any())).thenReturn(Optional.of(linkedGroupBuy));
+
+        var response = productService.getSellerProduct(10L, 1L);
+
+        assertEquals("상품", response.name());
+        assertEquals("30", response.linkedGroupBuyId());
+        assertEquals(GroupBuy.STATUS_RECRUITING, response.linkedGroupBuyStatus());
+    }
+
+    @Test
+    void sellerCannotReadAnotherSellersProduct() {
+        allowSeller();
+        when(productRepository.findByProductIdAndSellerIdAndStatus(
+                1L, 10L, Product.STATUS_ACTIVE)).thenReturn(Optional.empty());
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> productService.getSellerProduct(10L, 1L));
+
+        assertEquals(ErrorCode.RESOURCE_NOT_FOUND, exception.getErrorCode());
+    }
+
+    @Test
     void invalidThumbnailIndexIsRejectedBeforeUploading() {
         Category category = category(1L, "가전");
         allowSeller();
-        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        when(categoryRepository.findByCategoryIdAndActiveTrue(1L)).thenReturn(Optional.of(category));
 
         BusinessException exception = assertThrows(
                 BusinessException.class,
@@ -115,7 +149,7 @@ class ProductServiceTest {
         Category category = category(1L, "가전");
         var reason = mock(com.gongguhan.domain.product.entity.WithdrawalRestrictionReason.class);
         allowSeller();
-        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        when(categoryRepository.findByCategoryIdAndActiveTrue(1L)).thenReturn(Optional.of(category));
         when(restrictionReasonRepository.findById(3L)).thenReturn(Optional.of(reason));
         when(reason.isActive()).thenReturn(true);
         when(reason.isRequiresEvidence()).thenReturn(true);
@@ -135,7 +169,7 @@ class ProductServiceTest {
     void reviewedAiValuesAreRecordedOnlyWhenProductIsFinallyCreated() {
         Category category = category(1L, "가전");
         allowSeller();
-        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        when(categoryRepository.findByCategoryIdAndActiveTrue(1L)).thenReturn(Optional.of(category));
         when(imageStorage.store(any())).thenReturn(
                 new ProductImageStorage.StoredImage("one.jpg", "/api/v1/product-images/one.jpg"));
         when(productRepository.saveAndFlush(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
