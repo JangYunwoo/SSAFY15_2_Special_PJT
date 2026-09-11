@@ -125,6 +125,8 @@ class SellerGroupBuyIntegrationTest {
         assertThat(saved).hasSize(1);
         assertThat(saved.getFirst().getProductId()).isEqualTo(PRODUCT_ID);
         assertThat(saved.getFirst().getUnitShareAmount()).isEqualTo(50_001L);
+        assertThat(saved.getFirst().getCreatedAt()).isNotNull();
+        assertThat(saved.getFirst().getUpdatedAt()).isNotNull();
         Long expectedSettlementAmount = jdbcTemplate.queryForObject(
                 "SELECT expected_settlement_amount FROM group_buys WHERE group_buy_id = ?",
                 Long.class,
