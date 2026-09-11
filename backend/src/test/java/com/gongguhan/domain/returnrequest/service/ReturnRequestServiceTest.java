@@ -45,7 +45,7 @@ class ReturnRequestServiceTest {
     void setUp() {
         repository = mock(ReturnRequestRepository.class);
         Clock clock = Clock.fixed(Instant.parse("2026-09-11T05:00:00Z"), ZoneOffset.UTC);
-        service = new ReturnRequestService(repository, new BusinessDayCalculator(), clock);
+        service = new ReturnRequestService(repository, new ReturnBusinessDayCalculator(), clock);
     }
 
     @Test
