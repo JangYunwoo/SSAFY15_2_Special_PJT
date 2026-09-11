@@ -67,4 +67,57 @@ class ParticipationTransitionTest {
 
         assertEquals(ErrorCode.INVALID_STATE_TRANSITION, exception.getErrorCode());
     }
+
+    private Participation deliveredParticipation() {
+        Participation participation = paidParticipation();
+        participation.markFulfilled();
+        participation.markShipping();
+        participation.markDelivered(DELIVERED_AT, DELIVERED_AT.plusDays(7), DELIVERED_AT.plusDays(7));
+        return participation;
+    }
+
+    @Test
+    void confirmManuallyMarksConfirmedWithNoticeAgreement() {
+        Participation participation = deliveredParticipation();
+
+        participation.confirmManually(DELIVERED_AT.plusDays(1));
+
+        assertEquals(Participation.STATUS_CONFIRMED, participation.getStatus());
+        assertEquals(Participation.CONFIRM_TYPE_MANUAL, participation.getConfirmType());
+        assertEquals(DELIVERED_AT.plusDays(1), participation.getConfirmedAt());
+        assertEquals(true, participation.isConfirmNoticeAgreed());
+        assertEquals(DELIVERED_AT.plusDays(7), participation.getSettlementEligibleAt());
+    }
+
+    @Test
+    void confirmAutomaticallyMarksConfirmedWithoutNoticeAgreement() {
+        Participation participation = deliveredParticipation();
+
+        participation.confirmAutomatically(DELIVERED_AT.plusDays(7));
+
+        assertEquals(Participation.STATUS_CONFIRMED, participation.getStatus());
+        assertEquals(Participation.CONFIRM_TYPE_AUTO, participation.getConfirmType());
+        assertEquals(false, participation.isConfirmNoticeAgreed());
+    }
+
+    @Test
+    void confirmRejectedBeforeDelivered() {
+        Participation participation = paidParticipation();
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> participation.confirmManually(DELIVERED_AT));
+
+        assertEquals(ErrorCode.INVALID_STATE_TRANSITION, exception.getErrorCode());
+    }
+
+    @Test
+    void confirmRejectedTwice() {
+        Participation participation = deliveredParticipation();
+        participation.confirmManually(DELIVERED_AT.plusDays(1));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> participation.confirmAutomatically(DELIVERED_AT.plusDays(7)));
+
+        assertEquals(ErrorCode.INVALID_STATE_TRANSITION, exception.getErrorCode());
+    }
 }
