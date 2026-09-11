@@ -4,9 +4,9 @@ import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import org.springframework.stereotype.Component;
 
-/** 주말을 제외한 영업일 계산기. 공휴일 캘린더 도입 시 이 경계만 교체한다. */
+/** 주말을 제외한 반품 영업일 계산기. 공휴일 캘린더 도입 시 이 경계만 교체한다. */
 @Component
-public class BusinessDayCalculator {
+public class ReturnBusinessDayCalculator {
 
     public LocalDateTime add(LocalDateTime start, int businessDays) {
         if (businessDays < 0) {
