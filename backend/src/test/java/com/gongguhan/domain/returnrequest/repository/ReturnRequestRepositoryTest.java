@@ -160,7 +160,7 @@ class ReturnRequestRepositoryTest {
                 Boolean.class, PARTICIPATION_ID)).isTrue();
         assertThat(repository.findAdminReviewList(null, null,
                 org.springframework.data.domain.PageRequest.of(0, 20)).getContent())
-                .extracting("id").contains(returnId);
+                .extracting("id").contains(String.valueOf(returnId));
     }
 
     @Test

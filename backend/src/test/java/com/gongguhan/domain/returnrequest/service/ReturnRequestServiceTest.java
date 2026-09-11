@@ -248,7 +248,7 @@ class ReturnRequestServiceTest {
 
     private ReturnDetailResponse detail(String status) {
         ReturnSummaryResponse summary = new ReturnSummaryResponse(
-                RETURN_ID, PARTICIPATION_ID, 31L, "상품", "구매자",
+                String.valueOf(RETURN_ID), String.valueOf(PARTICIPATION_ID), "31", "상품", "구매자",
                 "CHANGE_OF_MIND", "단순 변심", status, 44_000, 6_000,
                 "BUYER", OffsetDateTime.of(NOW, ZoneOffset.UTC), null, false, false);
         return ReturnDetailResponse.from(summary, "06236", "서울시 강남구", "101호", null, List.of());

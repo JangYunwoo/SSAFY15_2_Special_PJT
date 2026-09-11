@@ -1,0 +1,15 @@
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+
+app:
+  slot-gate:
+    # 로컬은 단일 인스턴스이므로 Redis 없이도 결제 시나리오를 점검할 수 있다.
+    # 배포 환경은 이 값을 켜지 않고 Redis Lua 원자성을 사용한다.
+    local-fallback-enabled: true

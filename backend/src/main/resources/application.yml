@@ -2,7 +2,7 @@ spring:
   application:
     name: gongguhan
   profiles:
-    active: local
+    active: ${SPRING_PROFILES_ACTIVE:local}
   servlet:
     multipart:
       max-file-size: 10MB
@@ -91,6 +91,12 @@ management:
     web:
       exposure:
         include: health,info
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
 
 logging:
   level:

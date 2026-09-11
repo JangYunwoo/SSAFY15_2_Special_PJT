@@ -163,8 +163,8 @@ async function unwrap<TData>(method: string, path: string, options?: BodyOptions
 async function unwrapPage<TItem>(path: string, options?: RequestOptions): Promise<Paged<TItem>> {
   const payload = await request<TItem[], PageMeta>('GET', path, options)
   const { data, meta } = payload as { data: TItem[]; meta: PageMeta }
-  // 목록은 첫 항목만 봐도 모양이 드러납니다. 전부 검사하면 로그가 시끄럽습니다.
-  checkContract(options?.schema, data[0], `GET ${path} [0]`)
+  // 목록은 첫 항목만 봐도 모양이 드러납니다. 빈 목록은 검증할 항목 자체가 없습니다.
+  if (data.length > 0) checkContract(options?.schema, data[0], `GET ${path} [0]`)
   return { items: data, meta }
 }
 

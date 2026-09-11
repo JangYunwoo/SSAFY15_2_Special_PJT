@@ -1,6 +1,10 @@
 package com.gongguhan.domain.groupbuy.service;
 
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Component;
@@ -28,13 +32,17 @@ public class GroupBuySlotGate {
     private final StringRedisTemplate redisTemplate;
     private final RedisScript<Long> reserveScript;
     private final RedisScript<Long> releaseScript;
+    private final boolean localFallbackEnabled;
+    private final ConcurrentMap<Long, Integer> localCounts = new ConcurrentHashMap<>();
 
     public GroupBuySlotGate(StringRedisTemplate redisTemplate,
                              RedisScript<Long> groupBuySlotGateScript,
-                             RedisScript<Long> groupBuySlotReleaseScript) {
+                             RedisScript<Long> groupBuySlotReleaseScript,
+                             @Value("${app.slot-gate.local-fallback-enabled:false}") boolean localFallbackEnabled) {
         this.redisTemplate = redisTemplate;
         this.reserveScript = groupBuySlotGateScript;
         this.releaseScript = groupBuySlotReleaseScript;
+        this.localFallbackEnabled = localFallbackEnabled;
     }
 
     /**
@@ -43,6 +51,9 @@ public class GroupBuySlotGate {
      * @return 슬롯이 잠정 승인되면 true, 정원 초과로 거부되면 false
      */
     public boolean tryReserve(Long groupBuyId, int targetParticipants, int dbTruth) {
+        if (localFallbackEnabled) {
+            return tryReserveLocally(groupBuyId, targetParticipants, dbTruth);
+        }
         Long result = redisTemplate.execute(
                 reserveScript,
                 List.of(key(groupBuyId)),
@@ -52,7 +63,24 @@ public class GroupBuySlotGate {
     }
 
     public void release(Long groupBuyId) {
+        if (localFallbackEnabled) {
+            localCounts.computeIfPresent(groupBuyId, (id, count) -> count <= 1 ? null : count - 1);
+            return;
+        }
         redisTemplate.execute(releaseScript, List.of(key(groupBuyId)));
+    }
+
+    private boolean tryReserveLocally(Long groupBuyId, int targetParticipants, int dbTruth) {
+        AtomicBoolean granted = new AtomicBoolean();
+        localCounts.compute(groupBuyId, (id, current) -> {
+            int hydrated = current == null ? dbTruth : current;
+            if (hydrated >= targetParticipants) {
+                return hydrated;
+            }
+            granted.set(true);
+            return hydrated + 1;
+        });
+        return granted.get();
     }
 
     private String key(Long groupBuyId) {
