@@ -10,11 +10,14 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import org.hibernate.annotations.ColumnDefault;
 
 /**
- * 공동구매 슬롯 선점(payment.common)에 필요한 최소 필드만 매핑한다.
- * 공동구매 CRUD(GRP-01~10)는 이 엔티티를 확장해 별도로 구현된다.
+ * 공동구매의 생성 시점 금액 스냅샷과 모집 상태를 함께 관리한다.
+ *
+ * <p>분담금·수수료·정산 예상액은 생성 이후 원상품 가격이 바뀌어도 달라지지 않는다.
  */
 @Entity
 @Table(name = "group_buys")
@@ -35,6 +38,10 @@ public class GroupBuy extends BaseTimeEntity {
     @Column(name = "seller_id", nullable = false)
     private Long sellerId;
 
+    @ColumnDefault("0")
+    @Column(name = "product_price", nullable = false)
+    private long productPrice;
+
     @Column(name = "target_participants", nullable = false)
     private int targetParticipants;
 
@@ -44,11 +51,31 @@ public class GroupBuy extends BaseTimeEntity {
     @Column(name = "shipping_fee", nullable = false)
     private long shippingFee;
 
+    @ColumnDefault("0")
+    @Column(name = "rounding_diff", nullable = false)
+    private long roundingDiff;
+
+    @ColumnDefault("0.0500")
+    @Column(name = "platform_fee_rate", nullable = false, precision = 5, scale = 4)
+    private BigDecimal platformFeeRate;
+
+    @ColumnDefault("0")
+    @Column(name = "expected_platform_fee", nullable = false)
+    private long expectedPlatformFee;
+
+    @ColumnDefault("0")
+    @Column(name = "expected_settlement_amount", nullable = false)
+    private long expectedSettlementAmount;
+
     @Column(name = "current_participants", nullable = false)
     private int currentParticipants;
 
     @Column(name = "reserved_slots", nullable = false)
     private int reservedSlots;
+
+    @ColumnDefault("CURRENT_TIMESTAMP")
+    @Column(name = "recruit_start_at", nullable = false)
+    private LocalDateTime recruitStartAt;
 
     @Column(name = "recruit_end_at", nullable = false)
     private LocalDateTime recruitEndAt;
@@ -69,6 +96,38 @@ public class GroupBuy extends BaseTimeEntity {
     protected GroupBuy() {
     }
 
+    public static GroupBuy create(
+            Long productId,
+            Long sellerId,
+            long productPrice,
+            int targetParticipants,
+            long unitShareAmount,
+            long shippingFee,
+            long roundingDiff,
+            BigDecimal platformFeeRate,
+            long expectedPlatformFee,
+            long expectedSettlementAmount,
+            LocalDateTime recruitStartAt,
+            LocalDateTime recruitEndAt) {
+        GroupBuy groupBuy = new GroupBuy();
+        groupBuy.productId = productId;
+        groupBuy.sellerId = sellerId;
+        groupBuy.productPrice = productPrice;
+        groupBuy.targetParticipants = targetParticipants;
+        groupBuy.unitShareAmount = unitShareAmount;
+        groupBuy.shippingFee = shippingFee;
+        groupBuy.roundingDiff = roundingDiff;
+        groupBuy.platformFeeRate = platformFeeRate;
+        groupBuy.expectedPlatformFee = expectedPlatformFee;
+        groupBuy.expectedSettlementAmount = expectedSettlementAmount;
+        groupBuy.currentParticipants = 0;
+        groupBuy.reservedSlots = 0;
+        groupBuy.recruitStartAt = recruitStartAt;
+        groupBuy.recruitEndAt = recruitEndAt;
+        groupBuy.status = STATUS_RECRUITING;
+        return groupBuy;
+    }
+
     public Long getGroupBuyId() {
         return groupBuyId;
     }
@@ -79,6 +138,10 @@ public class GroupBuy extends BaseTimeEntity {
 
     public Long getSellerId() {
         return sellerId;
+    }
+
+    public long getProductPrice() {
+        return productPrice;
     }
 
     public int getTargetParticipants() {
@@ -97,6 +160,22 @@ public class GroupBuy extends BaseTimeEntity {
         return shippingFee * 2;
     }
 
+    public long getRoundingDiff() {
+        return roundingDiff;
+    }
+
+    public BigDecimal getPlatformFeeRate() {
+        return platformFeeRate;
+    }
+
+    public long getExpectedPlatformFee() {
+        return expectedPlatformFee;
+    }
+
+    public long getExpectedSettlementAmount() {
+        return expectedSettlementAmount;
+    }
+
     public int getCurrentParticipants() {
         return currentParticipants;
     }
@@ -107,6 +186,10 @@ public class GroupBuy extends BaseTimeEntity {
 
     public LocalDateTime getRecruitEndAt() {
         return recruitEndAt;
+    }
+
+    public LocalDateTime getRecruitStartAt() {
+        return recruitStartAt;
     }
 
     public String getStatus() {
