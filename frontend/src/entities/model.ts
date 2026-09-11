@@ -47,11 +47,7 @@ export const RETURN_REASON_TYPE = [
   /** 단순변심 — 최초 배송비 미환불, 반품비 구매자 부담 */
   'CHANGE_OF_MIND',
   /** 상품 하자 — 전액 환불, 반품비 판매자 부담 */
-  'DEFECTIVE',
-  /** 오배송 */
-  'WRONG_DELIVERY',
-  /** 표시·광고 불일치 */
-  'NOT_AS_DESCRIBED',
+  'DEFECT',
 ] as const
 export type ReturnReasonType = (typeof RETURN_REASON_TYPE)[number]
 
@@ -134,9 +130,7 @@ export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
 
 export const RETURN_REASON_LABEL: Record<ReturnReasonType, string> = {
   CHANGE_OF_MIND: '단순변심',
-  DEFECTIVE: '상품 하자',
-  WRONG_DELIVERY: '오배송',
-  NOT_AS_DESCRIBED: '표시·광고 불일치',
+  DEFECT: '상품 하자·오배송',
 }
 
 /** 단순변심만 구매자가 반품비를 부담합니다 (명세서 10장) */

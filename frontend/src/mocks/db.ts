@@ -249,7 +249,7 @@ const returns: ReturnRequestSummary[] = [
     groupBuyId: '1008',
     productName: '게이밍 마우스패드 XL',
     buyerName: '박정훈',
-    reasonType: 'DEFECTIVE',
+    reasonType: 'DEFECT',
     detailReason: '표면에 스크래치가 있습니다.',
     status: 'PICKED_UP',
     refundAmount: 28_900,
