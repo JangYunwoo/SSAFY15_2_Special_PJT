@@ -1,20 +1,34 @@
 package com.gongguhan.domain.returnrequest.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.gongguhan.domain.returnrequest.repository.ReturnRequestRepository.CreateCommand;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.PersistenceContext;
 import java.time.LocalDateTime;
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
 class ReturnRequestRepositoryTest {
@@ -34,6 +48,12 @@ class ReturnRequestRepositoryTest {
 
     @PersistenceContext
     private EntityManager entityManager;
+
+    @Autowired
+    private EntityManagerFactory entityManagerFactory;
+
+    @Autowired
+    private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
@@ -99,6 +119,104 @@ class ReturnRequestRepositoryTest {
         assertThat(jdbc.queryForObject(
                 "SELECT confirm_hold FROM participations WHERE participation_id = ?",
                 Boolean.class, PARTICIPATION_ID)).isFalse();
+    }
+
+    @Test
+    void listProjectionKeepsQueryCountConstant() {
+        LocalDateTime requestedAt = LocalDateTime.of(2026, 9, 1, 5, 0);
+        for (int i = 0; i < 25; i++) {
+            createReturn(requestedAt.plusMinutes(i), "DEFECT", 53_000L);
+        }
+        entityManager.flush();
+        entityManager.clear();
+
+        Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        statistics.setStatisticsEnabled(true);
+        statistics.clear();
+
+        var page = repository.findBuyerList(
+                BUYER_ID, null, null, org.springframework.data.domain.PageRequest.of(0, 20));
+
+        assertThat(page.getContent()).hasSize(20);
+        assertThat(page.getTotalElements()).isEqualTo(25);
+        assertThat(page.getContent()).allSatisfy(summary -> {
+            assertThat(summary.productName()).isEqualTo("공동구매 상품");
+            assertThat(summary.buyerName()).isEqualTo("구매자");
+        });
+        assertThat(statistics.getPrepareStatementCount()).isEqualTo(2L);
+    }
+
+    @Test
+    void disputeRestoresConfirmationHoldUntilAdminDecision() {
+        LocalDateTime requestedAt = LocalDateTime.of(2026, 9, 1, 5, 0);
+        Long returnId = createReturn(requestedAt, "DEFECT", 53_000L);
+        repository.holdConfirmation(PARTICIPATION_ID);
+        repository.reject(returnId, "증빙 부족");
+        repository.dispute(returnId);
+        entityManager.flush();
+
+        assertThat(jdbc.queryForObject(
+                "SELECT confirm_hold FROM participations WHERE participation_id = ?",
+                Boolean.class, PARTICIPATION_ID)).isTrue();
+        assertThat(repository.findAdminReviewList(null, null,
+                org.springframework.data.domain.PageRequest.of(0, 20)).getContent())
+                .extracting("id").contains(returnId);
+    }
+
+    @Test
+    void adminResolutionRecordsForcedActorAndUpdatesParticipation() {
+        LocalDateTime requestedAt = LocalDateTime.of(2026, 9, 1, 5, 0);
+        Long returnId = repository.create(new CreateCommand(
+                PARTICIPATION_ID, "DEFECT", "구매확정 후 하자", 6_000,
+                "SELLER", 53_000L, true, true, requestedAt, null,
+                "06236", "서울시 강남구", "101호"));
+        repository.holdConfirmation(PARTICIPATION_ID);
+
+        assertThat(repository.approveByAdmin(returnId, 77L, requestedAt.plusDays(1))).isTrue();
+        entityManager.flush();
+
+        assertThat(jdbc.queryForObject(
+                "SELECT forced_by FROM return_requests WHERE return_id = ?",
+                Long.class, returnId)).isEqualTo(77L);
+        assertThat(jdbc.queryForObject(
+                "SELECT admin_review_required FROM return_requests WHERE return_id = ?",
+                Boolean.class, returnId)).isFalse();
+        assertThat(jdbc.queryForObject(
+                "SELECT status FROM participations WHERE participation_id = ?",
+                String.class, PARTICIPATION_ID)).isEqualTo("RETURNING");
+    }
+
+    @Test
+    void adminReviewEndpointsEnforceRoleAndResolveRequest() throws Exception {
+        LocalDateTime requestedAt = LocalDateTime.of(2026, 9, 1, 5, 0);
+        Long returnId = repository.create(new CreateCommand(
+                PARTICIPATION_ID, "DEFECT", "구매확정 후 하자", 6_000,
+                "SELLER", 53_000L, true, true, requestedAt, null,
+                "06236", "서울시 강남구", "101호"));
+        repository.holdConfirmation(PARTICIPATION_ID);
+        repository.addHistory(returnId, "REQUESTED", "관리자 검토 필요", requestedAt);
+        var admin = authentication(new UsernamePasswordAuthenticationToken(
+                77L, null, java.util.List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
+        var seller = authentication(new UsernamePasswordAuthenticationToken(
+                SELLER_ID, null, java.util.List.of(new SimpleGrantedAuthority("ROLE_SELLER"))));
+
+        mockMvc.perform(get("/admin/returns/reviews").with(seller))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/admin/returns/reviews").with(admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").value(returnId))
+                .andExpect(jsonPath("$.data[0].adminReviewRequired").value(true));
+
+        mockMvc.perform(post("/admin/returns/{returnId}/resolve", returnId)
+                        .with(admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"decision":"APPROVE","reason":"하자 증빙 확인"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("APPROVED"))
+                .andExpect(jsonPath("$.data.adminReviewRequired").value(false));
     }
 
     private Long createReturn(LocalDateTime requestedAt, String reason, long refundAmount) {

@@ -176,6 +176,36 @@ public class ReturnRequest {
         return true;
     }
 
+    /** 관리자 검토 대상인 신청 또는 이의제기를 승인한다. */
+    public boolean approveByAdmin(Long adminId, LocalDateTime resolvedAt) {
+        if (!adminReviewRequired
+                || (!STATUS_REQUESTED.equals(status) && !STATUS_DISPUTED.equals(status))) {
+            return false;
+        }
+        status = STATUS_APPROVED;
+        approvedAt = resolvedAt;
+        approveType = "ADMIN";
+        autoRefundDueAt = resolvedAt.plusDays(7);
+        forcedBy = adminId;
+        forcedAt = resolvedAt;
+        adminReviewRequired = false;
+        return true;
+    }
+
+    /** 관리자 검토 대상인 신청 또는 이의제기를 기각한다. */
+    public boolean rejectByAdmin(Long adminId, String reason, LocalDateTime resolvedAt) {
+        if (!adminReviewRequired
+                || (!STATUS_REQUESTED.equals(status) && !STATUS_DISPUTED.equals(status))) {
+            return false;
+        }
+        status = STATUS_REJECTED;
+        rejectReason = reason;
+        forcedBy = adminId;
+        forcedAt = resolvedAt;
+        adminReviewRequired = false;
+        return true;
+    }
+
     public boolean requestRefund(boolean automatic, LocalDateTime requestedAt) {
         if (!STATUS_APPROVED.equals(status)) {
             return false;
@@ -259,6 +289,14 @@ public class ReturnRequest {
 
     public String getRejectReason() {
         return rejectReason;
+    }
+
+    public Long getForcedBy() {
+        return forcedBy;
+    }
+
+    public LocalDateTime getForcedAt() {
+        return forcedAt;
     }
 
     public String getPickupZipcode() {

@@ -1178,3 +1178,134 @@ DB에서는 ID `10001..10020`, `parent_id = NULL`, `depth = 1`, `sort_order = 1.
 5. 그 SQL을 JPA 엔티티 탐색으로 바꿨을 때 필요한 조회 수와 객체 수를 예상한다.
 
 학습 목표: “SQL 제거”가 아니라 쓰기 일관성과 읽기 성능을 기준으로 저장 기술을 선택할 수 있다.
+
+---
+
+## 23. 공동구매 운영 상세·수정·취소를 추가한 과정
+
+### 23.1 왜 판매자 목록 조회로 상세를 대신하면 안 되는가
+
+초기 프론트는 판매자 공동구매 상세 화면을 열 때 목록을 `size=100`으로 받은 뒤 브라우저에서 ID를 찾아 썼다. 데이터가 100건을 넘으면 존재하는 공동구매도 찾지 못하고, 한 건만 필요한데 상품·상태가 다른 최대 100건을 전송한다. 또한 상세 화면에 필요한 에스크로 보관액, 정산 요약, 반품 수는 목록 DTO에 넣기 어렵다.
+
+그래서 GRP-06 `GET /sellers/group-buys/{groupBuyId}`를 별도 유스케이스로 만들었다. `SellerGroupBuyDetailResponse`는 다음 두 책임을 가진다.
+
+1. 판매자 소유 공동구매인지 한 번의 조회 조건으로 검증한다.
+2. 상품·모집·결제 참여·송장 등록률·에스크로·반품 집계를 상세 화면 모양으로 반환한다.
+
+여기서 전용 SQL을 선택한 이유는 여러 aggregate의 개수를 읽기 위해 엔티티 컬렉션을 모두 로딩하지 않기 위해서다. 상세 조회가 상태를 변경하지 않으므로 쓰기 aggregate의 경계를 침범하지 않는 읽기 모델로 격리할 수 있다.
+
+### 23.2 수정 조건을 엔티티가 판단하는 이유
+
+GRP-07 수정은 단순 `UPDATE group_buys SET ...`가 아니다. 다음 조건을 모두 만족해야 한다.
+
+- 판매자 소유인가?
+- 현재 `RECRUITING`인가?
+- 확정 참여자가 0명인가?
+- 결제 중 선점된 Redis 슬롯도 0명인가?
+
+DB의 `current_participants`만 검사하면 결제창을 연 사용자의 자리를 무시할 수 있다. 반대로 Redis만 검사하면 이미 확정된 참여를 놓친다. 서비스가 두 값을 확인하고, 엔티티의 `updateRecruitmentConditions`가 상태와 확정 참여 조건을 다시 방어한다.
+
+가격·목표 인원·배송비가 하나라도 바뀌면 분담금, 절상 차액, 예상 수수료, 예상 정산액을 서버가 전부 다시 계산한다. 기존 파생값 일부만 남기면 `unit_share_amount × target`과 상품 가격이 맞지 않는 혼합 snapshot이 생기기 때문이다.
+
+### 23.3 낙관적 잠금이 남아 있는 이유
+
+공동구매에는 `@Version`이 있다. 판매자가 “참여자 0명”을 확인한 직후 결제가 확정되는 경쟁이 있을 수 있기 때문이다. 수정 트랜잭션과 결제 확정이 같은 version을 바꾸면 한쪽이 충돌해 오래된 조건을 덮어쓰지 못한다. 서비스의 사전 검사는 친절한 오류를 위한 것이고, version은 마지막 DB 경쟁을 막는 장치다.
+
+### 23.4 취소와 판매자 귀책 철회를 분리한 이유
+
+GRP-08은 참여자와 예약 슬롯이 모두 0일 때 모집만 취소한다. 환불도 제재도 없다. GRP-10은 참여가 발생한 뒤 판매자 귀책으로 거래를 무산시키므로 전원 환불, 정산 제외, 제재 후보가 함께 발생한다.
+
+두 API를 하나의 `cancel` 메서드에 조건문으로 합치면 그룹바이 도메인이 카드·카카오·코인·정산·제재 구현을 직접 알아야 한다. GRP-08은 독립 구현하고, GRP-10은 공통 환불·귀책 이벤트 계약이 준비된 뒤 orchestration만 붙이는 것이 역할 분담에도 맞다.
+
+관련 테스트: `GroupBuyOperationsTest`, `GroupBuyServiceTest`, `SellerGroupBuyIntegrationTest`, `GroupBuyQueryIntegrationTest`
+
+---
+
+## 24. 관리자 반품 심사와 목록 성능 개선을 따라 읽기
+
+### 24.1 RTN-10/11은 왜 반품 담당 기능인가
+
+URL이 `/admin`으로 시작해도 심사의 상태와 규칙은 `return_requests`에 있다. API 명세도 RTN-10/11로 분류하고 ERD는 `admin_review_required`, `forced_by`, `forced_at`을 반품 테이블에 둔다. 공통 관리자 담당자에게 상태 전이를 넘기면 반품 규칙이 두 서비스에 나뉜다.
+
+따라서 보안의 `ROLE_ADMIN` 검사는 공통 SecurityConfig가 담당하고, 어떤 반품을 어떤 상태로 바꿀지는 반품 aggregate가 담당한다.
+
+### 24.2 관리자 검토로 들어오는 두 경로
+
+```mermaid
+stateDiagram-v2
+    [*] --> REQUESTED: 배송완료 후 일반 반품
+    REQUESTED --> APPROVED: 판매자 승인 또는 자동 승인
+    REQUESTED --> REJECTED: 판매자 거부
+    REJECTED --> DISPUTED: 구매자 이의제기
+    [*] --> REQUESTED_REVIEW: 구매확정 후 반품 신청
+    DISPUTED --> APPROVED: 관리자 승인
+    DISPUTED --> REJECTED: 관리자 기각
+    REQUESTED_REVIEW --> APPROVED: 관리자 승인
+    REQUESTED_REVIEW --> REJECTED: 관리자 기각
+```
+
+실제 DB status에서 `REQUESTED_REVIEW`라는 별도 문자열을 만들지는 않는다. `status=REQUESTED`, `admin_review_required=true`, `post_confirm=true`의 조합이다. 상태 문자열을 추가하지 않은 이유는 기존 상태 전이와 API 응답을 유지하면서 “누가 판단해야 하는가”를 orthogonal flag로 표현하기 위해서다.
+
+### 24.3 이의제기 때 구매확정 hold를 다시 거는 이유
+
+반품 신청 시 `confirm_hold=true`가 되고 판매자가 기각하면 false로 돌아간다. 구매자가 기각에 이의를 제기하는 순간 관리자 결정 전까지 원 거래는 다시 확정되면 안 된다.
+
+기존 코드는 `ReturnRequest.status`만 `DISPUTED`로 바꾸고 participation의 hold를 복원하지 않았다. 그 사이 자동 구매확정 scheduler가 참여를 확정하면 관리자 승인과 정산이 경쟁할 수 있다. `ReturnRequestRepository.dispute`가 상태 전이 성공과 같은 트랜잭션에서 `Participation.holdConfirmation()`을 호출하도록 고쳤다.
+
+### 24.4 관리자 승인·기각의 원자적 변화
+
+관리자 승인은 다음 값을 같은 트랜잭션에서 바꾼다.
+
+- return status: `APPROVED`
+- approve type: `ADMIN`
+- approved/forced 시각
+- forced actor ID
+- 자동 환불 마감: 승인 후 7일
+- admin review flag: false
+- participation status: `RETURNING`
+- history: `APPROVED`
+
+관리자 기각은 return을 `REJECTED`로 바꾸고 기각 사유·actor·시각을 기록하며 participation의 confirmation hold를 해제한다. `findWithLockByReturnId`의 비관적 잠금은 두 관리자가 같은 심사를 동시에 처리하는 것을 직렬화한다. 잠금을 잡은 뒤에도 Entity가 `REQUESTED`/`DISPUTED + adminReviewRequired` 조합을 다시 확인하므로 잘못된 직접 호출을 방어한다.
+
+### 24.5 반품 목록에서 왜 N+1이 발생했는가
+
+기존 `toSummary(ReturnRequest)`는 각 행마다 다음을 했다.
+
+```text
+ReturnRequest 페이지 + count
+  └─ GroupBuyRepository.findById
+       └─ ProductRepository.findById
+  └─ UserRepository.findById
+```
+
+모든 ID가 다르면 N행에서 최대 `2 + 3N` 쿼리다. `default_batch_fetch_size`는 지연 연관을 모아서 초기화할 때 적용되지만, 반복문이 서로 다른 repository의 `findById`를 직접 부르는 구조는 자동으로 하나의 쿼리가 되지 않는다.
+
+`ReturnSummaryView`는 목록에 필요한 값만 선언한 Spring Data JPA 인터페이스 projection이다. `ReturnRequestJpaRepository`의 JPQL이 반품, 참여, 공동구매, 상품, 구매자를 ID로 조인하고 scalar 값만 반환한다. 구매자·판매자·관리자 목록 모두 같은 projection을 써 데이터 쿼리 1회와 count 1회로 끝난다.
+
+이 조회에 JDBC native SQL을 쓰지 않은 이유는 MySQL 전용 기능이 필요하지 않기 때문이다. 공동구매 fulltext 검색은 SQL을 유지하고, 반품 목록은 JPQL로 해결한 차이가 바로 “모든 SQL 제거”가 목표가 아니라 목적에 맞는 JPA/SQL 경계를 선택한다는 뜻이다.
+
+### 24.6 성능 수치를 읽는 방법
+
+성능 비교는 한 DB 왕복을 2ms로 둔 통제 모델과 실제 Hibernate query count 테스트를 분리했다.
+
+| 행 수 | 변경 전 쿼리 | 변경 후 쿼리 | 변경 전 중앙값 | 변경 후 중앙값 |
+| ---: | ---: | ---: | ---: | ---: |
+| 20 | 62 | 2 | 129.006ms | 15.648ms |
+| 100 | 302 | 2 | 608.496ms | 15.679ms |
+| 1,000 | 3,002 | 2 | 6,014.375ms | 15.504ms |
+
+Windows 타이머 때문에 짧은 4ms 대기가 약 15ms로 측정되므로 이 표를 운영 응답시간으로 해석하면 안 된다. 중요한 검증은 H2 JPA 통합 테스트에서 20건 페이지가 실제 prepared statement 2회로 끝났다는 사실이다. 운영 2초 SLA는 MySQL 대용량 데이터와 HTTP 부하 테스트로 별도 확인해야 한다.
+
+자세한 기획, 선택지, 측정 한계와 P95는 `docs/performance/반품_목록_N+1_최적화_성능_테스트.md`를 읽는다.
+
+### 24.7 테스트를 따라 읽는 순서
+
+1. `ReturnRequestServiceTest.adminCanApproveDisputedReturn`: 유스케이스 명령과 history 확인
+2. `ReturnRequestServiceTest.adminRejectRequiresReason`: 입력 계약 확인
+3. `ReturnRequestRepositoryTest.disputeRestoresConfirmationHoldUntilAdminDecision`: 두 aggregate의 원자 변화 확인
+4. `ReturnRequestRepositoryTest.adminResolutionRecordsForcedActorAndUpdatesParticipation`: 실제 DB 컬럼 확인
+5. `ReturnRequestRepositoryTest.listProjectionKeepsQueryCountConstant`: 조회 수 회귀 확인
+6. `ReturnRequestRepositoryTest.adminReviewEndpointsEnforceRoleAndResolveRequest`: HTTP 권한과 JSON 응답 확인
+7. `ReturnListPerformanceTest`: 동일 지연 모델에서 변경 전·후 증가율 비교
+
+각 테스트가 다른 층을 보는 이유를 설명할 수 있어야 한다. service mock 테스트만으로는 JPQL과 DB column을 증명할 수 없고, repository 테스트만으로는 SecurityConfig의 ADMIN 권한을 증명할 수 없기 때문이다.
