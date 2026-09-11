@@ -1,5 +1,7 @@
 package com.gongguhan.domain.product.service;
 
+import com.gongguhan.domain.account.repository.SellerProfileRepository;
+import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
 import com.gongguhan.domain.product.dto.ProductResponse;
 import com.gongguhan.domain.product.dto.ProductUpsertRequest;
 import com.gongguhan.domain.product.entity.Category;
@@ -25,20 +27,30 @@ import org.springframework.web.multipart.MultipartFile;
 @Transactional(readOnly = true)
 public class ProductService {
 
+    private static final List<String> USABLE_SELLER_STATUSES = List.of("ACTIVE", "WARNED");
+    private static final List<String> ACTIVE_GROUP_BUY_STATUSES = List.of(
+            "RECRUITING", "FULFILLED", "SHIPPING", "DELIVERED");
+
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final ProductImageStorage imageStorage;
     private final WithdrawalRestrictionReasonRepository restrictionReasonRepository;
+    private final SellerProfileRepository sellerProfileRepository;
+    private final GroupBuyRepository groupBuyRepository;
 
     public ProductService(
             ProductRepository productRepository,
             CategoryRepository categoryRepository,
             ProductImageStorage imageStorage,
-            WithdrawalRestrictionReasonRepository restrictionReasonRepository) {
+            WithdrawalRestrictionReasonRepository restrictionReasonRepository,
+            SellerProfileRepository sellerProfileRepository,
+            GroupBuyRepository groupBuyRepository) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
         this.imageStorage = imageStorage;
         this.restrictionReasonRepository = restrictionReasonRepository;
+        this.sellerProfileRepository = sellerProfileRepository;
+        this.groupBuyRepository = groupBuyRepository;
     }
 
     @Transactional
@@ -127,7 +139,9 @@ public class ProductService {
     }
 
     private void ensureUsableSeller(Long sellerId) {
-        if (sellerId == null || productRepository.countUsableSeller(sellerId) == 0) {
+        if (sellerId == null
+                || !sellerProfileRepository.existsBySellerIdAndStatusIn(
+                        sellerId, USABLE_SELLER_STATUSES)) {
             throw new BusinessException(ErrorCode.SELLER_SUSPENDED);
         }
     }
@@ -175,7 +189,8 @@ public class ProductService {
     }
 
     private void ensureNoActiveGroupBuy(Long productId) {
-        if (productRepository.countActiveGroupBuys(productId) > 0) {
+        if (groupBuyRepository.existsByProductIdAndStatusIn(
+                productId, ACTIVE_GROUP_BUY_STATUSES)) {
             throw new BusinessException(
                     ErrorCode.INVALID_STATE_TRANSITION,
                     "진행 중인 공동구매에 연결된 상품은 수정하거나 삭제할 수 없습니다.");
