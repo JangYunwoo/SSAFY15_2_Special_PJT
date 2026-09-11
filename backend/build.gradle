@@ -80,10 +80,32 @@ sourceSets {
 			srcDirs += ['build/generated/sources/annotationProcessor/java/main']
 		}
 	}
+	performanceTest {
+		java.srcDir 'src/performanceTest/java'
+		resources.srcDir 'src/performanceTest/resources'
+		compileClasspath += sourceSets.main.output
+		runtimeClasspath += output + compileClasspath
+	}
+}
+
+configurations {
+	performanceTestImplementation.extendsFrom testImplementation
+	performanceTestRuntimeOnly.extendsFrom testRuntimeOnly
 }
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+// 운영 테스트와 분리한 수동 성능 측정. 시간 기반 테스트가 일반 CI를 불안정하게
+// 만들지 않으면서도 동일한 명령으로 재현할 수 있게 별도 소스셋/태스크로 둔다.
+tasks.register('performanceTest', Test) {
+	description = 'Runs reproducible performance comparison scenarios.'
+	group = 'verification'
+	testClassesDirs = sourceSets.performanceTest.output.classesDirs
+	classpath = sourceSets.performanceTest.runtimeClasspath
+	useJUnitPlatform()
+	shouldRunAfter tasks.named('test')
 }
 
 // backend/.env(gitignore 대상)가 있으면 읽어서 bootRun 프로세스 환경변수로 주입한다.

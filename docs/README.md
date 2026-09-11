@@ -15,11 +15,13 @@
 | [database/](./database) | DB 스키마(DDL) v2, ERD 이미지 |
 | [external/](./external) | SSAFY 교육용 금융망 API 연동 자료 (플로우, 인터페이스 예제) |
 | [market-research/](./market-research) | 시장조사 |
+| [performance/](./performance) | 성능 병목의 선정 이유, 최적화 설계, 전·후 측정값과 재현 방법 |
 | [team/](./team) | 백엔드 역할 분담. 브랜치/커밋/PR 규칙은 루트 [GIT_CONVENTION.md](../GIT_CONVENTION.md) 참고 |
 
 ## 학습 가이드
 
 - [김태민 담당 MVP 구현 학습 가이드](./team/김태민_MVP_구현_학습_가이드.md): 상품 → 공동구매 → 카카오페이 → 반품·환불의 의존 관계, 설계 판단, JPA/SQL 경계, 테스트와 수동 점검 순서를 처음 보는 개발자 기준으로 설명한다.
+- [결제 이력 N+1 최적화 성능 테스트](./performance/결제_이력_N+1_최적화_성능_테스트.md): 최적화 대상을 선정한 이유부터 일괄 조회 설계, 통제 변수, 전·후 성능 지표, 측정 한계와 운영형 후속 시험까지 설명한다.
 
 ## 코드와의 연결
 

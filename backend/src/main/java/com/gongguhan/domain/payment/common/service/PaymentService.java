@@ -16,7 +16,10 @@ import com.gongguhan.global.error.ErrorCode;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -223,9 +226,14 @@ public class PaymentService {
     }
 
     public Page<PaymentResponse> listHistory(Long userId, Pageable pageable) {
-        return paymentRepository.findByUserId(userId, pageable)
-                .map(payment -> PaymentResponse.from(
-                        payment, groupBuySlotPort.get(payment.getGroupBuyId()), LocalDateTime.now(clock)));
+        Page<Payment> payments = paymentRepository.findByUserId(userId, pageable);
+        Set<Long> groupBuyIds = payments.stream()
+                .map(Payment::getGroupBuyId)
+                .collect(Collectors.toUnmodifiableSet());
+        Map<Long, GroupBuySlotPort.GroupBuySlot> slots = groupBuySlotPort.getAll(groupBuyIds);
+        LocalDateTime now = LocalDateTime.now(clock);
+        return payments.map(payment -> PaymentResponse.from(
+                payment, slots.get(payment.getGroupBuyId()), now));
     }
 
     /**

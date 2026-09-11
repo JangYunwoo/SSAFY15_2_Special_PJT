@@ -9,6 +9,8 @@ import com.gongguhan.domain.groupbuy.dto.GroupBuySlotSnapshot;
 import com.gongguhan.domain.groupbuy.service.GroupBuySlotService;
 import com.gongguhan.domain.payment.common.port.GroupBuySlotPort.GroupBuySlot;
 import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -65,5 +67,17 @@ class GroupBuySlotAdapterTest {
         verify(groupBuySlotService).get(GROUP_BUY_ID);
         verify(groupBuySlotService).release(GROUP_BUY_ID);
         verify(groupBuySlotService).confirm(GROUP_BUY_ID);
+    }
+
+    @Test
+    void getAllDelegatesOnceAndMapsSnapshotsById() {
+        when(groupBuySlotService.getAll(Set.of(GROUP_BUY_ID)))
+                .thenReturn(Map.of(GROUP_BUY_ID, snapshot));
+
+        Map<Long, GroupBuySlot> result = adapter.getAll(Set.of(GROUP_BUY_ID));
+
+        verify(groupBuySlotService).getAll(Set.of(GROUP_BUY_ID));
+        assertEquals(GROUP_BUY_ID, result.get(GROUP_BUY_ID).groupBuyId());
+        assertEquals(snapshot.unitShareAmount(), result.get(GROUP_BUY_ID).unitShareAmount());
     }
 }
