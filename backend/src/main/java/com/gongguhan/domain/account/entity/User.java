@@ -61,6 +61,24 @@ public class User extends BaseTimeEntity {
         return new User(email, passwordHash, nickname, phone);
     }
 
+    /** SSAFY 금융망 member 생성·조회로 얻은 userKey 연동 (S15P21B205-63). */
+    public void linkSsafyUserKey(String ssafyUserKey) {
+        this.ssafyUserKey = ssafyUserKey;
+    }
+
+    /** USR-02 부분 수정. null 필드는 유지한다. */
+    public void updateProfile(String nickname, String phone, String ssafyAccountNo) {
+        if (nickname != null) {
+            this.nickname = nickname;
+        }
+        if (phone != null) {
+            this.phone = phone;
+        }
+        if (ssafyAccountNo != null) {
+            this.ssafyAccountNo = ssafyAccountNo;
+        }
+    }
+
     public Long getUserId() {
         return userId;
     }
@@ -77,8 +95,16 @@ public class User extends BaseTimeEntity {
         return nickname;
     }
 
+    public String getPhone() {
+        return phone;
+    }
+
     public String getSsafyUserKey() {
         return ssafyUserKey;
+    }
+
+    public String getSsafyAccountNo() {
+        return ssafyAccountNo;
     }
 
     public boolean isSeller() {

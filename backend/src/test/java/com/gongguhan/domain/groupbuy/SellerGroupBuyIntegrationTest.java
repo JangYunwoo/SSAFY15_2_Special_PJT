@@ -50,7 +50,8 @@ class SellerGroupBuyIntegrationTest {
                 )
                 """);
         jdbcTemplate.update(
-                "MERGE INTO seller_profiles (seller_id, status) KEY (seller_id) VALUES (?, ?)",
+                "MERGE INTO seller_profiles (seller_id, status, created_at, updated_at) "
+                        + "KEY (seller_id) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                 SELLER_ID,
                 "ACTIVE");
         jdbcTemplate.update(
