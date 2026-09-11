@@ -3,6 +3,10 @@ package com.gongguhan.domain.groupbuy.adapter;
 import com.gongguhan.domain.groupbuy.dto.GroupBuySlotSnapshot;
 import com.gongguhan.domain.groupbuy.service.GroupBuySlotService;
 import com.gongguhan.domain.payment.common.port.GroupBuySlotPort;
+import java.util.Collection;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -17,6 +21,13 @@ public class GroupBuySlotAdapter implements GroupBuySlotPort {
     @Override
     public GroupBuySlot get(Long groupBuyId) {
         return toPort(groupBuySlotService.get(groupBuyId));
+    }
+
+    @Override
+    public Map<Long, GroupBuySlot> getAll(Collection<Long> groupBuyIds) {
+        return groupBuySlotService.getAll(groupBuyIds).values().stream()
+                .map(this::toPort)
+                .collect(Collectors.toUnmodifiableMap(GroupBuySlot::groupBuyId, Function.identity()));
     }
 
     @Override

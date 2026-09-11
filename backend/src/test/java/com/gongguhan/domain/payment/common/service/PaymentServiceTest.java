@@ -29,11 +29,15 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 class PaymentServiceTest {
@@ -287,6 +291,28 @@ class PaymentServiceTest {
     }
 
     @Test
+    void listHistoryLoadsAllGroupBuySlotsInOneBatch() {
+        Payment first = historyPayment(201L, 101L);
+        Payment second = historyPayment(202L, 101L);
+        Payment third = historyPayment(203L, 102L);
+        PageRequest page = PageRequest.of(0, 20);
+        when(paymentRepository.findByUserId(USER_ID, page))
+                .thenReturn(new PageImpl<>(List.of(first, second, third), page, 3));
+        GroupBuySlotPort.GroupBuySlot firstSlot = slotView(101L);
+        GroupBuySlotPort.GroupBuySlot secondSlot = slotView(102L);
+        when(groupBuySlotPort.getAll(Set.of(101L, 102L)))
+                .thenReturn(Map.of(101L, firstSlot, 102L, secondSlot));
+
+        var history = paymentService.listHistory(USER_ID, page);
+
+        assertEquals(
+                List.of("101", "101", "102"),
+                history.map(PaymentResponse::groupBuyId).toList());
+        verify(groupBuySlotPort).getAll(Set.of(101L, 102L));
+        verify(groupBuySlotPort, never()).get(any());
+    }
+
+    @Test
     void expireSlotIfDueDoesNothingWhenPaymentMissing() {
         when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.empty());
 
@@ -355,6 +381,24 @@ class PaymentServiceTest {
     private PaymentService.ParticipationSnapshot snapshot() {
         return new PaymentService.ParticipationSnapshot(
                 "홍길동", "010-1234-5678", "06236", "서울시 강남구", "101동 101호");
+    }
+
+    private Payment historyPayment(Long paymentId, Long groupBuyId) {
+        Payment payment = mock(Payment.class);
+        when(payment.getPaymentId()).thenReturn(paymentId);
+        when(payment.getGroupBuyId()).thenReturn(groupBuyId);
+        when(payment.getStatus()).thenReturn(Payment.STATUS_PROCESSING);
+        when(payment.getMethod()).thenReturn("CARD");
+        when(payment.getKrwAmount()).thenReturn(53_000L);
+        when(payment.getSlotExpiresAt()).thenReturn(LocalDateTime.of(2026, 1, 1, 1, 0));
+        when(payment.isProcessing()).thenReturn(true);
+        return payment;
+    }
+
+    private GroupBuySlotPort.GroupBuySlot slotView(Long groupBuyId) {
+        return new GroupBuySlotPort.GroupBuySlot(
+                groupBuyId, 50_000L, 3_000L, 50, 0, 0,
+                LocalDateTime.of(2026, 1, 2, 0, 0), GroupBuy.STATUS_RECRUITING);
     }
 
     @Test

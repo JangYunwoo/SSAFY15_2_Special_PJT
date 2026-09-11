@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.gongguhan.domain.groupbuy.dto.GroupBuySlotSnapshot;
@@ -12,7 +13,10 @@ import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
 import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -77,6 +81,39 @@ class GroupBuySlotServiceTest {
         groupBuySlotService.get(GROUP_BUY_ID);
 
         verify(groupBuyRepository).findById(GROUP_BUY_ID);
+    }
+
+    @Test
+    void getAllDeduplicatesIdsAndUsesOneRepositoryCall() {
+        stubGroupBuy();
+        when(groupBuyRepository.findAllById(Set.of(GROUP_BUY_ID))).thenReturn(List.of(groupBuy));
+
+        var result = groupBuySlotService.getAll(List.of(GROUP_BUY_ID, GROUP_BUY_ID));
+
+        assertEquals(Set.of(GROUP_BUY_ID), result.keySet());
+        verify(groupBuyRepository).findAllById(Set.of(GROUP_BUY_ID));
+    }
+
+    @Test
+    void getAllReturnsEmptyMapWithoutRepositoryCall() {
+        var result = groupBuySlotService.getAll(List.of());
+
+        assertEquals(Map.of(), result);
+        verifyNoInteractions(groupBuyRepository);
+    }
+
+    @Test
+    void getAllFailsWhenAnyRequestedGroupBuyIsMissing() {
+        Long missingId = 101L;
+        stubGroupBuy();
+        when(groupBuyRepository.findAllById(Set.of(GROUP_BUY_ID, missingId)))
+                .thenReturn(List.of(groupBuy));
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> groupBuySlotService.getAll(Set.of(GROUP_BUY_ID, missingId)));
+
+        assertEquals(ErrorCode.RESOURCE_NOT_FOUND, exception.getErrorCode());
     }
 
     @Test
