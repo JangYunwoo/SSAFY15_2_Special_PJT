@@ -93,6 +93,10 @@ public class GroupBuy extends BaseTimeEntity {
         return shippingFee;
     }
 
+    public long getReturnShippingFee() {
+        return shippingFee * 2;
+    }
+
     public int getCurrentParticipants() {
         return currentParticipants;
     }

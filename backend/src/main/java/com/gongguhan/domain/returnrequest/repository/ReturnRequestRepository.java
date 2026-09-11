@@ -1,405 +1,278 @@
 package com.gongguhan.domain.returnrequest.repository;
 
+import com.gongguhan.domain.account.repository.UserRepository;
+import com.gongguhan.domain.groupbuy.entity.GroupBuy;
+import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
+import com.gongguhan.domain.participation.entity.Participation;
+import com.gongguhan.domain.participation.repository.ParticipationRepository;
+import com.gongguhan.domain.payment.common.entity.Payment;
+import com.gongguhan.domain.payment.common.repository.PaymentRepository;
+import com.gongguhan.domain.product.entity.Product;
+import com.gongguhan.domain.product.repository.ProductRepository;
 import com.gongguhan.domain.returnrequest.dto.ReturnDetailResponse;
 import com.gongguhan.domain.returnrequest.dto.ReturnHistoryResponse;
 import com.gongguhan.domain.returnrequest.dto.ReturnSummaryResponse;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
+import com.gongguhan.domain.returnrequest.entity.ReturnRequest;
+import com.gongguhan.domain.returnrequest.entity.ReturnRequestHistory;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Repository;
 
+/**
+ * 반품 도메인이 사용하는 저장소 파사드.
+ *
+ * <p>SQL 문자열을 직접 조립하지 않고 Spring Data JPA 저장소와 엔티티 상태 전이를
+ * 조합한다. 서비스는 조회 방식이 바뀌어도 동일한 반품 문맥만 보도록 한다.
+ */
 @Repository
 public class ReturnRequestRepository {
 
-    private static final String SUMMARY_SELECT = """
-            SELECT rr.return_id AS id, rr.participation_id, part.group_buy_id,
-                   p.name AS product_name, u.nickname AS buyer_name,
-                   rr.reason_type, rr.reason_detail, rr.status, rr.refund_amount,
-                   rr.return_shipping_fee, rr.fee_bearer, rr.requested_at,
-                   rr.auto_approve_at, rr.post_confirm, rr.admin_review_required,
-                   rr.pickup_zipcode, rr.pickup_address1, rr.pickup_address2,
-                   rr.reject_reason
-              FROM return_requests rr
-              JOIN participations part ON part.participation_id = rr.participation_id
-              JOIN group_buys gb ON gb.group_buy_id = part.group_buy_id
-              JOIN products p ON p.product_id = gb.product_id
-              JOIN users u ON u.user_id = part.user_id
-            """;
+    private static final List<String> TERMINAL_RETURN_STATUSES = List.of(
+            ReturnRequest.STATUS_REFUNDED, ReturnRequest.STATUS_REJECTED);
 
-    private final NamedParameterJdbcTemplate jdbcTemplate;
+    private final ReturnRequestJpaRepository requests;
+    private final ReturnRequestHistoryRepository histories;
+    private final ParticipationRepository participations;
+    private final GroupBuyRepository groupBuys;
+    private final ProductRepository products;
+    private final UserRepository users;
+    private final PaymentRepository payments;
 
-    public ReturnRequestRepository(NamedParameterJdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+    public ReturnRequestRepository(
+            ReturnRequestJpaRepository requests,
+            ReturnRequestHistoryRepository histories,
+            ParticipationRepository participations,
+            GroupBuyRepository groupBuys,
+            ProductRepository products,
+            UserRepository users,
+            PaymentRepository payments) {
+        this.requests = requests;
+        this.histories = histories;
+        this.participations = participations;
+        this.groupBuys = groupBuys;
+        this.products = products;
+        this.users = users;
+        this.payments = payments;
     }
 
     public Optional<ReturnContext> findContext(Long participationId, boolean forUpdate) {
-        String sql = """
-                SELECT part.participation_id, part.group_buy_id, part.user_id,
-                       part.share_amount, part.shipping_fee, part.total_amount,
-                       part.status AS participation_status, part.withdrawal_period_end_at,
-                       part.settlement_eligible_at, part.confirm_hold,
-                       gb.seller_id, gb.shipping_fee * 2 AS return_shipping_fee,
-                       p.name AS product_name,
-                       CASE WHEN p.withdrawal_restricted = TRUE
-                                  AND p.restriction_review_status = 'APPROVED'
-                            THEN TRUE ELSE FALSE END AS withdrawal_restricted
-                  FROM participations part
-                  JOIN group_buys gb ON gb.group_buy_id = part.group_buy_id
-                  JOIN products p ON p.product_id = gb.product_id
-                 WHERE part.participation_id = :participationId
-                """ + (forUpdate ? " FOR UPDATE" : "");
-        return jdbcTemplate.query(sql, Map.of("participationId", participationId),
-                (rs, rowNum) -> mapContext(rs)).stream().findFirst();
+        Optional<Participation> participation = forUpdate
+                ? participations.findWithLockByParticipationId(participationId)
+                : participations.findById(participationId);
+        return participation.map(this::toContext);
     }
 
     public boolean existsOpenReturn(Long participationId) {
-        Long count = jdbcTemplate.queryForObject("""
-                SELECT COUNT(*) FROM return_requests
-                 WHERE participation_id = :participationId
-                   AND status NOT IN ('REFUNDED', 'REJECTED')
-                """, Map.of("participationId", participationId), Long.class);
-        return count != null && count > 0;
+        return requests.existsByParticipationParticipationIdAndStatusNotIn(
+                participationId, TERMINAL_RETURN_STATUSES);
     }
 
     public Long create(CreateCommand command) {
-        GeneratedKeyHolder keys = new GeneratedKeyHolder();
-        MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("participationId", command.participationId())
-                .addValue("reasonType", command.reasonType())
-                .addValue("reasonDetail", command.reasonDetail())
-                .addValue("returnShippingFee", command.returnShippingFee())
-                .addValue("feeBearer", command.feeBearer())
-                .addValue("refundAmount", command.refundAmount())
-                .addValue("postConfirm", command.postConfirm())
-                .addValue("adminReviewRequired", command.adminReviewRequired())
-                .addValue("requestedAt", command.requestedAt())
-                .addValue("autoApproveAt", command.autoApproveAt())
-                .addValue("pickupZipcode", command.pickupZipcode())
-                .addValue("pickupAddress1", command.pickupAddress1())
-                .addValue("pickupAddress2", command.pickupAddress2());
-        jdbcTemplate.update("""
-                INSERT INTO return_requests (
-                    participation_id, reason_type, reason_detail, return_shipping_fee,
-                    fee_bearer, refund_amount, post_confirm, admin_review_required,
-                    status, requested_at, auto_approve_at, pickup_zipcode,
-                    pickup_address1, pickup_address2)
-                VALUES (:participationId, :reasonType, :reasonDetail, :returnShippingFee,
-                    :feeBearer, :refundAmount, :postConfirm, :adminReviewRequired,
-                    'REQUESTED', :requestedAt, :autoApproveAt, :pickupZipcode,
-                    :pickupAddress1, :pickupAddress2)
-                """, params, keys, new String[]{"return_id"});
-        Number key = keys.getKey();
-        if (key == null) {
-            throw new IllegalStateException("반품 신청 식별자를 생성하지 못했습니다.");
-        }
-        return key.longValue();
+        Participation participation = participations.findById(command.participationId())
+                .orElseThrow(() -> new IllegalStateException("반품 대상 참여 정보를 찾을 수 없습니다."));
+        ReturnRequest request = ReturnRequest.request(
+                participation, command.reasonType(), command.reasonDetail(),
+                command.returnShippingFee(), command.feeBearer(), command.refundAmount(),
+                command.postConfirm(), command.adminReviewRequired(), command.requestedAt(),
+                command.autoApproveAt(), command.pickupZipcode(), command.pickupAddress1(),
+                command.pickupAddress2());
+        return requests.save(request).getReturnId();
     }
 
     public void holdConfirmation(Long participationId) {
-        jdbcTemplate.update("""
-                UPDATE participations SET confirm_hold = TRUE
-                 WHERE participation_id = :participationId
-                """, Map.of("participationId", participationId));
+        participation(participationId).holdConfirmation();
     }
 
     public void addHistory(Long returnId, String status, String note, LocalDateTime occurredAt) {
-        jdbcTemplate.update("""
-                INSERT INTO return_request_histories (return_id, status, note, occurred_at)
-                VALUES (:returnId, :status, :note, :occurredAt)
-                """, new MapSqlParameterSource()
-                .addValue("returnId", returnId).addValue("status", status)
-                .addValue("note", note).addValue("occurredAt", occurredAt));
+        histories.save(ReturnRequestHistory.record(
+                requests.getReferenceById(returnId), status, note, occurredAt));
     }
 
     public Optional<ReturnDetailResponse> findBuyerDetail(Long userId, Long returnId) {
-        return findDetail("rr.return_id = :returnId AND part.user_id = :ownerId", userId, returnId);
+        return requests.findBuyerDetail(userId, returnId).map(this::toDetail);
     }
 
     public Optional<ReturnDetailResponse> findSellerDetail(Long sellerId, Long returnId) {
-        return findDetail("rr.return_id = :returnId AND gb.seller_id = :ownerId", sellerId, returnId);
+        return requests.findSellerDetail(sellerId, returnId).map(this::toDetail);
     }
 
     public Page<ReturnSummaryResponse> findBuyerList(Long userId, String status,
                                                      Long groupBuyId, Pageable pageable) {
-        return findList("part.user_id = :ownerId", userId, status, groupBuyId, pageable);
+        return requests.findBuyerList(userId, status, groupBuyId, pageable).map(this::toSummary);
     }
 
     public Page<ReturnSummaryResponse> findSellerList(Long sellerId, String status,
                                                       Long groupBuyId, Pageable pageable) {
-        return findList("gb.seller_id = :ownerId", sellerId, status, groupBuyId, pageable);
+        return requests.findSellerList(sellerId, status, groupBuyId, pageable).map(this::toSummary);
     }
 
     public Optional<ReturnLock> findSellerLock(Long sellerId, Long returnId) {
-        return jdbcTemplate.query("""
-                SELECT rr.return_id, rr.participation_id, rr.status,
-                       rr.admin_review_required
-                  FROM return_requests rr
-                  JOIN participations part ON part.participation_id = rr.participation_id
-                  JOIN group_buys gb ON gb.group_buy_id = part.group_buy_id
-                 WHERE rr.return_id = :returnId AND gb.seller_id = :sellerId
-                 FOR UPDATE
-                """, Map.of("returnId", returnId, "sellerId", sellerId),
-                (rs, rowNum) -> new ReturnLock(rs.getLong("return_id"),
-                        rs.getLong("participation_id"), rs.getString("status"),
-                        rs.getBoolean("admin_review_required"))).stream().findFirst();
+        return requests.findWithLockByReturnId(returnId)
+                .filter(request -> groupBuy(request.getParticipation()).getSellerId().equals(sellerId))
+                .map(this::toLock);
     }
 
     public Optional<ReturnLock> findBuyerLock(Long userId, Long returnId) {
-        return jdbcTemplate.query("""
-                SELECT rr.return_id, rr.participation_id, rr.status,
-                       rr.admin_review_required
-                  FROM return_requests rr
-                  JOIN participations part ON part.participation_id = rr.participation_id
-                 WHERE rr.return_id = :returnId AND part.user_id = :userId
-                 FOR UPDATE
-                """, Map.of("returnId", returnId, "userId", userId),
-                (rs, rowNum) -> new ReturnLock(rs.getLong("return_id"),
-                        rs.getLong("participation_id"), rs.getString("status"),
-                        rs.getBoolean("admin_review_required"))).stream().findFirst();
+        return requests.findWithLockByReturnId(returnId)
+                .filter(request -> request.getParticipation().getUserId().equals(userId))
+                .map(this::toLock);
     }
 
     public void approve(Long returnId, String approveType, LocalDateTime approvedAt) {
-        jdbcTemplate.update("""
-                UPDATE return_requests
-                   SET status = 'APPROVED', approved_at = :approvedAt,
-                       approve_type = :approveType, auto_refund_due_at = :autoRefundDueAt
-                 WHERE return_id = :returnId AND status = 'REQUESTED'
-                """, new MapSqlParameterSource("returnId", returnId)
-                .addValue("approvedAt", approvedAt).addValue("approveType", approveType)
-                .addValue("autoRefundDueAt", approvedAt.plusDays(7)));
-        jdbcTemplate.update("""
-                UPDATE participations SET status = 'RETURNING'
-                 WHERE participation_id = (
-                    SELECT participation_id FROM return_requests WHERE return_id = :returnId)
-                """, Map.of("returnId", returnId));
+        ReturnRequest request = request(returnId);
+        if (request.approve(approveType, approvedAt)) {
+            request.getParticipation().markReturning();
+        }
     }
 
     public void reject(Long returnId, String reason) {
-        jdbcTemplate.update("""
-                UPDATE return_requests SET status = 'REJECTED', reject_reason = :reason
-                 WHERE return_id = :returnId AND status = 'REQUESTED'
-                """, Map.of("returnId", returnId, "reason", reason));
-        releaseConfirmationHold(returnId);
+        ReturnRequest request = request(returnId);
+        if (request.reject(reason)) {
+            request.getParticipation().releaseConfirmationHold();
+        }
     }
 
     public void dispute(Long returnId) {
-        jdbcTemplate.update("""
-                UPDATE return_requests
-                   SET status = 'DISPUTED', admin_review_required = TRUE
-                 WHERE return_id = :returnId AND status = 'REJECTED'
-                """, Map.of("returnId", returnId));
+        request(returnId).dispute();
     }
 
     public List<Long> findAutoApprovalCandidates(LocalDateTime now, int limit) {
-        return jdbcTemplate.queryForList("""
-                SELECT return_id FROM return_requests
-                 WHERE status = 'REQUESTED'
-                   AND admin_review_required = FALSE
-                   AND auto_approve_at <= :now
-                 ORDER BY auto_approve_at, return_id
-                 LIMIT :limit
-                """, new MapSqlParameterSource("now", now).addValue("limit", limit), Long.class);
+        return requests.findAutoApprovalCandidates(now, PageRequest.of(0, limit));
     }
 
     public boolean approveAutomatically(Long returnId, LocalDateTime approvedAt) {
-        int updated = jdbcTemplate.update("""
-                UPDATE return_requests
-                   SET status = 'APPROVED', approved_at = :approvedAt,
-                       approve_type = 'AUTO', auto_refund_due_at = :autoRefundDueAt
-                 WHERE return_id = :returnId AND status = 'REQUESTED'
-                   AND admin_review_required = FALSE AND auto_approve_at <= :approvedAt
-                """, new MapSqlParameterSource("returnId", returnId)
-                .addValue("approvedAt", approvedAt)
-                .addValue("autoRefundDueAt", approvedAt.plusDays(7)));
-        if (updated == 1) {
-            jdbcTemplate.update("""
-                    UPDATE participations SET status = 'RETURNING'
-                     WHERE participation_id = (
-                        SELECT participation_id FROM return_requests WHERE return_id = :returnId)
-                    """, Map.of("returnId", returnId));
+        Optional<ReturnRequest> found = requests.findWithLockByReturnId(returnId);
+        if (found.isEmpty() || !found.get().approveAutomatically(approvedAt)) {
+            return false;
         }
-        return updated == 1;
+        found.get().getParticipation().markReturning();
+        return true;
     }
 
     public Optional<RefundContext> findSellerRefundContext(Long sellerId, Long returnId) {
-        return findRefundContext("rr.return_id = :returnId AND gb.seller_id = :ownerId",
-                sellerId, returnId, true);
+        return requests.findWithLockByReturnId(returnId)
+                .filter(request -> groupBuy(request.getParticipation()).getSellerId().equals(sellerId))
+                .flatMap(this::toRefundContext);
     }
 
     public Optional<RefundContext> findAutoRefundContext(Long returnId) {
-        return findRefundContext("rr.return_id = :returnId", null, returnId, true);
+        return requests.findWithLockByReturnId(returnId).flatMap(this::toRefundContext);
     }
 
     public List<Long> findAutoRefundCandidates(LocalDateTime now, int limit) {
-        return jdbcTemplate.queryForList("""
-                SELECT return_id FROM return_requests
-                 WHERE status = 'APPROVED' AND auto_refund_due_at <= :now
-                 ORDER BY auto_refund_due_at, return_id
-                 LIMIT :limit
-                """, new MapSqlParameterSource("now", now).addValue("limit", limit), Long.class);
+        return requests.findAutoRefundCandidates(now, PageRequest.of(0, limit));
     }
 
     public boolean markRefundRequested(Long returnId, boolean automatic,
                                        LocalDateTime requestedAt) {
-        int updated = jdbcTemplate.update("""
-                UPDATE return_requests
-                   SET status = 'REFUND_REQUESTED',
-                       picked_up_at = CASE WHEN :automatic = TRUE THEN picked_up_at ELSE :requestedAt END,
-                       auto_refunded = :automatic
-                 WHERE return_id = :returnId AND status = 'APPROVED'
-                """, new MapSqlParameterSource("returnId", returnId)
-                .addValue("automatic", automatic).addValue("requestedAt", requestedAt));
-        if (updated == 1) {
-            jdbcTemplate.update("""
-                    UPDATE participations SET status = 'REFUNDING'
-                     WHERE participation_id = (
-                        SELECT participation_id FROM return_requests WHERE return_id = :returnId)
-                    """, Map.of("returnId", returnId));
+        ReturnRequest request = request(returnId);
+        if (!request.requestRefund(automatic, requestedAt)) {
+            return false;
         }
-        return updated == 1;
+        request.getParticipation().markRefunding();
+        return true;
     }
 
     public boolean markRefunded(Long returnId, LocalDateTime completedAt) {
-        int updated = jdbcTemplate.update("""
-                UPDATE return_requests
-                   SET status = 'REFUNDED', completed_at = :completedAt
-                 WHERE return_id = :returnId AND status = 'REFUND_REQUESTED'
-                """, Map.of("returnId", returnId, "completedAt", completedAt));
-        if (updated == 1) {
-            jdbcTemplate.update("""
-                    UPDATE participations SET status = 'REFUNDED', confirm_hold = FALSE
-                     WHERE participation_id = (
-                        SELECT participation_id FROM return_requests WHERE return_id = :returnId)
-                    """, Map.of("returnId", returnId));
+        ReturnRequest request = lockedRequest(returnId);
+        if (!request.completeRefund(completedAt)) {
+            return false;
         }
-        return updated == 1;
+        request.getParticipation().markRefunded();
+        return true;
     }
 
     public boolean markRefundFailed(Long returnId) {
-        return jdbcTemplate.update("""
-                UPDATE return_requests SET status = 'REFUND_FAILED'
-                 WHERE return_id = :returnId AND status = 'REFUND_REQUESTED'
-                """, Map.of("returnId", returnId)) == 1;
+        return lockedRequest(returnId).failRefund();
     }
 
-    private Optional<RefundContext> findRefundContext(String predicate, Long ownerId,
-                                                      Long returnId, boolean forUpdate) {
-        MapSqlParameterSource params = new MapSqlParameterSource("returnId", returnId);
-        if (ownerId != null) {
-            params.addValue("ownerId", ownerId);
-        }
-        String sql = """
-                SELECT rr.return_id, rr.participation_id, rr.refund_amount, rr.status,
-                       rr.auto_refund_due_at, gb.seller_id, pay.payment_id,
-                       pay.method AS payment_method
-                  FROM return_requests rr
-                  JOIN participations part ON part.participation_id = rr.participation_id
-                  JOIN group_buys gb ON gb.group_buy_id = part.group_buy_id
-                  JOIN payments pay ON pay.participation_id = part.participation_id
-                 WHERE %s
-                """.formatted(predicate) + (forUpdate ? " FOR UPDATE" : "");
-        return jdbcTemplate.query(sql, params, (rs, rowNum) -> new RefundContext(
-                rs.getLong("return_id"), rs.getLong("participation_id"),
-                rs.getLong("seller_id"), rs.getLong("payment_id"),
-                rs.getString("payment_method"), rs.getLong("refund_amount"),
-                rs.getString("status"), local(rs, "auto_refund_due_at")))
-                .stream().findFirst();
+    private ReturnContext toContext(Participation participation) {
+        GroupBuy groupBuy = groupBuys.findById(participation.getGroupBuyId())
+                .orElseThrow(() -> new IllegalStateException("공동구매 정보를 찾을 수 없습니다."));
+        Product product = product(groupBuy);
+        return new ReturnContext(
+                participation.getParticipationId(), participation.getGroupBuyId(),
+                participation.getUserId(), groupBuy.getSellerId(), product.getName(),
+                participation.getShareAmount(), participation.getShippingFee(),
+                participation.getTotalAmount(), groupBuy.getReturnShippingFee(),
+                participation.getStatus(), participation.getWithdrawalPeriodEndAt(),
+                participation.getSettlementEligibleAt(), participation.isConfirmHold(),
+                product.isApprovedWithdrawalRestriction());
     }
 
-    private void releaseConfirmationHold(Long returnId) {
-        jdbcTemplate.update("""
-                UPDATE participations SET confirm_hold = FALSE
-                 WHERE participation_id = (
-                    SELECT participation_id FROM return_requests WHERE return_id = :returnId)
-                """, Map.of("returnId", returnId));
+    private ReturnDetailResponse toDetail(ReturnRequest request) {
+        return ReturnDetailResponse.from(
+                toSummary(request), request.getPickupZipcode(), request.getPickupAddress1(),
+                request.getPickupAddress2(), request.getRejectReason(),
+                histories.findByReturnRequestReturnIdOrderByOccurredAtAscHistoryIdAsc(
+                                request.getReturnId())
+                        .stream()
+                        .map(history -> new ReturnHistoryResponse(
+                                history.getStatus(), history.getOccurredAt().atOffset(ZoneOffset.UTC),
+                                history.getNote()))
+                        .toList());
     }
 
-    private Optional<ReturnDetailResponse> findDetail(String predicate, Long ownerId, Long returnId) {
-        Map<String, ?> params = Map.of("ownerId", ownerId, "returnId", returnId);
-        String sql = SUMMARY_SELECT + " WHERE " + predicate;
-        return jdbcTemplate.query(sql, params, (rs, rowNum) -> {
-            ReturnSummaryResponse summary = mapSummary(rs);
-            List<ReturnHistoryResponse> history = findHistory(returnId);
-            return ReturnDetailResponse.from(summary, rs.getString("pickup_zipcode"),
-                    rs.getString("pickup_address1"), rs.getString("pickup_address2"),
-                    rs.getString("reject_reason"), history);
-        }).stream().findFirst();
+    private ReturnSummaryResponse toSummary(ReturnRequest request) {
+        Participation participation = request.getParticipation();
+        GroupBuy groupBuy = groupBuy(participation);
+        return new ReturnSummaryResponse(
+                request.getReturnId(), participation.getParticipationId(),
+                participation.getGroupBuyId(), product(groupBuy).getName(),
+                users.findById(participation.getUserId())
+                        .orElseThrow(() -> new IllegalStateException("구매자 정보를 찾을 수 없습니다."))
+                        .getNickname(), request.getReasonType(),
+                request.getReasonDetail(), request.getStatus(), request.getRefundAmount(),
+                request.getReturnShippingFee(), request.getFeeBearer(),
+                request.getRequestedAt().atOffset(ZoneOffset.UTC),
+                request.getAutoApproveAt() == null ? null
+                        : request.getAutoApproveAt().atOffset(ZoneOffset.UTC),
+                request.isPostConfirm(), request.isAdminReviewRequired());
     }
 
-    private List<ReturnHistoryResponse> findHistory(Long returnId) {
-        return jdbcTemplate.query("""
-                SELECT status, note, occurred_at FROM return_request_histories
-                 WHERE return_id = :returnId ORDER BY occurred_at, history_id
-                """, Map.of("returnId", returnId), (rs, rowNum) -> new ReturnHistoryResponse(
-                rs.getString("status"), utc(rs, "occurred_at"), rs.getString("note")));
+    private Optional<RefundContext> toRefundContext(ReturnRequest request) {
+        Participation participation = request.getParticipation();
+        Optional<Payment> payment = payments.findByParticipationId(participation.getParticipationId());
+        return payment.map(value -> new RefundContext(
+                request.getReturnId(), participation.getParticipationId(),
+                groupBuy(participation).getSellerId(), value.getPaymentId(), value.getMethod(),
+                request.getRefundAmount(), request.getStatus(), request.getAutoRefundDueAt()));
     }
 
-    private Page<ReturnSummaryResponse> findList(String ownerPredicate, Long ownerId,
-                                                 String status, Long groupBuyId,
-                                                 Pageable pageable) {
-        StringBuilder where = new StringBuilder(" WHERE ").append(ownerPredicate);
-        MapSqlParameterSource params = new MapSqlParameterSource("ownerId", ownerId)
-                .addValue("limit", pageable.getPageSize()).addValue("offset", pageable.getOffset());
-        if (status != null && !status.isBlank()) {
-            where.append(" AND rr.status = :status");
-            params.addValue("status", status);
-        }
-        if (groupBuyId != null) {
-            where.append(" AND part.group_buy_id = :groupBuyId");
-            params.addValue("groupBuyId", groupBuyId);
-        }
-        List<ReturnSummaryResponse> content = jdbcTemplate.query(
-                SUMMARY_SELECT + where + " ORDER BY rr.requested_at DESC, rr.return_id DESC LIMIT :limit OFFSET :offset",
-                params, (rs, rowNum) -> mapSummary(rs));
-        Long total = jdbcTemplate.queryForObject("""
-                SELECT COUNT(*) FROM return_requests rr
-                  JOIN participations part ON part.participation_id = rr.participation_id
-                  JOIN group_buys gb ON gb.group_buy_id = part.group_buy_id
-                """ + where, params, Long.class);
-        return new PageImpl<>(content, pageable, total == null ? 0 : total);
+    private ReturnLock toLock(ReturnRequest request) {
+        return new ReturnLock(
+                request.getReturnId(), request.getParticipation().getParticipationId(),
+                request.getStatus(), request.isAdminReviewRequired());
     }
 
-    private ReturnContext mapContext(ResultSet rs) throws SQLException {
-        return new ReturnContext(rs.getLong("participation_id"), rs.getLong("group_buy_id"),
-                rs.getLong("user_id"), rs.getLong("seller_id"), rs.getString("product_name"),
-                rs.getLong("share_amount"), rs.getLong("shipping_fee"),
-                rs.getLong("total_amount"), rs.getLong("return_shipping_fee"),
-                rs.getString("participation_status"), local(rs, "withdrawal_period_end_at"),
-                local(rs, "settlement_eligible_at"), rs.getBoolean("confirm_hold"),
-                rs.getBoolean("withdrawal_restricted"));
+    private ReturnRequest request(Long returnId) {
+        return requests.findById(returnId)
+                .orElseThrow(() -> new IllegalStateException("반품 정보를 찾을 수 없습니다."));
     }
 
-    private ReturnSummaryResponse mapSummary(ResultSet rs) throws SQLException {
-        return new ReturnSummaryResponse(rs.getLong("id"), rs.getLong("participation_id"),
-                rs.getLong("group_buy_id"), rs.getString("product_name"),
-                rs.getString("buyer_name"), rs.getString("reason_type"),
-                rs.getString("reason_detail"), rs.getString("status"),
-                rs.getLong("refund_amount"), rs.getLong("return_shipping_fee"),
-                rs.getString("fee_bearer"), utc(rs, "requested_at"),
-                utc(rs, "auto_approve_at"), rs.getBoolean("post_confirm"),
-                rs.getBoolean("admin_review_required"));
+    private ReturnRequest lockedRequest(Long returnId) {
+        return requests.findWithLockByReturnId(returnId)
+                .orElseThrow(() -> new IllegalStateException("반품 정보를 찾을 수 없습니다."));
     }
 
-    private LocalDateTime local(ResultSet rs, String column) throws SQLException {
-        Timestamp value = rs.getTimestamp(column);
-        return value == null ? null : value.toLocalDateTime();
+    private Participation participation(Long participationId) {
+        return participations.findById(participationId)
+                .orElseThrow(() -> new IllegalStateException("참여 정보를 찾을 수 없습니다."));
     }
 
-    private OffsetDateTime utc(ResultSet rs, String column) throws SQLException {
-        LocalDateTime value = local(rs, column);
-        return value == null ? null : value.atOffset(ZoneOffset.UTC);
+    private GroupBuy groupBuy(Participation participation) {
+        return groupBuys.findById(participation.getGroupBuyId())
+                .orElseThrow(() -> new IllegalStateException("공동구매 정보를 찾을 수 없습니다."));
+    }
+
+    private Product product(GroupBuy groupBuy) {
+        return products.findById(groupBuy.getProductId())
+                .orElseThrow(() -> new IllegalStateException("상품 정보를 찾을 수 없습니다."));
     }
 
     public record ReturnContext(Long participationId, Long groupBuyId, Long userId,

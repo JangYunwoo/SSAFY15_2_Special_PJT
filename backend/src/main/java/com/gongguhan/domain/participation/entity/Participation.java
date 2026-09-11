@@ -20,6 +20,9 @@ public class Participation {
     public static final String STATUS_SHIPPING = "SHIPPING";
     public static final String STATUS_DELIVERED = "DELIVERED";
     public static final String STATUS_CONFIRMED = "CONFIRMED";
+    public static final String STATUS_RETURNING = "RETURNING";
+    public static final String STATUS_REFUNDING = "REFUNDING";
+    public static final String STATUS_REFUNDED = "REFUNDED";
     public static final String CONFIRM_TYPE_MANUAL = "MANUAL";
     public static final String CONFIRM_TYPE_AUTO = "AUTO";
     public static final String ACTIVE_MARKER = "Y";
@@ -257,5 +260,27 @@ public class Participation {
 
     public boolean isConfirmHold() {
         return confirmHold;
+    }
+
+    /** 반품 접수와 구매확정 배치가 경쟁하지 않도록 같은 트랜잭션에서 보류한다. */
+    public void holdConfirmation() {
+        confirmHold = true;
+    }
+
+    public void releaseConfirmationHold() {
+        confirmHold = false;
+    }
+
+    public void markReturning() {
+        status = STATUS_RETURNING;
+    }
+
+    public void markRefunding() {
+        status = STATUS_REFUNDING;
+    }
+
+    public void markRefunded() {
+        status = STATUS_REFUNDED;
+        confirmHold = false;
     }
 }
