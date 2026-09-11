@@ -5,6 +5,7 @@ import { addressQueries } from '@/entities/address/queries'
 import type { ParticipationSummary } from '@/entities/participation/model'
 import { participationQueries } from '@/entities/participation/queries'
 import { OrderAccordion } from '@/features/orders/OrderAccordion'
+import { OrdersTabs } from '@/features/orders/OrdersTabs'
 import { isPastOrder } from '@/features/orders/participationTimeline'
 import { phone, won } from '@/shared/lib/format'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
@@ -27,6 +28,8 @@ export default function OrdersPage() {
             <p className="sec-sub">참여한 공동구매의 진행 상태와 결제 내역을 확인합니다.</p>
           </div>
         </div>
+
+        <OrdersTabs />
 
         <QueryBoundary query={query}>{(page) => <OrdersView items={page.items} />}</QueryBoundary>
       </section>

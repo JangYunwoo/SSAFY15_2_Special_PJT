@@ -63,6 +63,54 @@ async function readUpsert(request: Request): Promise<Record<string, unknown>> {
     ? parsed
     : { ...parsed, images: files.map((_, index) => `mock://image-${String(index + 1)}`) }
 }
+
+/** 필요 컨펌 수. Quote 응답과 같은 값을 씁니다. */
+const REQUIRED_CONFIRMATIONS = 12
+
+/**
+ * 조회 횟수에 따라 단계를 진행시킵니다.
+ * 1회차는 영수증 대기, 이후 컨펌이 3회씩 쌓여 필요 수에 도달하면 확정됩니다.
+ */
+function cryptoStatus(paymentId: string) {
+  const run = db.cryptoRuns.get(paymentId)
+  if (run === undefined) {
+    return {
+      paymentId,
+      phase: 'AWAITING_TX',
+      paymentStatus: 'PROCESSING',
+      txHash: null,
+      receiptStatus: null,
+      blockNumber: null,
+      confirmations: 0,
+      requiredConfirmations: REQUIRED_CONFIRMATIONS,
+      assetAmount: null,
+      rawAmount: null,
+      depositAddress: '0x8Ba1f109551bD432803012645Ac136ddd64DBA72',
+      confirmedAt: null,
+      failReason: null,
+    }
+  }
+
+  const confirmations = Math.min(REQUIRED_CONFIRMATIONS, Math.max(0, run.polls - 1) * 3)
+  const receipted = run.polls >= 2
+  const done = confirmations >= REQUIRED_CONFIRMATIONS
+
+  return {
+    paymentId,
+    phase: done ? 'COMPLETED' : receipted ? 'CONFIRMING' : 'AWAITING_RECEIPT',
+    paymentStatus: done ? 'PAID' : 'PROCESSING',
+    txHash: run.txHash,
+    receiptStatus: receipted ? 'SUCCESS' : null,
+    blockNumber: receipted ? 21_450_000 + run.polls : null,
+    confirmations,
+    requiredConfirmations: REQUIRED_CONFIRMATIONS,
+    assetAmount: receipted ? '0.31250000' : null,
+    rawAmount: receipted ? '312500000000000000' : null,
+    depositAddress: '0x8Ba1f109551bD432803012645Ac136ddd64DBA72',
+    confirmedAt: done ? new Date().toISOString() : null,
+    failReason: null,
+  }
+}
 const iso = (offsetMs: number): string => new Date(Date.now() + offsetMs).toISOString()
 
 /* ---------- 목록 정렬 (목업 SORTERS 와 같은 규칙) ---------- */
@@ -295,8 +343,8 @@ export const handlers = [
     const ready: KakaoPayReady = {
       paymentId,
       tid: `T${paymentId}MOCK`,
-      // 실제 리다이렉트 대신 완료 화면으로 바로 보냅니다.
-      nextRedirectPcUrl: `/checkout/complete/${paymentId}`,
+      // 실제 결제창 대신 성공 콜백으로 보내 승인 API까지 같은 흐름으로 검증합니다.
+      nextRedirectPcUrl: `/checkout/kakaopay/success?paymentId=${paymentId}&state=mock-state&pg_token=mock-pg-token`,
       expiresAt: iso(POLICY_DEFAULTS.kakaopaySlotTtlSeconds * 1000),
     }
     return ok(ready)
@@ -356,6 +404,30 @@ export const handlers = [
   }),
 
   /* ---------- 참여 · 구매확정 ---------- */
+  /**
+   * CRYP-03 트랜잭션 해시 등록.
+   * 등록 시점에는 아직 노드가 트랜잭션을 모르는 상태로 둡니다.
+   */
+  http.post(`${BASE}/payments/:paymentId/crypto/transactions`, async ({ params, request }) => {
+    await delay(400)
+    const paymentId = String(params.paymentId)
+    const body = (await request.json()) as { txHash: string }
+    db.cryptoRuns.set(paymentId, { txHash: body.txHash, polls: 0 })
+    return ok(cryptoStatus(paymentId))
+  }),
+
+  /**
+   * CRYP-04 입금·컨펌 상태.
+   * 조회할 때마다 한 단계씩 진행해 실제 컨펌 과정을 흉내냅니다.
+   */
+  http.get(`${BASE}/payments/:paymentId/crypto/status`, async ({ params }) => {
+    await delay(150)
+    const paymentId = String(params.paymentId)
+    const run = db.cryptoRuns.get(paymentId)
+    if (run !== undefined) run.polls += 1
+    return ok(cryptoStatus(paymentId))
+  }),
+
   http.get(`${BASE}/users/me/participations`, async ({ request }) => {
     await delay(150)
     return paged(db.participations, new URL(request.url))
@@ -732,6 +804,54 @@ export const handlers = [
   http.get(`${BASE}/sellers/me/penalties`, () =>
     ok({ confirmedCount: 0, suspended: false, items: [] }),
   ),
+
+  /**
+   * PAY-04 결제 이력.
+   *
+   * 백엔드는 전용 DTO 없이 PAY-01/02 와 같은 PaymentResponse 를 돌려줍니다.
+   * 성공한 건만 있는 참여 목록과 달리 실패·만료된 시도도 함께 보여야 하므로,
+   * 참여 3건에 더해 실패·만료 사례를 섞어 둡니다.
+   */
+  http.get(`${BASE}/users/me/payments`, async ({ request }) => {
+    await delay(150)
+    const fromParticipations = db.participations.map((item) => ({
+      paymentId: `P${item.id}`,
+      groupBuyId: item.groupBuyId,
+      status: item.escrowStatus === 'REFUNDED' ? 'REFUNDED' : 'PAID',
+      method: item.method,
+      amount: {
+        shareAmount: item.shareAmount,
+        shippingFee: item.shippingFee,
+        totalAmount: item.totalAmount,
+        currency: 'KRW',
+      },
+      slotExpiresAt: item.paidAt,
+      remainingSeconds: 0,
+    }))
+
+    const failed = [
+      {
+        paymentId: 'P9801',
+        groupBuyId: '1031',
+        status: 'FAILED',
+        method: 'CARD',
+        amount: { shareAmount: 62_000, shippingFee: 3000, totalAmount: 65_000, currency: 'KRW' },
+        slotExpiresAt: iso(-3 * 86_400_000),
+        remainingSeconds: 0,
+      },
+      {
+        paymentId: 'P9802',
+        groupBuyId: '1042',
+        status: 'EXPIRED',
+        method: 'CRYPTO',
+        amount: { shareAmount: 24_900, shippingFee: 4000, totalAmount: 28_900, currency: 'KRW' },
+        slotExpiresAt: iso(-5 * 86_400_000),
+        remainingSeconds: 0,
+      },
+    ]
+
+    return paged([...fromParticipations, ...failed], new URL(request.url))
+  }),
 
   /* ---------- 에스크로 ---------- */
   /** ESC-01 참여 건별 보관 상태 */

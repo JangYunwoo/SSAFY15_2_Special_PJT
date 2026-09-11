@@ -5,16 +5,31 @@ import { useLogout } from '@/features/auth/useAuthMutations'
 import { NotificationBell } from '@/features/notification/NotificationBell'
 import { cx } from '@/shared/lib/cx'
 
-const NAV = [
+/** 로그인 여부와 무관하게 보이는 메뉴 */
+const PUBLIC_NAV = [
   { to: '/', label: '공동구매', end: true },
   { to: '/about', label: '서비스 소개', end: false },
-  { to: '/orders', label: '거래관리', end: false },
 ] as const
+
+/**
+ * 로그인해야 쓸 수 있는 메뉴.
+ *
+ * 눌러도 라우트 가드가 로그인 화면으로 돌려보낼 뿐이라 아예 감춥니다.
+ * 가드는 그대로 두어 주소를 직접 입력해도 막히게 합니다.
+ */
+const PRIVATE_NAV = [
+  { to: '/orders', label: '거래관리', end: false },
+  { to: '/me', label: '내 정보', end: false },
+] as const
+
+const activeClass = ({ isActive }: { isActive: boolean }): string => cx(isActive && 'on')
 
 /** 구매자 화면 공통 헤더 (.gnb) */
 export function SiteHeader() {
   const isSignedIn = useIsSignedIn()
   const logout = useLogout()
+
+  const menu = isSignedIn ? [...PUBLIC_NAV, ...PRIVATE_NAV] : PUBLIC_NAV
 
   return (
     <header className="gnb">
@@ -24,25 +39,15 @@ export function SiteHeader() {
         </Link>
         <div className="right">
           <nav aria-label="주요 메뉴">
-            {NAV.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                className={({ isActive }) => cx(isActive && 'on')}
-              >
+            {menu.map((item) => (
+              <NavLink key={item.to} to={item.to} end={item.end} className={activeClass}>
                 {item.label}
               </NavLink>
             ))}
-            {isSignedIn && (
-              <NavLink to="/me" className={({ isActive }) => cx(isActive && 'on')}>
-                내 정보
-              </NavLink>
-            )}
+
             {isSignedIn ? (
               <button
                 type="button"
-
                 onClick={() => {
                   logout.mutate()
                 }}
@@ -51,7 +56,7 @@ export function SiteHeader() {
                 로그아웃
               </button>
             ) : (
-              <NavLink to="/login" className={({ isActive }) => cx(isActive && 'on')}>
+              <NavLink to="/login" className={activeClass}>
                 로그인
               </NavLink>
             )}
