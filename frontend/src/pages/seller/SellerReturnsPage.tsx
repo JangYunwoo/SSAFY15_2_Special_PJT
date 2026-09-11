@@ -23,6 +23,8 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: 'REQUESTED', label: '반품신청' },
   { value: 'APPROVED', label: '반품승인' },
   { value: 'PICKED_UP', label: '수거완료' },
+  { value: 'REFUND_REQUESTED', label: '환불진행' },
+  { value: 'REFUND_FAILED', label: '환불실패' },
   { value: 'REFUNDED', label: '환불완료' },
 ]
 
@@ -40,7 +42,11 @@ export default function SellerReturnsPage() {
 
   const pending = items.filter((item) => item.status === 'REQUESTED')
   const inProgress = items.filter(
-    (item) => item.status === 'APPROVED' || item.status === 'PICKED_UP',
+    (item) =>
+      item.status === 'APPROVED' ||
+      item.status === 'PICKED_UP' ||
+      item.status === 'REFUND_REQUESTED' ||
+      item.status === 'REFUND_FAILED',
   )
   const done = items.filter((item) => item.status === 'REFUNDED')
   const sum = (list: readonly ReturnRequestSummary[]) =>

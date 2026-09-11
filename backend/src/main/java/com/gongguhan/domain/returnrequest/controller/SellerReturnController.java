@@ -4,6 +4,7 @@ import com.gongguhan.domain.returnrequest.dto.ReturnDetailResponse;
 import com.gongguhan.domain.returnrequest.dto.ReturnRejectRequest;
 import com.gongguhan.domain.returnrequest.dto.ReturnSummaryResponse;
 import com.gongguhan.domain.returnrequest.service.ReturnRequestService;
+import com.gongguhan.domain.returnrequest.service.ReturnRefundService;
 import com.gongguhan.global.common.ApiResponse;
 import com.gongguhan.global.common.PageResponse;
 import com.gongguhan.global.common.TraceIdUtils;
@@ -26,9 +27,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class SellerReturnController {
 
     private final ReturnRequestService service;
+    private final ReturnRefundService refundService;
 
-    public SellerReturnController(ReturnRequestService service) {
+    public SellerReturnController(ReturnRequestService service,
+                                  ReturnRefundService refundService) {
         this.service = service;
+        this.refundService = refundService;
     }
 
     @GetMapping
@@ -60,5 +64,14 @@ public class SellerReturnController {
             HttpServletRequest httpRequest) {
         return ResponseEntity.ok(ApiResponse.success(
                 service.reject(sellerId, returnId, request.reason()), TraceIdUtils.from(httpRequest)));
+    }
+
+    @PostMapping("/{returnId}/pickup-complete")
+    public ResponseEntity<ApiResponse<ReturnDetailResponse>> pickupComplete(
+            @AuthenticationPrincipal Long sellerId,
+            @PathVariable Long returnId,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(ApiResponse.success(
+                refundService.pickupComplete(sellerId, returnId), TraceIdUtils.from(httpRequest)));
     }
 }

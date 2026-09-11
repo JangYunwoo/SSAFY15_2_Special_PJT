@@ -101,6 +101,12 @@ public class ReturnRequestService {
         return repository.findSellerList(sellerId, normalize(status), groupBuyId, pageable);
     }
 
+    @Transactional(readOnly = true)
+    public ReturnDetailResponse findSellerDetail(Long sellerId, Long returnId) {
+        requireAuthenticated(sellerId);
+        return repository.findSellerDetail(sellerId, returnId).orElseThrow(this::notFound);
+    }
+
     @Transactional
     public ReturnDetailResponse approve(Long sellerId, Long returnId) {
         ReturnLock target = findSellerLock(sellerId, returnId);
@@ -112,7 +118,7 @@ public class ReturnRequestService {
         LocalDateTime approvedAt = now();
         repository.approve(returnId, "MANUAL", approvedAt);
         repository.addHistory(returnId, "APPROVED", "판매자가 반품을 승인했습니다.", approvedAt);
-        return findSellerDetail(sellerId, returnId);
+        return loadSellerDetail(sellerId, returnId);
     }
 
     @Transactional
@@ -126,7 +132,7 @@ public class ReturnRequestService {
         LocalDateTime rejectedAt = now();
         repository.reject(returnId, reason.trim());
         repository.addHistory(returnId, "REJECTED", reason.trim(), rejectedAt);
-        return findSellerDetail(sellerId, returnId);
+        return loadSellerDetail(sellerId, returnId);
     }
 
     @Transactional
@@ -205,7 +211,7 @@ public class ReturnRequestService {
         return repository.findSellerLock(sellerId, returnId).orElseThrow(this::notFound);
     }
 
-    private ReturnDetailResponse findSellerDetail(Long sellerId, Long returnId) {
+    private ReturnDetailResponse loadSellerDetail(Long sellerId, Long returnId) {
         return repository.findSellerDetail(sellerId, returnId).orElseThrow(this::notFound);
     }
 
