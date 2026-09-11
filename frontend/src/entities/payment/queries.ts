@@ -32,8 +32,9 @@ export const paymentQueries = {
       queryKey: queryKeys.payments.cryptoStatus(paymentId),
       queryFn: () => paymentApi.cryptoStatus(paymentId),
       refetchInterval: (query) => {
-        const state = query.state.data?.state
-        return state === 'MATCHED' || state === 'EXPIRED' ? false : 5000
+        // 확정·실패로 끝나면 더 물어볼 것이 없습니다.
+        const phase = query.state.data?.phase
+        return phase === 'COMPLETED' || phase === 'FAILED' ? false : 5000
       },
     }),
 } as const

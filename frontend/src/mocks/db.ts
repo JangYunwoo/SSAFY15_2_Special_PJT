@@ -249,7 +249,7 @@ const returns: ReturnRequestSummary[] = [
     groupBuyId: '1008',
     productName: '게이밍 마우스패드 XL',
     buyerName: '박정훈',
-    reasonType: 'DEFECTIVE',
+    reasonType: 'DEFECT',
     detailReason: '표면에 스크래치가 있습니다.',
     status: 'PICKED_UP',
     refundAmount: 28_900,
@@ -388,6 +388,8 @@ export const db = {
   settlements,
   notifications,
   me,
+  /** 코인 결제 입금 확인 진행 상태 (조회 횟수로 단계를 흉내냅니다) */
+  cryptoRuns: new Map<string, { txHash: string; polls: number }>(),
   /** 결제 준비로 생성된 PROCESSING 결제들 */
   payments: new Map<string, Payment>(),
   nextId: 9000,
