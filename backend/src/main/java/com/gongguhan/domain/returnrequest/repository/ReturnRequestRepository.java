@@ -233,6 +233,91 @@ public class ReturnRequestRepository {
         return updated == 1;
     }
 
+    public Optional<RefundContext> findSellerRefundContext(Long sellerId, Long returnId) {
+        return findRefundContext("rr.return_id = :returnId AND gb.seller_id = :ownerId",
+                sellerId, returnId, true);
+    }
+
+    public Optional<RefundContext> findAutoRefundContext(Long returnId) {
+        return findRefundContext("rr.return_id = :returnId", null, returnId, true);
+    }
+
+    public List<Long> findAutoRefundCandidates(LocalDateTime now, int limit) {
+        return jdbcTemplate.queryForList("""
+                SELECT return_id FROM return_requests
+                 WHERE status = 'APPROVED' AND auto_refund_due_at <= :now
+                 ORDER BY auto_refund_due_at, return_id
+                 LIMIT :limit
+                """, new MapSqlParameterSource("now", now).addValue("limit", limit), Long.class);
+    }
+
+    public boolean markRefundRequested(Long returnId, boolean automatic,
+                                       LocalDateTime requestedAt) {
+        int updated = jdbcTemplate.update("""
+                UPDATE return_requests
+                   SET status = 'REFUND_REQUESTED',
+                       picked_up_at = CASE WHEN :automatic = TRUE THEN picked_up_at ELSE :requestedAt END,
+                       auto_refunded = :automatic
+                 WHERE return_id = :returnId AND status = 'APPROVED'
+                """, new MapSqlParameterSource("returnId", returnId)
+                .addValue("automatic", automatic).addValue("requestedAt", requestedAt));
+        if (updated == 1) {
+            jdbcTemplate.update("""
+                    UPDATE participations SET status = 'REFUNDING'
+                     WHERE participation_id = (
+                        SELECT participation_id FROM return_requests WHERE return_id = :returnId)
+                    """, Map.of("returnId", returnId));
+        }
+        return updated == 1;
+    }
+
+    public boolean markRefunded(Long returnId, LocalDateTime completedAt) {
+        int updated = jdbcTemplate.update("""
+                UPDATE return_requests
+                   SET status = 'REFUNDED', completed_at = :completedAt
+                 WHERE return_id = :returnId AND status = 'REFUND_REQUESTED'
+                """, Map.of("returnId", returnId, "completedAt", completedAt));
+        if (updated == 1) {
+            jdbcTemplate.update("""
+                    UPDATE participations SET status = 'REFUNDED', confirm_hold = FALSE
+                     WHERE participation_id = (
+                        SELECT participation_id FROM return_requests WHERE return_id = :returnId)
+                    """, Map.of("returnId", returnId));
+        }
+        return updated == 1;
+    }
+
+    public boolean markRefundFailed(Long returnId) {
+        return jdbcTemplate.update("""
+                UPDATE return_requests SET status = 'REFUND_FAILED'
+                 WHERE return_id = :returnId AND status = 'REFUND_REQUESTED'
+                """, Map.of("returnId", returnId)) == 1;
+    }
+
+    private Optional<RefundContext> findRefundContext(String predicate, Long ownerId,
+                                                      Long returnId, boolean forUpdate) {
+        MapSqlParameterSource params = new MapSqlParameterSource("returnId", returnId);
+        if (ownerId != null) {
+            params.addValue("ownerId", ownerId);
+        }
+        String sql = """
+                SELECT rr.return_id, rr.participation_id, rr.refund_amount, rr.status,
+                       rr.auto_refund_due_at, gb.seller_id, pay.payment_id,
+                       pay.method AS payment_method
+                  FROM return_requests rr
+                  JOIN participations part ON part.participation_id = rr.participation_id
+                  JOIN group_buys gb ON gb.group_buy_id = part.group_buy_id
+                  JOIN payments pay ON pay.participation_id = part.participation_id
+                 WHERE %s
+                """.formatted(predicate) + (forUpdate ? " FOR UPDATE" : "");
+        return jdbcTemplate.query(sql, params, (rs, rowNum) -> new RefundContext(
+                rs.getLong("return_id"), rs.getLong("participation_id"),
+                rs.getLong("seller_id"), rs.getLong("payment_id"),
+                rs.getString("payment_method"), rs.getLong("refund_amount"),
+                rs.getString("status"), local(rs, "auto_refund_due_at")))
+                .stream().findFirst();
+    }
+
     private void releaseConfirmationHold(Long returnId) {
         jdbcTemplate.update("""
                 UPDATE participations SET confirm_hold = FALSE
@@ -336,5 +421,10 @@ public class ReturnRequestRepository {
 
     public record ReturnLock(Long returnId, Long participationId, String status,
                              boolean adminReviewRequired) {
+    }
+
+    public record RefundContext(Long returnId, Long participationId, Long sellerId,
+                                Long paymentId, String paymentMethod, long refundAmount,
+                                String status, LocalDateTime autoRefundDueAt) {
     }
 }

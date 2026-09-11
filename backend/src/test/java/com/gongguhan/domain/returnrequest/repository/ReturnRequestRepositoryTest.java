@@ -71,6 +71,29 @@ class ReturnRequestRepositoryTest {
                 .isEqualTo("RETURNING");
     }
 
+    @Test
+    void refundTransitionLinksPaymentContextAndParticipationStatus() {
+        LocalDateTime requestedAt = LocalDateTime.of(2026, 9, 1, 5, 0);
+        Long returnId = repository.create(new CreateCommand(
+                30L, "DEFECT", "파손", 6_000, "SELLER", 53_000,
+                false, false, requestedAt, requestedAt.plusDays(3),
+                "06236", "서울시 강남구", null));
+        jdbc.update("UPDATE return_requests SET status = 'APPROVED' WHERE return_id = ?", returnId);
+
+        var context = repository.findSellerRefundContext(20L, returnId).orElseThrow();
+        assertThat(context.paymentMethod()).isEqualTo("KAKAOPAY");
+        assertThat(context.paymentId()).isEqualTo(50L);
+
+        assertThat(repository.markRefundRequested(returnId, false, requestedAt.plusDays(1))).isTrue();
+        assertThat(repository.markRefunded(returnId, requestedAt.plusDays(1))).isTrue();
+        assertThat(jdbc.queryForObject(
+                "SELECT status FROM participations WHERE participation_id = 30", String.class))
+                .isEqualTo("REFUNDED");
+        assertThat(jdbc.queryForObject(
+                "SELECT confirm_hold FROM participations WHERE participation_id = 30", Boolean.class))
+                .isFalse();
+    }
+
     private void recreateSchema() {
         jdbc.execute("DROP ALL OBJECTS");
         jdbc.execute("""
@@ -106,8 +129,15 @@ class ReturnRequestRepositoryTest {
                     status VARCHAR(20) NOT NULL, requested_at DATETIME NOT NULL,
                     auto_approve_at DATETIME, auto_refund_due_at DATETIME,
                     approved_at DATETIME, approve_type VARCHAR(10),
+                    picked_up_at DATETIME, auto_refunded BOOLEAN DEFAULT FALSE,
+                    completed_at DATETIME,
                     reject_reason VARCHAR(255), pickup_zipcode CHAR(5),
                     pickup_address1 VARCHAR(255), pickup_address2 VARCHAR(255))
+                """);
+        jdbc.execute("""
+                CREATE TABLE payments (
+                    payment_id BIGINT PRIMARY KEY, participation_id BIGINT,
+                    method VARCHAR(20) NOT NULL)
                 """);
         jdbc.execute("""
                 CREATE TABLE return_request_histories (
@@ -126,5 +156,6 @@ class ReturnRequestRepositoryTest {
                     30, 31, 10, 50000, 3000, 53000, 'DELIVERED',
                     '2026-09-18 05:00:00', '2026-09-19 05:00:00', FALSE)
                 """);
+        jdbc.update("INSERT INTO payments VALUES (50, 30, 'KAKAOPAY')");
     }
 }

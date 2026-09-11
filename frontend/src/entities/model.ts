@@ -39,6 +39,8 @@ export const RETURN_STATUS = [
   'REJECTED',
   'DISPUTED',
   'PICKED_UP',
+  'REFUND_REQUESTED',
+  'REFUND_FAILED',
   'REFUNDED',
 ] as const
 export type ReturnStatus = (typeof RETURN_STATUS)[number]
@@ -111,6 +113,8 @@ export const RETURN_STATUS_DISPLAY: Record<ReturnStatus, Display> = {
   REJECTED: { label: '반품거부', tone: 'alert' },
   DISPUTED: { label: '이의제기', tone: 'alert' },
   PICKED_UP: { label: '수거완료', tone: 'back' },
+  REFUND_REQUESTED: { label: '환불요청', tone: 'back' },
+  REFUND_FAILED: { label: '환불실패', tone: 'alert' },
   REFUNDED: { label: '환불완료', tone: 'ok' },
 }
 
