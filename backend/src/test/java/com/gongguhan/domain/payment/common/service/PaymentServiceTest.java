@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.gongguhan.domain.escrow.repository.EscrowRepository;
+import com.gongguhan.domain.account.repository.UserAddressRepository;
 import com.gongguhan.domain.groupbuy.entity.GroupBuy;
 import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
 import com.gongguhan.domain.groupbuy.service.GroupBuySlotGate;
@@ -44,6 +45,7 @@ class PaymentServiceTest {
     private ParticipationRepository participationRepository;
     private EscrowRepository escrowRepository;
     private PaymentRepository paymentRepository;
+    private UserAddressRepository userAddressRepository;
     private GroupBuySlotGate groupBuySlotGate;
     private PaymentSlotReservationTransaction slotReservationTransaction;
     private PaymentService paymentService;
@@ -54,12 +56,14 @@ class PaymentServiceTest {
         participationRepository = mock(ParticipationRepository.class);
         escrowRepository = mock(EscrowRepository.class);
         paymentRepository = mock(PaymentRepository.class);
+        userAddressRepository = mock(UserAddressRepository.class);
         groupBuySlotGate = mock(GroupBuySlotGate.class);
         slotReservationTransaction = mock(PaymentSlotReservationTransaction.class);
         Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
         paymentService = new PaymentService(
                 groupBuyRepository, participationRepository, escrowRepository,
-                paymentRepository, groupBuySlotGate, slotReservationTransaction, clock);
+                paymentRepository, userAddressRepository, groupBuySlotGate,
+                slotReservationTransaction, clock);
     }
 
     private PaymentPrepareRequest cardRequest() {

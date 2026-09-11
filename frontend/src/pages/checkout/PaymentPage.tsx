@@ -87,8 +87,9 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
 
       if (method === 'KAKAOPAY') {
         const ready = await paymentApi.kakaoReady(payment.paymentId)
-        // 실제 환경에서는 카카오 결제창으로 이동하고, 리다이렉트로 돌아와
-        // KAKA-02(approve)를 호출합니다.
+        // 외부 결제창으로 이동하면 이 화면이 언마운트된다. 이동 전에 정산 완료로
+        // 표시하지 않으면 cleanup이 PAY-03을 호출해 방금 준비한 슬롯을 해제한다.
+        slot.markSettled()
         window.location.assign(ready.nextRedirectPcUrl)
         return null
       }

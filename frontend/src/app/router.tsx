@@ -22,6 +22,7 @@ const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 const ShippingPage = lazy(() => import('@/pages/checkout/ShippingPage'))
 const PaymentPage = lazy(() => import('@/pages/checkout/PaymentPage'))
 const CompletePage = lazy(() => import('@/pages/checkout/CompletePage'))
+const KakaoPayCallbackPage = lazy(() => import('@/pages/checkout/KakaoPayCallbackPage'))
 
 const OrdersPage = lazy(() => import('@/pages/orders/OrdersPage'))
 const ConfirmPage = lazy(() => import('@/pages/orders/ConfirmPage'))
@@ -72,6 +73,18 @@ export const router = createBrowserRouter([
           { path: 'checkout/:groupBuyId/shipping', element: <ShippingPage /> },
           { path: 'checkout/:groupBuyId/payment', element: <PaymentPage /> },
           { path: 'checkout/complete/:paymentId', element: <CompletePage /> },
+          {
+            path: 'checkout/kakaopay/success',
+            element: <KakaoPayCallbackPage result="success" />,
+          },
+          {
+            path: 'checkout/kakaopay/cancel',
+            element: <KakaoPayCallbackPage result="cancel" />,
+          },
+          {
+            path: 'checkout/kakaopay/fail',
+            element: <KakaoPayCallbackPage result="fail" />,
+          },
         ],
       },
     ],
