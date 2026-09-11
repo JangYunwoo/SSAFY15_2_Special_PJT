@@ -1,17 +1,15 @@
 package com.gongguhan.domain.payment.common.service;
 
-import com.gongguhan.domain.escrow.entity.Escrow;
-import com.gongguhan.domain.escrow.repository.EscrowRepository;
 import com.gongguhan.domain.account.entity.UserAddress;
 import com.gongguhan.domain.account.repository.UserAddressRepository;
-import com.gongguhan.domain.groupbuy.entity.GroupBuy;
 import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
 import com.gongguhan.domain.groupbuy.service.GroupBuySlotGate;
-import com.gongguhan.domain.participation.entity.Participation;
-import com.gongguhan.domain.participation.repository.ParticipationRepository;
 import com.gongguhan.domain.payment.common.dto.PaymentPrepareRequest;
 import com.gongguhan.domain.payment.common.dto.PaymentResponse;
 import com.gongguhan.domain.payment.common.entity.Payment;
+import com.gongguhan.domain.payment.common.port.EscrowWriterPort;
+import com.gongguhan.domain.payment.common.port.GroupBuySlotPort;
+import com.gongguhan.domain.payment.common.port.ParticipationWriterPort;
 import com.gongguhan.domain.payment.common.repository.PaymentRepository;
 import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
@@ -37,29 +35,40 @@ public class PaymentService {
      */
     private static final int MAX_RESERVATION_ATTEMPTS = 3;
 
+    /**
+     * {@code GroupBuyRepository}만 남기는 이유(S15P21B205-103 포트 마이그레이션 예외).
+     *
+     * <p>{@link #prepare}의 Redis 게이트 사전조회(findSlotCounts)는 고QPS 경로라
+     * 프로젝션 쿼리로 남긴다. {@link GroupBuySlotPort#get}은 엔티티 전체를 읽어와
+     * 이 자리에 쓰면 불필요하게 무겁다. 이 필드 외의 모든 {@code GroupBuy} 엔티티
+     * 직접 접근은 {@link GroupBuySlotPort}로 옮겼다.
+     */
     private final GroupBuyRepository groupBuyRepository;
-    private final ParticipationRepository participationRepository;
-    private final EscrowRepository escrowRepository;
     private final PaymentRepository paymentRepository;
     private final UserAddressRepository userAddressRepository;
     private final GroupBuySlotGate groupBuySlotGate;
+    private final GroupBuySlotPort groupBuySlotPort;
+    private final ParticipationWriterPort participationWriterPort;
+    private final EscrowWriterPort escrowWriterPort;
     private final PaymentSlotReservationTransaction slotReservationTransaction;
     private final Clock clock;
 
     public PaymentService(GroupBuyRepository groupBuyRepository,
-                           ParticipationRepository participationRepository,
-                           EscrowRepository escrowRepository,
                            PaymentRepository paymentRepository,
                            UserAddressRepository userAddressRepository,
                            GroupBuySlotGate groupBuySlotGate,
+                           GroupBuySlotPort groupBuySlotPort,
+                           ParticipationWriterPort participationWriterPort,
+                           EscrowWriterPort escrowWriterPort,
                            PaymentSlotReservationTransaction slotReservationTransaction,
                            Clock clock) {
         this.groupBuyRepository = groupBuyRepository;
-        this.participationRepository = participationRepository;
-        this.escrowRepository = escrowRepository;
         this.paymentRepository = paymentRepository;
         this.userAddressRepository = userAddressRepository;
         this.groupBuySlotGate = groupBuySlotGate;
+        this.groupBuySlotPort = groupBuySlotPort;
+        this.participationWriterPort = participationWriterPort;
+        this.escrowWriterPort = escrowWriterPort;
         this.slotReservationTransaction = slotReservationTransaction;
         this.clock = clock;
     }
@@ -76,15 +85,15 @@ public class PaymentService {
                                     String idempotencyKey) {
         Payment existing = paymentRepository.findByIdempotencyKey(idempotencyKey).orElse(null);
         if (existing != null) {
-            GroupBuy existingGroupBuy = findGroupBuy(existing.getGroupBuyId());
-            return PaymentResponse.from(existing, existingGroupBuy, LocalDateTime.now(clock));
+            GroupBuySlotPort.GroupBuySlot existingGroupBuySlot = groupBuySlotPort.get(existing.getGroupBuyId());
+            return PaymentResponse.from(existing, existingGroupBuySlot, LocalDateTime.now(clock));
         }
 
         // Redis fast-fail 게이트: 프로젝션 조회(짧은 자체 트랜잭션, 즉시 커넥션 반납)라
-        // 아래 findWithLockByGroupBuyId와 버전 충돌이 나지 않고, 락도 잡지 않는다.
-        // 정원 초과면 findWithLockByGroupBuyId(비관적 락)까지 가지 않고 여기서 즉시
-        // 거부한다 - 고경합 상황에서 거부될 요청이 MySQL 락/커넥션풀 대기열에 쌓이지
-        // 않게 하는 것이 이 게이트의 유일한 목적이다.
+        // PaymentSlotReservationTransaction의 슬롯 예약과 버전 충돌이 나지 않고, 락도
+        // 잡지 않는다. 정원 초과면 그 슬롯 예약까지 가지 않고 여기서 즉시 거부한다 -
+        // 고경합 상황에서 거부될 요청이 MySQL 락/커넥션풀 대기열에 쌓이지 않게 하는 것이
+        // 이 게이트의 유일한 목적이다.
         GroupBuyRepository.SlotCounts gatePreCheck = groupBuyRepository.findSlotCounts(groupBuyId).orElse(null);
         boolean gateApplies = gatePreCheck != null;
         if (gateApplies) {
@@ -149,8 +158,8 @@ public class PaymentService {
 
     public PaymentResponse getPayment(Long userId, Long paymentId) {
         Payment payment = findOwnedPayment(userId, paymentId);
-        GroupBuy groupBuy = findGroupBuy(payment.getGroupBuyId());
-        return PaymentResponse.from(payment, groupBuy, LocalDateTime.now(clock));
+        GroupBuySlotPort.GroupBuySlot groupBuySlot = groupBuySlotPort.get(payment.getGroupBuyId());
+        return PaymentResponse.from(payment, groupBuySlot, LocalDateTime.now(clock));
     }
 
     @Transactional
@@ -160,9 +169,7 @@ public class PaymentService {
             throw new BusinessException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
         }
 
-        GroupBuy groupBuy = groupBuyRepository.findWithLockByGroupBuyId(payment.getGroupBuyId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "공동구매를 찾을 수 없습니다."));
-        groupBuy.releaseSlot();
+        groupBuySlotPort.release(payment.getGroupBuyId());
         groupBuySlotGate.release(payment.getGroupBuyId());
         payment.markFailed("USER_ABORTED");
     }
@@ -190,17 +197,35 @@ public class PaymentService {
             return;
         }
 
-        GroupBuy groupBuy = groupBuyRepository.findWithLockByGroupBuyId(payment.getGroupBuyId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "공동구매를 찾을 수 없습니다."));
-        groupBuy.releaseSlot();
+        groupBuySlotPort.release(payment.getGroupBuyId());
         groupBuySlotGate.release(payment.getGroupBuyId());
         payment.markExpired();
+    }
+
+    /**
+     * 외부 승인(카드/카카오페이/코인) 실패 후 슬롯을 되돌린다. {@link #abort}와 같은
+     * 시퀀스(슬롯 포트 해제 → 게이트 해제 → markFailed)를 쓰지만, 사용자가 직접
+     * 요청하는 abort와 달리 외부 콜백 경로에서 호출되므로 이미 처리된 결제를 만나도
+     * 예외 대신 조용히 무시한다 - {@link #expireSlotIfDue}와 같은 이유로, 배치의 만료
+     * 처리와 경합해도 안전해야 한다.
+     */
+    @Transactional
+    public void failPayment(Long paymentId, String reason) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "결제를 찾을 수 없습니다."));
+        if (!payment.isProcessing()) {
+            return;
+        }
+
+        groupBuySlotPort.release(payment.getGroupBuyId());
+        groupBuySlotGate.release(payment.getGroupBuyId());
+        payment.markFailed(reason);
     }
 
     public Page<PaymentResponse> listHistory(Long userId, Pageable pageable) {
         return paymentRepository.findByUserId(userId, pageable)
                 .map(payment -> PaymentResponse.from(
-                        payment, findGroupBuy(payment.getGroupBuyId()), LocalDateTime.now(clock)));
+                        payment, groupBuySlotPort.get(payment.getGroupBuyId()), LocalDateTime.now(clock)));
     }
 
     /**
@@ -218,25 +243,27 @@ public class PaymentService {
             throw new BusinessException(ErrorCode.PAYMENT_SLOT_EXPIRED);
         }
 
-        GroupBuy groupBuy = groupBuyRepository.findWithLockByGroupBuyId(payment.getGroupBuyId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "공동구매를 찾을 수 없습니다."));
+        // GroupBuySlotPort.confirm은 findWithLockByGroupBuyId(비관적 락)로 재조회 후
+        // confirmParticipant()까지 한 번에 수행한다 - completePayment 전체가 하나의
+        // 트랜잭션이라 이 시점에 먼저 호출해도(참여·에스크로 생성 실패 시 롤백되어) 예전과
+        // 동일하게 원자적이다. 마지막 슬롯이면 즉시 FULFILLED 판정도 함께 일어난다(예전엔
+        // 배치가 다음 주기에 판정했음 - 부수 개선).
+        GroupBuySlotPort.GroupBuySlot groupBuySlot = groupBuySlotPort.confirm(payment.getGroupBuyId());
 
-        Participation participation = Participation.create(
-                payment.getGroupBuyId(), payment.getUserId(),
-                groupBuy.getUnitShareAmount(), groupBuy.getShippingFee(), payment.getKrwAmount(),
-                snapshot.recipientName(), snapshot.recipientPhone(), snapshot.zipcode(),
-                snapshot.address1(), snapshot.address2());
-        participationRepository.saveAndFlush(participation);
+        ParticipationWriterPort.ParticipationRecord participation = participationWriterPort.create(
+                new ParticipationWriterPort.ParticipationCreateCommand(
+                        payment.getGroupBuyId(), payment.getUserId(),
+                        groupBuySlot.unitShareAmount(), groupBuySlot.shippingFee(), payment.getKrwAmount(),
+                        snapshot.recipientName(), snapshot.recipientPhone(), snapshot.zipcode(),
+                        snapshot.address1(), snapshot.address2()));
 
         // 보관 시각도 Clock 에서 가져온다. 엔티티가 LocalDateTime.now() 를 직접 부르면
         // 테스트에서 시각을 고정할 수 없고, DB 에 UTC/KST 가 섞인다.
-        escrowRepository.save(Escrow.hold(
-                participation.getParticipationId(), payment.getGroupBuyId(),
-                payment.getKrwAmount(), LocalDateTime.now(clock)));
+        escrowWriterPort.hold(participation.participationId(), payment.getGroupBuyId(),
+                payment.getKrwAmount(), LocalDateTime.now(clock));
 
-        payment.markPaid(participation.getParticipationId(), LocalDateTime.now(clock));
-        groupBuy.confirmParticipant();
-        return PaymentResponse.from(payment, groupBuy, LocalDateTime.now(clock));
+        payment.markPaid(participation.participationId(), LocalDateTime.now(clock));
+        return PaymentResponse.from(payment, groupBuySlot, LocalDateTime.now(clock));
     }
 
     /**
@@ -261,7 +288,7 @@ public class PaymentService {
         if (!Payment.STATUS_PAID.equals(payment.getStatus())) {
             throw new BusinessException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
         }
-        return PaymentResponse.from(payment, findGroupBuy(payment.getGroupBuyId()), LocalDateTime.now(clock));
+        return PaymentResponse.from(payment, groupBuySlotPort.get(payment.getGroupBuyId()), LocalDateTime.now(clock));
     }
 
     /**
@@ -304,11 +331,6 @@ public class PaymentService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_ACCESS_DENIED));
     }
 
-    private GroupBuy findGroupBuy(Long groupBuyId) {
-        return groupBuyRepository.findById(groupBuyId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "공동구매를 찾을 수 없습니다."));
-    }
-
     public record ParticipationSnapshot(
             String recipientName,
             String recipientPhone,
@@ -329,10 +351,7 @@ public class PaymentService {
         if (!payment.isProcessing()) {
             throw new BusinessException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
         }
-        GroupBuy groupBuy = groupBuyRepository.findWithLockByGroupBuyId(payment.getGroupBuyId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND,
-                        "공동구매를 찾을 수 없습니다."));
-        groupBuy.releaseSlot();
+        groupBuySlotPort.release(payment.getGroupBuyId());
         groupBuySlotGate.release(payment.getGroupBuyId());
         payment.markFailed(reason);
     }

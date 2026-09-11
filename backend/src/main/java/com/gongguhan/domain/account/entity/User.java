@@ -77,6 +77,10 @@ public class User extends BaseTimeEntity {
         return nickname;
     }
 
+    public String getSsafyUserKey() {
+        return ssafyUserKey;
+    }
+
     public boolean isSeller() {
         return seller;
     }

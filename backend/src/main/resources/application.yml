@@ -77,6 +77,14 @@ app:
     exchange-timeout-ms: ${CRYPTO_EXCHANGE_TIMEOUT_MS:3000}
     # 짧게 유지한다. 낡은 환율은 Buffer(0.3%)로 흡수되지 않는다.
     rate-cache-ttl-ms: ${CRYPTO_RATE_CACHE_TTL_MS:10000}
+  ssafy:
+    # SSAFY 교육용 금융망. 기관코드·핀테크앱일련번호·가맹점ID는 platform_policies(PolicyKey)로
+    # 관리하고(관리자가 재배포 없이 바꿀 수 있어야 함), apiKey만 비밀값이라 env로 둔다.
+    # 개발 문서상 URL(ssafy-dev.maum.ai)은 DNS가 열리지 않는다 - 운영 URL이 실제 응답 서버다
+    # (2026-09-10 inquireCategoryList 호출로 H0000 확인).
+    base-url: ${SSAFY_BASE_URL:https://finopenapi.ssafy.io/ssafy/api/v1/edu}
+    api-key: ${SSAFY_API_KEY:}
+    timeout-ms: ${SSAFY_TIMEOUT_MS:5000}
 
 management:
   endpoints:

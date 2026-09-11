@@ -4,11 +4,11 @@ import com.gongguhan.domain.account.entity.UserAddress;
 import com.gongguhan.domain.account.repository.UserAddressRepository;
 import com.gongguhan.domain.groupbuy.entity.GroupBuy;
 import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
-import com.gongguhan.domain.participation.entity.Participation;
-import com.gongguhan.domain.participation.repository.ParticipationRepository;
 import com.gongguhan.domain.payment.common.dto.PaymentPrepareRequest;
 import com.gongguhan.domain.payment.common.dto.PaymentResponse;
 import com.gongguhan.domain.payment.common.entity.Payment;
+import com.gongguhan.domain.payment.common.port.GroupBuySlotPort;
+import com.gongguhan.domain.payment.common.port.ParticipationWriterPort;
 import com.gongguhan.domain.payment.common.repository.PaymentRepository;
 import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
@@ -45,19 +45,26 @@ class PaymentSlotReservationTransaction {
     private static final long TTL_CARD_KAKAOPAY_SECONDS = 300;
     private static final long TTL_CRYPTO_SECONDS = 600;
 
+    /**
+     * {@code GroupBuyRepository}/{@code GroupBuy}를 직접 쓰는 이유(S15P21B205-103 포트
+     * 마이그레이션 예외). {@link GroupBuySlotPort}가 위임하는 {@code GroupBuySlotService.reserve}는
+     * 비관적 락({@code findWithLockByGroupBuyId})을 쓴다 - 이 메서드는 그 락을 일부러 뗀
+     * 낙관적 락+재시도 경로(클래스 상단 설명)라 포트로 옮기면 그 최적화가 원복된다.
+     * {@code GroupBuySlotPort}가 낙관적 락 친화적인 변형을 지원하게 되면 그때 옮긴다.
+     */
     private final GroupBuyRepository groupBuyRepository;
-    private final ParticipationRepository participationRepository;
+    private final ParticipationWriterPort participationWriterPort;
     private final PaymentRepository paymentRepository;
     private final UserAddressRepository userAddressRepository;
     private final Clock clock;
 
     PaymentSlotReservationTransaction(GroupBuyRepository groupBuyRepository,
-                                       ParticipationRepository participationRepository,
+                                       ParticipationWriterPort participationWriterPort,
                                        PaymentRepository paymentRepository,
                                        UserAddressRepository userAddressRepository,
                                        Clock clock) {
         this.groupBuyRepository = groupBuyRepository;
-        this.participationRepository = participationRepository;
+        this.participationWriterPort = participationWriterPort;
         this.paymentRepository = paymentRepository;
         this.userAddressRepository = userAddressRepository;
         this.clock = clock;
@@ -68,8 +75,7 @@ class PaymentSlotReservationTransaction {
         GroupBuy groupBuy = groupBuyRepository.findById(groupBuyId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "공동구매를 찾을 수 없습니다."));
 
-        boolean hasActiveParticipation = participationRepository
-                .existsByGroupBuyIdAndUserIdAndActiveMarker(groupBuyId, userId, Participation.ACTIVE_MARKER);
+        boolean hasActiveParticipation = participationWriterPort.existsActiveParticipation(groupBuyId, userId);
         boolean hasActiveSlot = paymentRepository
                 .existsByGroupBuyIdAndUserIdAndStatus(groupBuyId, userId, Payment.STATUS_PROCESSING);
         if (hasActiveParticipation || hasActiveSlot) {
@@ -97,7 +103,16 @@ class PaymentSlotReservationTransaction {
             throw new BusinessException(ErrorCode.DUPLICATE_PARTICIPATION);
         }
 
-        return PaymentResponse.from(payment, groupBuy, LocalDateTime.now(clock));
+        return PaymentResponse.from(payment, toSlotView(groupBuy), LocalDateTime.now(clock));
+    }
+
+    /** {@link PaymentResponse#from}이 포트 DTO를 받도록 바뀌어서 필요한 매핑 - 이 파일은
+     * 위 이유로 여전히 {@code GroupBuy} 엔티티를 직접 들고 있다. */
+    private static GroupBuySlotPort.GroupBuySlot toSlotView(GroupBuy groupBuy) {
+        return new GroupBuySlotPort.GroupBuySlot(
+                groupBuy.getGroupBuyId(), groupBuy.getUnitShareAmount(), groupBuy.getShippingFee(),
+                groupBuy.getTargetParticipants(), groupBuy.getCurrentParticipants(), groupBuy.getReservedSlots(),
+                groupBuy.getRecruitEndAt(), groupBuy.getStatus());
     }
 
     private void validateMethod(PaymentPrepareRequest request) {
