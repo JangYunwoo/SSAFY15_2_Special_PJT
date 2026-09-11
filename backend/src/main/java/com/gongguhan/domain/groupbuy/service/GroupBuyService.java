@@ -1,5 +1,6 @@
 package com.gongguhan.domain.groupbuy.service;
 
+import com.gongguhan.domain.account.repository.SellerProfileRepository;
 import com.gongguhan.domain.groupbuy.dto.GroupBuyAmountPreviewRequest;
 import com.gongguhan.domain.groupbuy.dto.GroupBuyAmountPreviewResponse;
 import com.gongguhan.domain.groupbuy.dto.GroupBuyCreateRequest;
@@ -15,6 +16,7 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,13 +26,18 @@ public class GroupBuyService {
 
     private static final BigDecimal PLATFORM_FEE_RATE = new BigDecimal("0.05");
     private static final String FEE_POLICY_RATE = "RATE";
+    private static final List<String> USABLE_SELLER_STATUSES = List.of("ACTIVE", "WARNED");
 
     private final GroupBuyCommandRepository groupBuyCommandRepository;
     private final ProductRepository productRepository;
+    private final SellerProfileRepository sellerProfileRepository;
 
-    public GroupBuyService(GroupBuyCommandRepository groupBuyCommandRepository, ProductRepository productRepository) {
+    public GroupBuyService(GroupBuyCommandRepository groupBuyCommandRepository,
+                           ProductRepository productRepository,
+                           SellerProfileRepository sellerProfileRepository) {
         this.groupBuyCommandRepository = groupBuyCommandRepository;
         this.productRepository = productRepository;
+        this.sellerProfileRepository = sellerProfileRepository;
     }
 
     public GroupBuyAmountPreviewResponse preview(Long sellerId, GroupBuyAmountPreviewRequest request) {
@@ -114,7 +121,9 @@ public class GroupBuyService {
     }
 
     private void ensureUsableSeller(Long sellerId) {
-        if (sellerId == null || productRepository.countUsableSeller(sellerId) == 0) {
+        if (sellerId == null
+                || !sellerProfileRepository.existsBySellerIdAndStatusIn(
+                        sellerId, USABLE_SELLER_STATUSES)) {
             throw new BusinessException(ErrorCode.SELLER_SUSPENDED);
         }
     }
