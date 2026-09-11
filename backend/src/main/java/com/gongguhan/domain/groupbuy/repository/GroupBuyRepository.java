@@ -38,6 +38,9 @@ public interface GroupBuyRepository extends JpaRepository<GroupBuy, Long> {
     List<GroupBuy> findJudgementCandidates(
             @Param("judgedAt") LocalDateTime judgedAt, Pageable pageable);
 
+    /** 배송 기한 초과 감지 배치(S15P21B205-77) 후보 조회. */
+    List<GroupBuy> findByStatusAndShippingDeadlineAtBefore(String status, LocalDateTime threshold);
+
     interface SlotCounts {
         int getTargetParticipants();
 

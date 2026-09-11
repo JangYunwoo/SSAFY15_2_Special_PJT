@@ -169,6 +169,21 @@ public class Participation {
         this.confirmedAt = confirmedAt;
     }
 
+    /**
+     * 구매자 이의 제기(CFM-02) 접수 - 자동 구매확정을 보류시킨다(FR-CFM-10).
+     * confirm_hold 자체가 참여당 1회 접수 마커라 중복 접수도 여기서 걸러진다.
+     */
+    public void holdConfirmForDispute() {
+        if (!STATUS_SHIPPING.equals(status) && !STATUS_DELIVERED.equals(status)) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
+                    "배송 중이거나 배송 완료된 참여만 이의를 제기할 수 있습니다.");
+        }
+        if (confirmHold) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "이미 접수된 이의 제기가 있습니다.");
+        }
+        this.confirmHold = true;
+    }
+
     private void requireStatus(String expected, String message) {
         if (!expected.equals(status)) {
             throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, message);
