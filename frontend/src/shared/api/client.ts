@@ -1,5 +1,8 @@
 import { env } from '@/shared/config/env'
 
+import type { ZodType } from 'zod'
+
+import { checkContract } from './contract'
 import { ApiError, NetworkError } from './errors'
 import type { ApiResponse, NoContent, PageMeta, Paged } from './types'
 
@@ -10,6 +13,11 @@ interface RequestOptions {
   idempotencyKey?: string
   query?: Query
   signal?: AbortSignal
+  /**
+   * 응답 검증 스키마. 넘기면 개발 중에만 서버 응답 모양을 확인합니다.
+   * 목록 응답에는 배열이 아니라 "항목 하나"의 스키마를 넘깁니다.
+   */
+  schema?: ZodType
   /**
    * 401 을 받아도 토큰 재발급을 시도하지 않습니다.
    * 재발급 요청 자신이 401 일 때 무한히 되도는 것을 막는 용도입니다.
@@ -146,13 +154,17 @@ async function request<TData, TMeta = null>(
 async function unwrap<TData>(method: string, path: string, options?: BodyOptions): Promise<TData> {
   const payload = await request<TData>(method, path, options)
   // request() 가 실패 응답을 이미 throw 했으므로 여기서는 성공만 남습니다.
-  return (payload as { data: TData }).data
+  const data = (payload as { data: TData }).data
+  checkContract(options?.schema, data, `${method} ${path}`)
+  return data
 }
 
 /** 목록 응답의 `data` + `meta` 를 함께 꺼냅니다. */
 async function unwrapPage<TItem>(path: string, options?: RequestOptions): Promise<Paged<TItem>> {
   const payload = await request<TItem[], PageMeta>('GET', path, options)
   const { data, meta } = payload as { data: TItem[]; meta: PageMeta }
+  // 목록은 첫 항목만 봐도 모양이 드러납니다. 전부 검사하면 로그가 시끄럽습니다.
+  checkContract(options?.schema, data[0], `GET ${path} [0]`)
   return { items: data, meta }
 }
 
