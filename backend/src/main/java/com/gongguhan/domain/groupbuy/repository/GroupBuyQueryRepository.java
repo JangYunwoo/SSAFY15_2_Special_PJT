@@ -5,6 +5,7 @@ import com.gongguhan.domain.groupbuy.dto.GroupBuySearchCondition;
 import com.gongguhan.domain.groupbuy.dto.GroupBuySort;
 import com.gongguhan.domain.groupbuy.dto.GroupBuySummaryResponse;
 import com.gongguhan.domain.groupbuy.dto.SellerGroupBuySummaryResponse;
+import com.gongguhan.domain.groupbuy.dto.SellerGroupBuyDetailResponse;
 import com.gongguhan.domain.groupbuy.dto.SellerParticipantResponse;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -169,6 +170,65 @@ public class GroupBuyQueryRepository {
         return new PageImpl<>(content, pageable, total == null ? 0 : total);
     }
 
+    /**
+     * 판매자 운영 상세는 목록·에스크로·배송·반품 저장소를 순서대로 호출하지 않고
+     * 한 번의 읽기 모델 쿼리로 반환한다. 집계 서브쿼리는 모두 FK 인덱스를 사용한다.
+     */
+    public Optional<SellerGroupBuyDetailResponse> findSellerDetail(Long sellerId, Long groupBuyId) {
+        String sql = """
+                SELECT gb.group_buy_id AS id,
+                       gb.product_id,
+                       p.name AS product_name,
+                       gb.status,
+                       gb.target_participants,
+                       gb.current_participants,
+                       (SELECT COUNT(*)
+                          FROM participations part
+                         WHERE part.group_buy_id = gb.group_buy_id
+                           AND part.status IN ('CONFIRMED', 'SETTLED')) AS confirmed_count,
+                       gb.product_price,
+                       gb.unit_share_amount,
+                       gb.shipping_fee,
+                       gb.recruit_end_at,
+                       (SELECT CASE WHEN COUNT(*) = 0 THEN NULL
+                                    ELSE SUM(CASE WHEN d.tracking_number IS NOT NULL THEN 1 ELSE 0 END) * 1.0
+                                         / COUNT(*) END
+                          FROM deliveries d
+                          JOIN participations dp ON dp.participation_id = d.participation_id
+                         WHERE dp.group_buy_id = gb.group_buy_id) AS invoice_registered_rate,
+                       gb.recruit_start_at,
+                       gb.rounding_diff,
+                       gb.platform_fee_rate,
+                       (SELECT COALESCE(SUM(e.amount), 0)
+                          FROM escrows e
+                         WHERE e.group_buy_id = gb.group_buy_id
+                           AND e.status = 'HELD') AS escrow_held_amount,
+                       gb.expected_settlement_amount,
+                       (SELECT COUNT(*)
+                          FROM return_requests rr
+                          JOIN participations rp ON rp.participation_id = rr.participation_id
+                         WHERE rp.group_buy_id = gb.group_buy_id) AS return_count,
+                       CASE WHEN gb.status = 'RECRUITING'
+                                  AND gb.current_participants = 0
+                                  AND gb.reserved_slots = 0
+                            THEN TRUE ELSE FALSE END AS can_edit,
+                       CASE WHEN gb.status = 'RECRUITING'
+                                  AND gb.current_participants = 0
+                                  AND gb.reserved_slots = 0
+                            THEN TRUE ELSE FALSE END AS can_cancel
+                  FROM group_buys gb
+                  JOIN products p ON p.product_id = gb.product_id
+                 WHERE gb.group_buy_id = :groupBuyId
+                   AND gb.seller_id = :sellerId
+                """;
+        return jdbcTemplate.query(
+                        sql,
+                        Map.of("sellerId", sellerId, "groupBuyId", groupBuyId),
+                        this::mapSellerGroupBuyDetail)
+                .stream()
+                .findFirst();
+    }
+
     public boolean existsOwnedGroupBuy(Long sellerId, Long groupBuyId) {
         Long count = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*)
@@ -329,6 +389,31 @@ public class GroupBuyQueryRepository {
                 resultSet.getLong("shipping_fee"),
                 utc(resultSet, "recruit_end_at"),
                 null);
+    }
+
+    private SellerGroupBuyDetailResponse mapSellerGroupBuyDetail(
+            ResultSet resultSet, int rowNum) throws SQLException {
+        return new SellerGroupBuyDetailResponse(
+                resultSet.getLong("id"),
+                resultSet.getLong("product_id"),
+                resultSet.getString("product_name"),
+                resultSet.getString("status"),
+                resultSet.getInt("target_participants"),
+                resultSet.getInt("current_participants"),
+                resultSet.getInt("confirmed_count"),
+                resultSet.getLong("product_price"),
+                resultSet.getLong("unit_share_amount"),
+                resultSet.getLong("shipping_fee"),
+                utc(resultSet, "recruit_end_at"),
+                resultSet.getBigDecimal("invoice_registered_rate"),
+                utc(resultSet, "recruit_start_at"),
+                resultSet.getLong("rounding_diff"),
+                resultSet.getBigDecimal("platform_fee_rate"),
+                resultSet.getLong("escrow_held_amount"),
+                resultSet.getLong("expected_settlement_amount"),
+                resultSet.getInt("return_count"),
+                resultSet.getBoolean("can_edit"),
+                resultSet.getBoolean("can_cancel"));
     }
 
     private SellerParticipantResponse mapSellerParticipant(ResultSet resultSet, int rowNum) throws SQLException {

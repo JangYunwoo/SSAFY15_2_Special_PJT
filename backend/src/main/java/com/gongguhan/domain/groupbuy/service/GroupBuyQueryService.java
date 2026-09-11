@@ -5,6 +5,7 @@ import com.gongguhan.domain.groupbuy.dto.GroupBuySearchCondition;
 import com.gongguhan.domain.groupbuy.dto.GroupBuySort;
 import com.gongguhan.domain.groupbuy.dto.GroupBuySummaryResponse;
 import com.gongguhan.domain.groupbuy.dto.SellerGroupBuySummaryResponse;
+import com.gongguhan.domain.groupbuy.dto.SellerGroupBuyDetailResponse;
 import com.gongguhan.domain.groupbuy.dto.SellerParticipantResponse;
 import com.gongguhan.domain.groupbuy.entity.GroupBuy;
 import com.gongguhan.domain.groupbuy.repository.GroupBuyQueryRepository;
@@ -47,6 +48,13 @@ public class GroupBuyQueryService {
     public Page<SellerGroupBuySummaryResponse> getSellerGroupBuys(Long sellerId, int page, int size) {
         ensureAuthenticated(sellerId);
         return groupBuyQueryRepository.findSellerGroupBuys(sellerId, pageRequest(page, size));
+    }
+
+    public SellerGroupBuyDetailResponse getSellerDetail(Long sellerId, Long groupBuyId) {
+        ensureAuthenticated(sellerId);
+        return groupBuyQueryRepository.findSellerDetail(sellerId, groupBuyId)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.RESOURCE_NOT_FOUND, "공동구매를 찾을 수 없습니다."));
     }
 
     public Page<SellerParticipantResponse> getSellerParticipants(

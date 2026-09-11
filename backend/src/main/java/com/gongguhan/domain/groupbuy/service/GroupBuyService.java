@@ -4,9 +4,13 @@ import com.gongguhan.domain.account.repository.SellerProfileRepository;
 import com.gongguhan.domain.groupbuy.dto.GroupBuyAmountPreviewRequest;
 import com.gongguhan.domain.groupbuy.dto.GroupBuyAmountPreviewResponse;
 import com.gongguhan.domain.groupbuy.dto.GroupBuyCreateRequest;
-import com.gongguhan.domain.groupbuy.dto.GroupBuyResponse;
+import com.gongguhan.domain.groupbuy.dto.GroupBuyUpdateRequest;
+import com.gongguhan.domain.groupbuy.dto.SellerGroupBuyDetailResponse;
+import com.gongguhan.domain.groupbuy.entity.GroupBuy;
 import com.gongguhan.domain.groupbuy.repository.GroupBuyCommandRepository;
 import com.gongguhan.domain.groupbuy.repository.GroupBuyCreateCommand;
+import com.gongguhan.domain.groupbuy.repository.GroupBuyQueryRepository;
+import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
 import com.gongguhan.domain.product.entity.Product;
 import com.gongguhan.domain.product.repository.ProductRepository;
 import com.gongguhan.global.error.BusinessException;
@@ -29,13 +33,19 @@ public class GroupBuyService {
     private static final List<String> USABLE_SELLER_STATUSES = List.of("ACTIVE", "WARNED");
 
     private final GroupBuyCommandRepository groupBuyCommandRepository;
+    private final GroupBuyRepository groupBuyRepository;
+    private final GroupBuyQueryRepository groupBuyQueryRepository;
     private final ProductRepository productRepository;
     private final SellerProfileRepository sellerProfileRepository;
 
     public GroupBuyService(GroupBuyCommandRepository groupBuyCommandRepository,
+                           GroupBuyRepository groupBuyRepository,
+                           GroupBuyQueryRepository groupBuyQueryRepository,
                            ProductRepository productRepository,
                            SellerProfileRepository sellerProfileRepository) {
         this.groupBuyCommandRepository = groupBuyCommandRepository;
+        this.groupBuyRepository = groupBuyRepository;
+        this.groupBuyQueryRepository = groupBuyQueryRepository;
         this.productRepository = productRepository;
         this.sellerProfileRepository = sellerProfileRepository;
     }
@@ -47,7 +57,7 @@ public class GroupBuyService {
     }
 
     @Transactional
-    public GroupBuyResponse create(Long sellerId, GroupBuyCreateRequest request) {
+    public SellerGroupBuyDetailResponse create(Long sellerId, GroupBuyCreateRequest request) {
         ensureUsableSeller(sellerId);
         findOwnedProduct(sellerId, request.productId());
         validateRecruitPeriod(request);
@@ -68,26 +78,43 @@ public class GroupBuyService {
                 toUtcLocalDateTime(request.recruitStartAt()),
                 toUtcLocalDateTime(request.recruitEndAt()));
         GroupBuyCommandRepository.StoredGroupBuy stored = groupBuyCommandRepository.create(command);
+        return sellerDetail(sellerId, stored.groupBuyId());
+    }
 
-        return new GroupBuyResponse(
-                stored.groupBuyId(),
-                command.productId(),
-                command.sellerId(),
-                command.productPrice(),
-                command.targetParticipants(),
-                command.unitShareAmount(),
-                command.roundingDiff(),
-                command.shippingFee(),
-                command.platformFeeRate(),
-                command.expectedPlatformFee(),
-                command.expectedSettlementAmount(),
-                command.recruitStartAt().atOffset(ZoneOffset.UTC),
-                command.recruitEndAt().atOffset(ZoneOffset.UTC),
-                0,
-                0,
-                "RECRUITING",
-                stored.createdAt(),
-                stored.updatedAt());
+    @Transactional
+    public SellerGroupBuyDetailResponse update(
+            Long sellerId, Long groupBuyId, GroupBuyUpdateRequest request) {
+        ensureUsableSeller(sellerId);
+        GroupBuy groupBuy = ownedGroupBuy(sellerId, groupBuyId);
+
+        Long productId = request.productId() == null ? groupBuy.getProductId() : request.productId();
+        findOwnedProduct(sellerId, productId);
+        long productPrice = request.productPrice() == null
+                ? groupBuy.getProductPrice() : request.productPrice();
+        int targetCount = request.targetCount() == null
+                ? groupBuy.getTargetParticipants() : request.targetCount();
+        long shippingFee = request.shippingFee() == null
+                ? groupBuy.getShippingFee() : request.shippingFee();
+        LocalDateTime recruitStartAt = request.recruitStartAt() == null
+                ? groupBuy.getRecruitStartAt() : toUtcLocalDateTime(request.recruitStartAt());
+        LocalDateTime recruitEndAt = request.recruitEndAt() == null
+                ? groupBuy.getRecruitEndAt() : toUtcLocalDateTime(request.recruitEndAt());
+        validateRecruitPeriod(recruitStartAt, recruitEndAt);
+
+        GroupBuyAmountPreviewResponse amounts = calculateAmounts(productPrice, targetCount, shippingFee);
+        groupBuy.updateRecruitment(
+                productId, productPrice, targetCount, amounts.unitShareAmount(), shippingFee,
+                amounts.roundingSurplus(), amounts.platformFeeRate(), amounts.estimatedPlatformFee(),
+                amounts.estimatedSettlementAmount(), recruitStartAt, recruitEndAt);
+        groupBuyRepository.flush();
+        return sellerDetail(sellerId, groupBuyId);
+    }
+
+    @Transactional
+    public void cancel(Long sellerId, Long groupBuyId, String reason) {
+        ensureUsableSeller(sellerId);
+        normalizeReason(reason);
+        ownedGroupBuy(sellerId, groupBuyId).cancelBeforeParticipation();
     }
 
     private GroupBuyAmountPreviewResponse calculateAmounts(long productPrice, int targetCount, long shippingFee) {
@@ -134,9 +161,34 @@ public class GroupBuyService {
     }
 
     private void validateRecruitPeriod(GroupBuyCreateRequest request) {
-        if (!request.recruitEndAt().isAfter(request.recruitStartAt())) {
+        validateRecruitPeriod(
+                toUtcLocalDateTime(request.recruitStartAt()),
+                toUtcLocalDateTime(request.recruitEndAt()));
+    }
+
+    private void validateRecruitPeriod(LocalDateTime startAt, LocalDateTime endAt) {
+        if (!endAt.isAfter(startAt)) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "모집 종료 시각은 시작 시각보다 늦어야 합니다.");
         }
+    }
+
+    private GroupBuy ownedGroupBuy(Long sellerId, Long groupBuyId) {
+        return groupBuyRepository.findByGroupBuyIdAndSellerId(groupBuyId, sellerId)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.RESOURCE_NOT_FOUND, "공동구매를 찾을 수 없습니다."));
+    }
+
+    private SellerGroupBuyDetailResponse sellerDetail(Long sellerId, Long groupBuyId) {
+        return groupBuyQueryRepository.findSellerDetail(sellerId, groupBuyId)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.RESOURCE_NOT_FOUND, "공동구매를 찾을 수 없습니다."));
+    }
+
+    private String normalizeReason(String reason) {
+        if (reason == null || reason.isBlank()) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "취소 사유는 필수입니다.");
+        }
+        return reason.trim();
     }
 
     private LocalDateTime toUtcLocalDateTime(OffsetDateTime dateTime) {

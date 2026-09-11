@@ -14,6 +14,8 @@ import com.gongguhan.domain.groupbuy.dto.GroupBuyAmountPreviewResponse;
 import com.gongguhan.domain.groupbuy.dto.GroupBuyCreateRequest;
 import com.gongguhan.domain.groupbuy.repository.GroupBuyCommandRepository;
 import com.gongguhan.domain.groupbuy.repository.GroupBuyCreateCommand;
+import com.gongguhan.domain.groupbuy.repository.GroupBuyQueryRepository;
+import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
 import com.gongguhan.domain.product.entity.Category;
 import com.gongguhan.domain.product.entity.Product;
 import com.gongguhan.domain.product.repository.ProductRepository;
@@ -30,6 +32,8 @@ import org.mockito.ArgumentCaptor;
 class GroupBuyServiceTest {
 
     private GroupBuyCommandRepository groupBuyCommandRepository;
+    private GroupBuyRepository groupBuyRepository;
+    private GroupBuyQueryRepository groupBuyQueryRepository;
     private ProductRepository productRepository;
     private SellerProfileRepository sellerProfileRepository;
     private GroupBuyService groupBuyService;
@@ -37,10 +41,13 @@ class GroupBuyServiceTest {
     @BeforeEach
     void setUp() {
         groupBuyCommandRepository = mock(GroupBuyCommandRepository.class);
+        groupBuyRepository = mock(GroupBuyRepository.class);
+        groupBuyQueryRepository = mock(GroupBuyQueryRepository.class);
         productRepository = mock(ProductRepository.class);
         sellerProfileRepository = mock(SellerProfileRepository.class);
         groupBuyService = new GroupBuyService(
-                groupBuyCommandRepository, productRepository, sellerProfileRepository);
+                groupBuyCommandRepository, groupBuyRepository, groupBuyQueryRepository,
+                productRepository, sellerProfileRepository);
     }
 
     @Test
@@ -63,6 +70,8 @@ class GroupBuyServiceTest {
         when(groupBuyCommandRepository.create(any(GroupBuyCreateCommand.class)))
                 .thenReturn(new GroupBuyCommandRepository.StoredGroupBuy(
                         1L, LocalDateTime.of(2026, 9, 5, 0, 0), LocalDateTime.of(2026, 9, 5, 0, 0)));
+        when(groupBuyQueryRepository.findSellerDetail(10L, 1L))
+                .thenReturn(Optional.of(mock(com.gongguhan.domain.groupbuy.dto.SellerGroupBuyDetailResponse.class)));
         OffsetDateTime startAt = OffsetDateTime.of(2026, 9, 5, 0, 0, 0, 0, ZoneOffset.UTC);
         OffsetDateTime endAt = OffsetDateTime.of(2026, 9, 12, 23, 59, 0, 0, ZoneOffset.UTC);
 
