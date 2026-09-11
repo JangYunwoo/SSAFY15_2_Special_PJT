@@ -4,6 +4,7 @@ import com.gongguhan.domain.groupbuy.entity.GroupBuy;
 import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,6 +13,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface GroupBuyRepository extends JpaRepository<GroupBuy, Long> {
+
+    boolean existsByProductIdAndStatusIn(Long productId, Collection<String> statuses);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT g FROM GroupBuy g WHERE g.groupBuyId = :groupBuyId")
