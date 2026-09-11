@@ -4,7 +4,7 @@
 -- 가맹점(카테고리 CG-9ca85f66311a23d 생활)이다. 같은 SSAFY 환경을 쓰는 모든
 -- 로컬/배포 DB에서 동일한 값이므로 마이그레이션으로 시드한다.
 -- 재등록·확인은 backend/scripts/ssafy-create-merchant.mjs 참고.
--- (원래 V4였으나 카카오페이 V4·반품 V5가 DevelopV1에 먼저 들어와 V6으로 재번호.)
+-- (원래 V4였으나 카카오페이 V4·반품 V5·카카오페이 취소 V6이 먼저 들어와 V7로 재번호.)
 --
 -- 관리자가 운영 중 값을 바꿨을 수 있으므로 빈 값일 때만 채운다.
 UPDATE platform_policies
