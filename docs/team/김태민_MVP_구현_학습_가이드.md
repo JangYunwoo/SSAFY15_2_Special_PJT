@@ -346,6 +346,22 @@ sequenceDiagram
 
 관련 테스트: `KakaoPayStateSignerTest`, `HttpKakaoPayGatewayTest`, `KakaoPayServiceTest`, `KakaoPayCompletionIntegrationTest`
 
+### 5.5 결제와 에스크로의 실제 연결
+
+`PaymentService.completePayment`는 결제만 `PAID`로 바꾸지 않는다. 같은 트랜잭션에서 공동구매 슬롯을 확정하고, 참여 건을 만든 다음, 에스크로를 `HELD`로 만든 뒤 결제에 participation ID를 연결한다.
+
+결제 공통 패키지는 `EscrowRepository`를 직접 참조하지 않고 `EscrowWriterPort`만 호출한다. 운영용 `EscrowWriterAdapter`가 이 명령을 `Escrow.hold`와 JPA `save`로 변환한다.
+
+초기 통합 상태에는 테스트 프로필 전용 어댑터만 있고 운영 어댑터가 없어, 단위·Spring 테스트는 통과하지만 실제 `bootRun`은 `No qualifying bean of type EscrowWriterPort`로 실패했다. 해결할 때 테스트용 구현을 운영 코드로 단순 복사해 두 벌로 유지하지 않았다.
+
+1. 포트가 요구하는 입력과 기존 `Escrow.hold` 팩터리의 필드를 대조했다.
+2. `src/main`에 운영 어댑터를 추가했다.
+3. `src/test` 임시 어댑터를 제거해 테스트도 운영 어댑터를 사용하게 했다.
+4. 어댑터 단위 테스트에서 participation, group buy, 금액, 보관 시각, `HELD` 상태가 그대로 저장되는지 확인했다.
+5. 실제 MySQL과 전체 애플리케이션 컨텍스트를 다시 기동해 빈 연결을 검증했다.
+
+이 사례는 “테스트가 통과했다”와 “운영 프로필로 애플리케이션이 뜬다”가 다른 검증이라는 점을 보여 준다. 테스트 fixture가 운영 의존성 누락을 가릴 수 있으므로 제출 전 실제 프로필 기동 검사가 필요하다.
+
 ---
 
 ## 6. S15P21B205-78: 반품 신청·승인
