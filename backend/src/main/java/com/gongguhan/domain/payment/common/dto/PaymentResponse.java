@@ -12,7 +12,8 @@ public record PaymentResponse(
         String method,
         AmountResponse amount,
         String slotExpiresAt,
-        long remainingSeconds
+        long remainingSeconds,
+        String participationId
 ) {
 
     public record AmountResponse(
@@ -38,6 +39,9 @@ public record PaymentResponse(
                 payment.getMethod(),
                 amount,
                 payment.getSlotExpiresAt().atOffset(ZoneOffset.UTC).toString(),
-                payment.isProcessing() ? remainingSeconds : 0);
+                payment.isProcessing() ? remainingSeconds : 0,
+                payment.getParticipationId() == null
+                        ? null
+                        : String.valueOf(payment.getParticipationId()));
     }
 }

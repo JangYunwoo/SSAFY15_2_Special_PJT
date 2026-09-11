@@ -92,11 +92,11 @@ public class Payment extends BaseTimeEntity {
                 idempotencyKey);
     }
 
-    public void markPaid(Long participationId) {
+    public void markPaid(Long participationId, LocalDateTime approvedAt) {
         this.participationId = participationId;
         this.status = STATUS_PAID;
         this.slotMarker = null;
-        this.approvedAt = LocalDateTime.now();
+        this.approvedAt = approvedAt;
     }
 
     public void markFailed(String reason) {
@@ -157,6 +157,10 @@ public class Payment extends BaseTimeEntity {
 
     public String getStatus() {
         return status;
+    }
+
+    public LocalDateTime getApprovedAt() {
+        return approvedAt;
     }
 
     public String getFailReason() {

@@ -2,6 +2,8 @@ package com.gongguhan.domain.payment.common.service;
 
 import com.gongguhan.domain.escrow.entity.Escrow;
 import com.gongguhan.domain.escrow.repository.EscrowRepository;
+import com.gongguhan.domain.account.entity.UserAddress;
+import com.gongguhan.domain.account.repository.UserAddressRepository;
 import com.gongguhan.domain.groupbuy.entity.GroupBuy;
 import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
 import com.gongguhan.domain.groupbuy.service.GroupBuySlotGate;
@@ -39,6 +41,7 @@ public class PaymentService {
     private final ParticipationRepository participationRepository;
     private final EscrowRepository escrowRepository;
     private final PaymentRepository paymentRepository;
+    private final UserAddressRepository userAddressRepository;
     private final GroupBuySlotGate groupBuySlotGate;
     private final PaymentSlotReservationTransaction slotReservationTransaction;
     private final Clock clock;
@@ -47,6 +50,7 @@ public class PaymentService {
                            ParticipationRepository participationRepository,
                            EscrowRepository escrowRepository,
                            PaymentRepository paymentRepository,
+                           UserAddressRepository userAddressRepository,
                            GroupBuySlotGate groupBuySlotGate,
                            PaymentSlotReservationTransaction slotReservationTransaction,
                            Clock clock) {
@@ -54,6 +58,7 @@ public class PaymentService {
         this.participationRepository = participationRepository;
         this.escrowRepository = escrowRepository;
         this.paymentRepository = paymentRepository;
+        this.userAddressRepository = userAddressRepository;
         this.groupBuySlotGate = groupBuySlotGate;
         this.slotReservationTransaction = slotReservationTransaction;
         this.clock = clock;
@@ -203,7 +208,7 @@ public class PaymentService {
      * 컨트롤러에 연결되지 않으며, 각 결제수단(CARD-01 등)의 승인 서비스가 승인 성공 시 직접 호출한다.
      */
     @Transactional
-    public void completePayment(Long paymentId, ParticipationSnapshot snapshot) {
+    public PaymentResponse completePayment(Long paymentId, ParticipationSnapshot snapshot) {
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "결제를 찾을 수 없습니다."));
         if (!payment.isProcessing()) {
@@ -229,8 +234,69 @@ public class PaymentService {
                 participation.getParticipationId(), payment.getGroupBuyId(),
                 payment.getKrwAmount(), LocalDateTime.now(clock)));
 
-        payment.markPaid(participation.getParticipationId());
+        payment.markPaid(participation.getParticipationId(), LocalDateTime.now(clock));
         groupBuy.confirmParticipant();
+        return PaymentResponse.from(payment, groupBuy, LocalDateTime.now(clock));
+    }
+
+    /**
+     * 결제수단 어댑터가 공통 결제 내부 엔티티나 주소 저장소를 직접 참조하지 않고
+     * 외부 승인에 필요한 불변 값만 읽는 경계다.
+     */
+    public ApprovalContext getApprovalContext(Long userId, Long paymentId, String expectedMethod) {
+        Payment payment = findOwnedPayment(userId, paymentId);
+        validateApprovalCandidate(payment, expectedMethod);
+        return new ApprovalContext(
+                payment.getPaymentId(), payment.getGroupBuyId(), payment.getUserId(),
+                payment.getKrwAmount(), payment.getSlotExpiresAt());
+    }
+
+    /** 승인 응답 유실 후 같은 요청을 재시도할 때 외부 결제를 다시 호출하지 않고 결과를 돌려준다. */
+    public PaymentResponse getCompletedPayment(Long userId, Long paymentId, String expectedMethod) {
+        Payment payment = findOwnedPayment(userId, paymentId);
+        if (!expectedMethod.equals(payment.getMethod())) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR,
+                    "요청한 결제수단과 결제 건이 일치하지 않습니다.");
+        }
+        if (!Payment.STATUS_PAID.equals(payment.getStatus())) {
+            throw new BusinessException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
+        }
+        return PaymentResponse.from(payment, findGroupBuy(payment.getGroupBuyId()), LocalDateTime.now(clock));
+    }
+
+    /**
+     * 외부 승인 검증이 끝난 뒤 참여·에스크로·결제를 하나의 짧은 트랜잭션으로 확정한다.
+     * 호출한 결제수단 서비스의 트랜잭션이 있으면 그 트랜잭션에 참여한다.
+     */
+    @Transactional
+    public PaymentResponse completeOwnedPayment(Long userId, Long paymentId, String expectedMethod) {
+        Payment payment = paymentRepository.findForUpdateByPaymentIdAndUserId(paymentId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_ACCESS_DENIED));
+        validateApprovalCandidate(payment, expectedMethod);
+        if (payment.getAddressId() == null) {
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR,
+                    "결제 건에 배송지가 없습니다.");
+        }
+        UserAddress address = userAddressRepository
+                .findByAddressIdAndUserId(payment.getAddressId(), userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR,
+                        "결제 시작 시 선택한 배송지를 찾을 수 없습니다."));
+        return completePayment(paymentId, new ParticipationSnapshot(
+                address.getRecipientName(), address.getRecipientPhone(), address.getZipcode(),
+                address.getAddress1(), address.getAddress2()));
+    }
+
+    private void validateApprovalCandidate(Payment payment, String expectedMethod) {
+        if (!expectedMethod.equals(payment.getMethod())) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR,
+                    "요청한 결제수단과 결제 건이 일치하지 않습니다.");
+        }
+        if (!payment.isProcessing()) {
+            throw new BusinessException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
+        }
+        if (payment.isExpired(LocalDateTime.now(clock))) {
+            throw new BusinessException(ErrorCode.PAYMENT_SLOT_EXPIRED);
+        }
     }
 
     private Payment findOwnedPayment(Long userId, Long paymentId) {
@@ -249,6 +315,34 @@ public class PaymentService {
             String zipcode,
             String address1,
             String address2
+    ) {
+    }
+
+    @Transactional
+    public void abortPayment(Long userId, Long paymentId, String expectedMethod, String reason) {
+        Payment payment = paymentRepository.findForUpdateByPaymentIdAndUserId(paymentId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_ACCESS_DENIED));
+        if (!expectedMethod.equals(payment.getMethod())) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR,
+                    "요청한 결제수단과 결제 건이 일치하지 않습니다.");
+        }
+        if (!payment.isProcessing()) {
+            throw new BusinessException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
+        }
+        GroupBuy groupBuy = groupBuyRepository.findWithLockByGroupBuyId(payment.getGroupBuyId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND,
+                        "공동구매를 찾을 수 없습니다."));
+        groupBuy.releaseSlot();
+        groupBuySlotGate.release(payment.getGroupBuyId());
+        payment.markFailed(reason);
+    }
+
+    public record ApprovalContext(
+            Long paymentId,
+            Long groupBuyId,
+            Long userId,
+            long amount,
+            LocalDateTime expiresAt
     ) {
     }
 }

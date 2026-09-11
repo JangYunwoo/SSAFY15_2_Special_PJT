@@ -343,8 +343,8 @@ export const handlers = [
     const ready: KakaoPayReady = {
       paymentId,
       tid: `T${paymentId}MOCK`,
-      // 실제 리다이렉트 대신 완료 화면으로 바로 보냅니다.
-      nextRedirectPcUrl: `/checkout/complete/${paymentId}`,
+      // 실제 결제창 대신 성공 콜백으로 보내 승인 API까지 같은 흐름으로 검증합니다.
+      nextRedirectPcUrl: `/checkout/kakaopay/success?paymentId=${paymentId}&state=mock-state&pg_token=mock-pg-token`,
       expiresAt: iso(POLICY_DEFAULTS.kakaopaySlotTtlSeconds * 1000),
     }
     return ok(ready)
