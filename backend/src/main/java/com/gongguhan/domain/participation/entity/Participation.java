@@ -9,6 +9,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import org.hibernate.annotations.ColumnDefault;
 
 @Entity
 @Table(name = "participations")
@@ -18,6 +19,9 @@ public class Participation {
     public static final String STATUS_FULFILLED = "FULFILLED";
     public static final String STATUS_SHIPPING = "SHIPPING";
     public static final String STATUS_DELIVERED = "DELIVERED";
+    public static final String STATUS_CONFIRMED = "CONFIRMED";
+    public static final String CONFIRM_TYPE_MANUAL = "MANUAL";
+    public static final String CONFIRM_TYPE_AUTO = "AUTO";
     public static final String ACTIVE_MARKER = "Y";
 
     @Id
@@ -68,6 +72,22 @@ public class Participation {
 
     @Column(name = "settlement_eligible_at")
     private LocalDateTime settlementEligibleAt;
+
+    @Column(name = "confirmed_at")
+    private LocalDateTime confirmedAt;
+
+    @Column(name = "confirm_type", length = 10)
+    private String confirmType;
+
+    // @ColumnDefault: 테스트(H2, ddl-auto)가 엔티티로 DDL을 만들 때도 운영 스키마(V1,
+    // DEFAULT FALSE)처럼 기본값이 생겨야 이 컬럼을 모르는 기존 원시 INSERT가 깨지지 않는다.
+    @ColumnDefault("false")
+    @Column(name = "confirm_notice_agreed", nullable = false)
+    private boolean confirmNoticeAgreed;
+
+    @ColumnDefault("false")
+    @Column(name = "confirm_hold", nullable = false)
+    private boolean confirmHold;
 
     @Column(name = "active_marker", length = 1)
     private String activeMarker;
@@ -122,6 +142,31 @@ public class Participation {
         this.deliveredAt = deliveredAt;
         this.withdrawalPeriodEndAt = withdrawalPeriodEndAt;
         this.settlementEligibleAt = settlementEligibleAt;
+    }
+
+    /**
+     * 수동 구매확정 (CFM-01). 반품 제한 고지 동의는 컨트롤러 검증을 거쳐 항상 true로
+     * 기록된다. 정산 자격 시각({@code settlementEligibleAt})은 수동 확정과 무관하게
+     * 배송완료 + 정책일로 이미 고정되어 있으며 여기서 당기지 않는다(명세 19장).
+     */
+    public void confirmManually(LocalDateTime confirmedAt) {
+        confirm(CONFIRM_TYPE_MANUAL, confirmedAt);
+        this.confirmNoticeAgreed = true;
+    }
+
+    /** 자동 구매확정 (배송완료 + AUTO_CONFIRM_DAYS 경과 배치). */
+    public void confirmAutomatically(LocalDateTime confirmedAt) {
+        confirm(CONFIRM_TYPE_AUTO, confirmedAt);
+    }
+
+    private void confirm(String confirmType, LocalDateTime confirmedAt) {
+        requireStatus(STATUS_DELIVERED, "배송 완료(DELIVERED) 참여만 구매확정할 수 있습니다.");
+        if (confirmHold) {
+            throw new BusinessException(ErrorCode.PURCHASE_CONFIRM_RETURN_CONFLICT);
+        }
+        this.status = STATUS_CONFIRMED;
+        this.confirmType = confirmType;
+        this.confirmedAt = confirmedAt;
     }
 
     private void requireStatus(String expected, String message) {
@@ -196,5 +241,21 @@ public class Participation {
 
     public LocalDateTime getSettlementEligibleAt() {
         return settlementEligibleAt;
+    }
+
+    public LocalDateTime getConfirmedAt() {
+        return confirmedAt;
+    }
+
+    public String getConfirmType() {
+        return confirmType;
+    }
+
+    public boolean isConfirmNoticeAgreed() {
+        return confirmNoticeAgreed;
+    }
+
+    public boolean isConfirmHold() {
+        return confirmHold;
     }
 }
