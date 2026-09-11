@@ -36,6 +36,7 @@ public class SsafyCardApiClient {
 
     private static final Logger log = LoggerFactory.getLogger(SsafyCardApiClient.class);
     private static final String API_SERVICE_CODE = "createCreditCardTransaction";
+    public static final String CANCEL_API_SERVICE_CODE = "deleteTransaction";
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HHmmss");
 
@@ -73,7 +74,8 @@ public class SsafyCardApiClient {
             String institutionTransactionUniqueNo, String institutionCode, String fintechAppNo,
             String ssafyUserKey, String cardNumber, String cvc, long merchantId, long paymentBalance) {
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("Header", buildHeader(institutionTransactionUniqueNo, institutionCode, fintechAppNo, ssafyUserKey));
+        body.put("Header", buildHeader(API_SERVICE_CODE,
+                institutionTransactionUniqueNo, institutionCode, fintechAppNo, ssafyUserKey));
         body.put("cardNo", cardNumber);
         body.put("cvc", cvc);
         body.put("merchantId", String.valueOf(merchantId));
@@ -99,16 +101,55 @@ public class SsafyCardApiClient {
         }
     }
 
-    private Map<String, String> buildHeader(String institutionTransactionUniqueNo, String institutionCode,
-                                             String fintechAppNo, String ssafyUserKey) {
+    /**
+     * 카드 결제를 취소 요청한다 (S15P21B205-34에서 확인한 제약: 금액 필드가 없어
+     * {@code transactionUniqueNo} 단위 <b>전액 취소만</b> 가능하고, 청구서가 이미 발행된
+     * 거래는 A1058로 거부된다).
+     *
+     * <p>성공/실패 판정과 로깅이 호출자 책임인 것은
+     * {@link #createCreditCardTransaction}과 같다.
+     *
+     * @param transactionUniqueNo 원거래의 SSAFY 거래고유번호 ({@code card_payments.transaction_unique_no})
+     */
+    public SsafyCardTransactionResponse deleteTransaction(
+            String institutionTransactionUniqueNo, String institutionCode, String fintechAppNo,
+            String ssafyUserKey, String cardNumber, String cvc, long transactionUniqueNo) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("Header", buildHeader(CANCEL_API_SERVICE_CODE,
+                institutionTransactionUniqueNo, institutionCode, fintechAppNo, ssafyUserKey));
+        body.put("cardNo", cardNumber);
+        body.put("cvc", cvc);
+        body.put("transactionUniqueNo", String.valueOf(transactionUniqueNo));
+
+        try {
+            SsafyCardTransactionResponse response = restClient.post()
+                    .uri("/creditCard/" + CANCEL_API_SERVICE_CODE)
+                    .body(body)
+                    .retrieve()
+                    .body(SsafyCardTransactionResponse.class);
+            if (response == null || response.header() == null) {
+                log.warn("SSAFY 카드 취소 응답이 비어 있음 institutionTxNo={}", institutionTransactionUniqueNo);
+                throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE,
+                        "SSAFY 금융망 응답이 비어 있습니다.");
+            }
+            return response;
+        } catch (RestClientException e) {
+            log.warn("SSAFY 카드 취소 호출 실패 institutionTxNo={}", institutionTransactionUniqueNo, e);
+            throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE,
+                    "SSAFY 금융망 연동에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+        }
+    }
+
+    private Map<String, String> buildHeader(String apiServiceCode, String institutionTransactionUniqueNo,
+                                             String institutionCode, String fintechAppNo, String ssafyUserKey) {
         LocalDateTime now = LocalDateTime.now();
         Map<String, String> header = new LinkedHashMap<>();
-        header.put("apiName", API_SERVICE_CODE);
+        header.put("apiName", apiServiceCode);
         header.put("transmissionDate", now.format(DATE_FORMAT));
         header.put("transmissionTime", now.format(TIME_FORMAT));
         header.put("institutionCode", institutionCode);
         header.put("fintechAppNo", fintechAppNo);
-        header.put("apiServiceCode", API_SERVICE_CODE);
+        header.put("apiServiceCode", apiServiceCode);
         header.put("institutionTransactionUniqueNo", institutionTransactionUniqueNo);
         header.put("apiKey", properties.apiKey());
         header.put("userKey", ssafyUserKey);
