@@ -27,11 +27,11 @@ public class ReturnRequestService {
     private static final int SELLER_RESPONSE_BUSINESS_DAYS = 3;
 
     private final ReturnRequestRepository repository;
-    private final BusinessDayCalculator businessDays;
+    private final ReturnBusinessDayCalculator businessDays;
     private final Clock clock;
 
     public ReturnRequestService(ReturnRequestRepository repository,
-                                BusinessDayCalculator businessDays,
+                                ReturnBusinessDayCalculator businessDays,
                                 Clock clock) {
         this.repository = repository;
         this.businessDays = businessDays;
