@@ -581,6 +581,7 @@ AI 분석은 ERD v2에 따라 동기 요청으로 처리한다. 분석 결과를
 | 409 | `PAYMENT_SLOT_EXPIRED` | 슬롯 만료 후 승인 도달 |
 | 409 | `SLOT_RESERVATION_CONFLICT` | 슬롯 예약 낙관적 락 충돌 재시도 소진 |
 | 409 | `INVALID_STATE_TRANSITION` | 허용되지 않은 상태 전이 |
+| 409 | `DUPLICATE_TRACKING_NUMBER` | 동일 택배사·송장번호 중복 등록 |
 | 409 | `PURCHASE_CONFIRM_RETURN_CONFLICT` | 구매확정과 반품 신청 충돌 |
 | 422 | `RETURN_NOT_ELIGIBLE` | 반품 기간·제한 사유 위반 |
 | 422 | `QUOTE_EXPIRED` | 만료된 디지털 자산 Quote |
