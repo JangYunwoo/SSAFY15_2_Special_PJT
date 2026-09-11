@@ -17,6 +17,10 @@
 | [market-research/](./market-research) | 시장조사 |
 | [team/](./team) | 백엔드 역할 분담. 브랜치/커밋/PR 규칙은 루트 [GIT_CONVENTION.md](../GIT_CONVENTION.md) 참고 |
 
+## 학습 가이드
+
+- [김태민 담당 MVP 구현 학습 가이드](./team/김태민_MVP_구현_학습_가이드.md): 상품 → 공동구매 → 카카오페이 → 반품·환불의 의존 관계, 설계 판단, JPA/SQL 경계, 테스트와 수동 점검 순서를 처음 보는 개발자 기준으로 설명한다.
+
 ## 코드와의 연결
 
 - DB 스키마는 `backend/src/main/resources/db/migration/V1__init_schema.sql`에 Flyway 마이그레이션으로 그대로 반영되어 있다. 스키마를 바꿀 때는 `docs/database/공구한_schema_v2.sql`과 새 마이그레이션 파일(`V2__...`)을 함께 추가한다 - 이미 적용된 `V1`은 수정하지 않는다.
