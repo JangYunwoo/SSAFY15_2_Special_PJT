@@ -1,4 +1,5 @@
 import { api } from '@/shared/api/client'
+import { escrowSchema } from '@/shared/api/schemas'
 import type { Id, NoContent } from '@/shared/api/types'
 
 import type {
@@ -35,5 +36,7 @@ export const participationApi = {
 
   /** ESC-01 */
   escrow: (participationId: Id) =>
-    api.get<Escrow>(`/users/me/participations/${participationId}/escrow`),
+    api.get<Escrow>(`/users/me/participations/${participationId}/escrow`, {
+      schema: escrowSchema,
+    }),
 } as const
