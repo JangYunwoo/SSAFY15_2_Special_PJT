@@ -127,7 +127,8 @@ class ParticipationQueryIntegrationTest {
                 ADD COLUMN IF NOT EXISTS business_name VARCHAR(100) DEFAULT '상점' NOT NULL
                 """);
         jdbcTemplate.update(
-                "MERGE INTO seller_profiles (seller_id, business_name, status) KEY(seller_id) VALUES (?, ?, ?)",
+                "MERGE INTO seller_profiles (seller_id, business_name, status, created_at, updated_at) "
+                        + "KEY(seller_id) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                 SELLER_ID, "키보드 상점", "ACTIVE");
     }
 
