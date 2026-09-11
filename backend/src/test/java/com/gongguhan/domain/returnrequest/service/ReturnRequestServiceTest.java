@@ -36,6 +36,7 @@ class ReturnRequestServiceTest {
     private static final Long SELLER_ID = 20L;
     private static final Long PARTICIPATION_ID = 30L;
     private static final Long RETURN_ID = 40L;
+    private static final Long ADMIN_ID = 50L;
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 11, 5, 0);
 
     private ReturnRequestRepository repository;
@@ -185,6 +186,44 @@ class ReturnRequestServiceTest {
 
         verify(repository).dispute(RETURN_ID);
         verify(repository).addHistory(RETURN_ID, "DISPUTED", "판정 재검토 요청", NOW);
+    }
+
+    @Test
+    void adminCanApproveDisputedReturn() {
+        when(repository.findAdminLock(RETURN_ID))
+                .thenReturn(Optional.of(new ReturnLock(RETURN_ID, PARTICIPATION_ID,
+                        "DISPUTED", true)));
+        when(repository.findAdminDetail(RETURN_ID)).thenReturn(Optional.of(detail("APPROVED")));
+
+        ReturnDetailResponse result = service.resolveByAdmin(
+                ADMIN_ID, RETURN_ID, "APPROVE", "하자 증빙 확인");
+
+        assertThat(result.status()).isEqualTo("APPROVED");
+        verify(repository).approveByAdmin(RETURN_ID, ADMIN_ID, NOW);
+        verify(repository).addHistory(RETURN_ID, "APPROVED", "하자 증빙 확인", NOW);
+    }
+
+    @Test
+    void adminRejectRequiresReason() {
+        assertThatThrownBy(() -> service.resolveByAdmin(
+                ADMIN_ID, RETURN_ID, "REJECT", "  "))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
+        verify(repository, never()).findAdminLock(any());
+    }
+
+    @Test
+    void adminCannotResolveReviewThatAlreadyEnded() {
+        when(repository.findAdminLock(RETURN_ID))
+                .thenReturn(Optional.of(new ReturnLock(RETURN_ID, PARTICIPATION_ID,
+                        "APPROVED", false)));
+
+        assertThatThrownBy(() -> service.resolveByAdmin(
+                ADMIN_ID, RETURN_ID, "APPROVE", null))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode())
+                                .isEqualTo(ErrorCode.INVALID_STATE_TRANSITION));
+        verify(repository, never()).approveByAdmin(any(), any(), any());
     }
 
     @Test
