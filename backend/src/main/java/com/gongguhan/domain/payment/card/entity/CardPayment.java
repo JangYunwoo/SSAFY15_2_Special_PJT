@@ -4,6 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 
 /**
  * SSAFY 카드 결제 상세. {@code payments}와 1:1이며 PK를 그대로 공유한다({@code payment_id}).
@@ -17,6 +18,9 @@ import jakarta.persistence.Table;
 @Entity
 @Table(name = "card_payments")
 public class CardPayment {
+
+    public static final String CANCEL_STATUS_SUCCESS = "SUCCESS";
+    public static final String CANCEL_STATUS_FAIL = "FAIL";
 
     @Id
     @Column(name = "payment_id")
@@ -54,6 +58,18 @@ public class CardPayment {
 
     @Column(name = "billing_issued", nullable = false)
     private boolean billingIssued = false;
+
+    @Column(name = "billing_issued_at")
+    private LocalDateTime billingIssuedAt;
+
+    @Column(name = "cancel_institution_tx_no", length = 20)
+    private String cancelInstitutionTxNo;
+
+    @Column(name = "cancel_status", length = 10)
+    private String cancelStatus;
+
+    @Column(name = "canceled_at")
+    private LocalDateTime canceledAt;
 
     @Column(name = "raw_response", columnDefinition = "json")
     private String rawResponse;
@@ -97,8 +113,35 @@ public class CardPayment {
         return "*".repeat(visibleFrom) + cardNumber.substring(visibleFrom);
     }
 
+    /** 전액 취소 성공 기록. 멱등 재요청 판정({@link #isCancelSucceeded})의 근거가 된다. */
+    public void markCanceled(String cancelInstitutionTxNo, LocalDateTime canceledAt) {
+        this.cancelInstitutionTxNo = cancelInstitutionTxNo;
+        this.cancelStatus = CANCEL_STATUS_SUCCESS;
+        this.canceledAt = canceledAt;
+    }
+
+    /** 취소 실패 기록. 실패 상태는 재시도를 막지 않는다 - 성공만 멱등 처리 대상이다. */
+    public void markCancelFailed(String cancelInstitutionTxNo) {
+        this.cancelInstitutionTxNo = cancelInstitutionTxNo;
+        this.cancelStatus = CANCEL_STATUS_FAIL;
+    }
+
+    /** A1058(청구서 발행 거래) 응답으로 확인된 사실을 기록한다 - 이후 카드 취소를 다시 시도하지 않는다. */
+    public void markBillingIssued(LocalDateTime billingIssuedAt) {
+        this.billingIssued = true;
+        this.billingIssuedAt = billingIssuedAt;
+    }
+
+    public boolean isCancelSucceeded() {
+        return CANCEL_STATUS_SUCCESS.equals(cancelStatus);
+    }
+
     public Long getPaymentId() {
         return paymentId;
+    }
+
+    public String getSsafyUserKey() {
+        return ssafyUserKey;
     }
 
     public String getCardNoMasked() {
@@ -109,7 +152,27 @@ public class CardPayment {
         return transactionUniqueNo;
     }
 
+    public String getTransactionDate() {
+        return transactionDate;
+    }
+
+    public Long getPaymentBalance() {
+        return paymentBalance;
+    }
+
     public boolean isBillingIssued() {
         return billingIssued;
+    }
+
+    public String getCancelStatus() {
+        return cancelStatus;
+    }
+
+    public String getCancelInstitutionTxNo() {
+        return cancelInstitutionTxNo;
+    }
+
+    public LocalDateTime getCanceledAt() {
+        return canceledAt;
     }
 }
