@@ -79,6 +79,32 @@ class HttpKakaoPayGatewayTest {
         assertThat(result.paymentMethodType()).isEqualTo("MONEY");
     }
 
+    @Test
+    void cancelUsesCurrentJsonContractAndMapsFullOrPartialResult() {
+        server.createContext("/online/v1/payment/cancel", exchange -> {
+            capture(exchange);
+            respond(exchange, 200, """
+                    {"aid":"A-CANCEL","tid":"T123","status":"PART_CANCEL_PAYMENT",
+                     "approved_cancel_amount":{"total":44000,"tax_free":0,"vat":4000},
+                     "canceled_amount":{"total":44000,"tax_free":0,"vat":4000},
+                     "cancel_available_amount":{"total":10000,"tax_free":0,"vat":909}}
+                    """);
+        });
+
+        KakaoPayGateway.CancelResult result = gateway.cancel(
+                new KakaoPayGateway.CancelCommand("T123", 44_000, 0));
+
+        assertThat(authorization.get()).isEqualTo("SECRET_KEY test-secret-key");
+        assertThat(requestBody.get())
+                .contains("\"tid\":\"T123\"")
+                .contains("\"cancel_amount\":44000")
+                .contains("\"cancel_tax_free_amount\":0");
+        assertThat(result.aid()).isEqualTo("A-CANCEL");
+        assertThat(result.status()).isEqualTo("PART_CANCEL_PAYMENT");
+        assertThat(result.approvedCancelAmount()).isEqualTo(44_000);
+        assertThat(result.cancelAvailableAmount()).isEqualTo(10_000);
+    }
+
     private void capture(HttpExchange exchange) throws IOException {
         authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
         requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
