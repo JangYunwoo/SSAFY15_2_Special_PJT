@@ -24,6 +24,7 @@ const PaymentPage = lazy(() => import('@/pages/checkout/PaymentPage'))
 const CompletePage = lazy(() => import('@/pages/checkout/CompletePage'))
 
 const OrdersPage = lazy(() => import('@/pages/orders/OrdersPage'))
+const OrdersPaymentsPage = lazy(() => import('@/pages/orders/OrdersPaymentsPage'))
 const ConfirmPage = lazy(() => import('@/pages/orders/ConfirmPage'))
 const ReturnRequestPage = lazy(() => import('@/pages/orders/ReturnRequestPage'))
 
@@ -55,6 +56,7 @@ export const router = createBrowserRouter([
         children: [
           { path: 'me', element: <MyPage /> },
           { path: 'orders', element: <OrdersPage /> },
+          { path: 'orders/payments', element: <OrdersPaymentsPage /> },
           { path: 'orders/:participationId/confirm', element: <ConfirmPage /> },
           { path: 'orders/:participationId/return', element: <ReturnRequestPage /> },
         ],

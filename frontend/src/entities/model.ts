@@ -80,6 +80,15 @@ export const GROUP_BUY_STATUS_DISPLAY: Record<GroupBuyStatus, Display> = {
   CANCELED: { label: '취소', tone: 'neutral' },
 }
 
+/** 결제 이력에서 쓰는 표기 (PAY-04) */
+export const PAYMENT_STATUS_DISPLAY: Record<PaymentStatus, Display> = {
+  PROCESSING: { label: '결제 진행중', tone: 'live' },
+  PAID: { label: '결제 완료', tone: 'ok' },
+  FAILED: { label: '승인 실패', tone: 'alert' },
+  EXPIRED: { label: '시간 만료', tone: 'neutral' },
+  REFUNDED: { label: '환불', tone: 'keep' },
+}
+
 export const PARTICIPATION_STATUS_DISPLAY: Record<ParticipationStatus, Display> = {
   PAID: { label: '에스크로 보관중', tone: 'keep' },
   FULFILLED: { label: '모집완료', tone: 'keep' },

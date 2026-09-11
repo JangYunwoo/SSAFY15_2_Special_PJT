@@ -805,6 +805,54 @@ export const handlers = [
     ok({ confirmedCount: 0, suspended: false, items: [] }),
   ),
 
+  /**
+   * PAY-04 결제 이력.
+   *
+   * 백엔드는 전용 DTO 없이 PAY-01/02 와 같은 PaymentResponse 를 돌려줍니다.
+   * 성공한 건만 있는 참여 목록과 달리 실패·만료된 시도도 함께 보여야 하므로,
+   * 참여 3건에 더해 실패·만료 사례를 섞어 둡니다.
+   */
+  http.get(`${BASE}/users/me/payments`, async ({ request }) => {
+    await delay(150)
+    const fromParticipations = db.participations.map((item) => ({
+      paymentId: `P${item.id}`,
+      groupBuyId: item.groupBuyId,
+      status: item.escrowStatus === 'REFUNDED' ? 'REFUNDED' : 'PAID',
+      method: item.method,
+      amount: {
+        shareAmount: item.shareAmount,
+        shippingFee: item.shippingFee,
+        totalAmount: item.totalAmount,
+        currency: 'KRW',
+      },
+      slotExpiresAt: item.paidAt,
+      remainingSeconds: 0,
+    }))
+
+    const failed = [
+      {
+        paymentId: 'P9801',
+        groupBuyId: '1031',
+        status: 'FAILED',
+        method: 'CARD',
+        amount: { shareAmount: 62_000, shippingFee: 3000, totalAmount: 65_000, currency: 'KRW' },
+        slotExpiresAt: iso(-3 * 86_400_000),
+        remainingSeconds: 0,
+      },
+      {
+        paymentId: 'P9802',
+        groupBuyId: '1042',
+        status: 'EXPIRED',
+        method: 'CRYPTO',
+        amount: { shareAmount: 24_900, shippingFee: 4000, totalAmount: 28_900, currency: 'KRW' },
+        slotExpiresAt: iso(-5 * 86_400_000),
+        remainingSeconds: 0,
+      },
+    ]
+
+    return paged([...fromParticipations, ...failed], new URL(request.url))
+  }),
+
   /* ---------- 에스크로 ---------- */
   /** ESC-01 참여 건별 보관 상태 */
   http.get(`${BASE}/users/me/participations/:participationId/escrow`, async ({ params }) => {
