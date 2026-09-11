@@ -51,9 +51,16 @@ export const groupBuyQueries = {
       queryFn: () => groupBuyApi.sellerDetail(groupBuyId),
     }),
 
-  participants: (groupBuyId: Id) =>
+  escrows: (groupBuyId: Id) =>
     queryOptions({
-      queryKey: queryKeys.sellerGroupBuys.participants(groupBuyId),
-      queryFn: () => groupBuyApi.participants(groupBuyId),
+      queryKey: queryKeys.sellerGroupBuys.escrows(groupBuyId),
+      queryFn: () => groupBuyApi.escrows(groupBuyId),
+    }),
+
+  participants: (groupBuyId: Id, params: PageParams = {}) =>
+    queryOptions({
+      queryKey: queryKeys.sellerGroupBuys.participants(groupBuyId, params),
+      queryFn: () => groupBuyApi.participants(groupBuyId, params),
+      placeholderData: keepPreviousData,
     }),
 } as const
