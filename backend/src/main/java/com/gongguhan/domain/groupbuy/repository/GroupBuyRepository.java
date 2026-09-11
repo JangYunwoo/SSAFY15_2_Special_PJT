@@ -22,6 +22,8 @@ public interface GroupBuyRepository extends JpaRepository<GroupBuy, Long> {
     Optional<GroupBuy> findFirstByProductIdAndStatusInOrderByGroupBuyIdDesc(
             Long productId, Collection<String> statuses);
 
+    Optional<GroupBuy> findByGroupBuyIdAndSellerId(Long groupBuyId, Long sellerId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT g FROM GroupBuy g WHERE g.groupBuyId = :groupBuyId")
     Optional<GroupBuy> findWithLockByGroupBuyId(@Param("groupBuyId") Long groupBuyId);

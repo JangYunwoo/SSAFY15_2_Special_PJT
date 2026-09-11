@@ -1,6 +1,7 @@
 package com.gongguhan.domain.groupbuy.controller;
 
 import com.gongguhan.domain.groupbuy.dto.SellerGroupBuySummaryResponse;
+import com.gongguhan.domain.groupbuy.dto.SellerGroupBuyDetailResponse;
 import com.gongguhan.domain.groupbuy.dto.SellerParticipantResponse;
 import com.gongguhan.domain.groupbuy.service.GroupBuyQueryService;
 import com.gongguhan.global.common.ApiResponse;
@@ -36,6 +37,16 @@ public class SellerGroupBuyQueryController {
         Page<SellerGroupBuySummaryResponse> result = groupBuyQueryService.getSellerGroupBuys(sellerId, page, size);
         return ResponseEntity.ok(ApiResponse.success(
                 result.getContent(), PageResponse.from(result), TraceIdUtils.from(httpRequest)));
+    }
+
+    @GetMapping("/{groupBuyId}")
+    public ResponseEntity<ApiResponse<SellerGroupBuyDetailResponse>> getDetail(
+            @AuthenticationPrincipal Long sellerId,
+            @PathVariable Long groupBuyId,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(ApiResponse.success(
+                groupBuyQueryService.getSellerDetail(sellerId, groupBuyId),
+                TraceIdUtils.from(httpRequest)));
     }
 
     @GetMapping("/{groupBuyId}/participants")
