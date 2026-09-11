@@ -72,7 +72,7 @@ public class AiExtractionService {
         if (category == null || category.value() == null || category.value().isBlank()) {
             return null;
         }
-        return categoryRepository.findFirstByNameIgnoreCase(category.value().trim())
+        return categoryRepository.findFirstByNameIgnoreCaseAndActiveTrue(category.value().trim())
                 .map(value -> new AiField<>(String.valueOf(value.getCategoryId()), category.confidence()))
                 .orElseGet(() -> {
                     warnings.add("카테고리를 자동으로 매칭하지 못했습니다. 직접 선택해 주세요.");

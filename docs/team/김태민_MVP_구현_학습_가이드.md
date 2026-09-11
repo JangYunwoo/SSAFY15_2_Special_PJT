@@ -577,12 +577,12 @@ npm run lint
 npm run build
 ```
 
-최종 `DevelopV1` 기준 백엔드는 307개 중 304개가 통과했다. 실패 3개는 코드 assertion 실패가 아니라 로컬 Redis가 떠 있지 않아 연결이 거부된 테스트다.
+카테고리 기준과 상품 상세 API까지 반영한 최신 기준 백엔드는 310개 중 307개가 통과했다. 실패 3개는 코드 assertion 실패가 아니라 로컬 Redis가 떠 있지 않아 연결이 거부된 테스트다.
 
 - `GroupBuySlotGateIntegrationTest` 2개
 - `PaymentServiceConcurrencyTest` 1개
 
-이 세 테스트까지 포함한 완전한 회귀 결과를 얻으려면 먼저 프로젝트 설정과 같은 Redis를 실행한 뒤 전체 테스트를 다시 수행해야 한다. Redis 없이 304개가 통과했다는 결과를 307개 전체 통과라고 표현하면 안 된다.
+이 세 테스트까지 포함한 완전한 회귀 결과를 얻으려면 먼저 프로젝트 설정과 같은 Redis를 실행한 뒤 전체 테스트를 다시 수행해야 한다. Redis 없이 307개가 통과했다는 결과를 310개 전체 통과라고 표현하면 안 된다.
 
 ### 11.3 테스트를 읽을 때 질문할 것
 
@@ -655,7 +655,7 @@ npm run build
 
 ## 14. 알려진 한계와 다음 개선 후보
 
-- 로컬 Redis가 없는 환경에서는 슬롯·결제 동시성 통합 테스트 3개를 실행할 수 없다. 제출 전 Redis가 있는 환경에서 307개 전체 재검증이 필요하다.
+- 로컬 Redis가 없는 환경에서는 슬롯·결제 동시성 통합 테스트 3개를 실행할 수 없다. 제출 전 Redis가 있는 환경에서 310개 전체 재검증이 필요하다.
 - `GroupBuyQueryRepository`는 MySQL 전문 검색에 의존하므로 H2 테스트만으로 운영 실행 계획을 완전히 보장하지 못한다. MySQL 기반 통합 또는 Testcontainers 테스트를 추가하면 더 안전하다.
 - 환불 `UNKNOWN`은 이중 취소를 막지만 자동 복구하지 않는다. 운영자 조회·대사(reconciliation) 화면이나 제공사 상태 조회 배치가 후속으로 필요하다.
 - 영업일 계산은 현재 주말을 중심으로 한다. 실제 운영에서는 공휴일 캘린더 정책을 연결해야 한다.
@@ -704,7 +704,7 @@ AI 도구의 공동 작성자 표시는 커밋에 넣지 않는다. 코드의 �
 7. JPA 프로젝트에서 `GroupBuyQueryRepository`의 SQL을 남긴 근거는 무엇인가?
 8. 왜 다른 도메인의 모든 FK를 JPA 연관관계로 매핑하지 않았는가?
 9. 충돌 때 두 구현을 합쳐 남기지 않고 원격 구현 위에 재적용한 이유는 무엇인가?
-10. 304개 통과·3개 Redis 실패를 “전체 테스트 통과”라고 부르면 왜 안 되는가?
+10. 307개 통과·3개 Redis 실패를 “전체 테스트 통과”라고 부르면 왜 안 되는가?
 
 이 질문에 코드 위치와 테스트 이름을 근거로 답할 수 있다면, 단순히 기능 사용법을 아는 수준을 넘어 현재 설계를 리뷰하고 다음 기능을 안전하게 확장할 준비가 된 것이다.
 
@@ -779,6 +779,21 @@ JPA 트랜잭션은 DB 변경만 롤백한다. S3에 올린 파일은 자동으�
 - 트랜잭션 완료 시점에 따른 이전/새 이미지 삭제
 
 [`S3ProductImageStorageTest`](../../backend/src/test/java/com/gongguhan/domain/product/service/S3ProductImageStorageTest.java)는 Service 정책이 아니라 저장 경로, public URL, S3 호출 계약을 검증한다. 같은 “상품 이미지 테스트”여도 검증 책임이 다르다.
+
+#### 5단계: 백엔드 응답을 프론트 화면 모델로 변환하기
+
+백엔드 `ProductResponse`는 API 명세에 맞춰 `productId`, 이미지 메타데이터 객체, 활성 공동구매 ID·상태, 생성 시각을 반환한다. 프론트 화면은 공통 UI 관례에 따라 식별자를 `id`로 쓰고 현재는 이미지 URL만 필요하다.
+
+[`frontend/src/entities/product/api.ts`](../../frontend/src/entities/product/api.ts)의 `toProduct`가 이 차이를 API 경계 한 곳에서 변환한다.
+
+- `productId → id`
+- `ProductImageResponse[] → imageUrl[]`
+- nullable description → 빈 입력 문자열
+- 연결 공동구매와 생성 시각은 그대로 전달
+
+화면마다 `response.productId ?? response.id` 같은 방어 코드를 반복하지 않은 이유는 계약 차이가 퍼지면 새 화면마다 서로 다른 변환이 생기기 때문이다. MSW도 실제 백엔드 형태를 먼저 반환하고 같은 `toProduct`를 통과하므로, mock에서는 되지만 서버에서는 깨지는 상황을 줄였다.
+
+상품 목록의 연결 공동구매는 상품마다 쿼리를 한 번씩 실행하지 않는다. `ProductService.findLinkedGroupBuys`가 현재 페이지의 상품 ID를 모아 한 번에 조회한 후 상품별 최신 활성 공동구매를 선택한다. 상세 조회는 상품 한 건이므로 `findFirst...OrderByGroupBuyIdDesc` 한 번을 사용한다.
 
 ### 17.2 공동구매 생성 한 건을 끝까지 추적하기
 
@@ -928,7 +943,8 @@ API는 공통적으로 `ApiResponse`에 데이터와 trace ID를 담는다. 아�
 | AI 상품 분석 | `POST /sellers/products/ai-extraction` | `extract` | 추출 상태·필드·경고 | 이미지 형식 오류, AI 실패는 FAILED 응답 |
 | 상품 등록 | `POST /sellers/products` | `create` | 201 + 상품 | 판매자 정지, 카테고리 없음, 이미지 오류 |
 | 내 상품 목록 | `GET /sellers/products` | `getSellerProducts` | 페이지 상품 | 인증 없음 |
-| 상품 수정 | `PUT /sellers/products/{productId}` | `update` | 수정 상품 | 소유권 없음, 활성 공구 연결 |
+| 상품 상세 | `GET /sellers/products/{productId}` | `getSellerProduct` | 소유한 활성 상품 | 소유권 없음, 삭제 상품 |
+| 상품 수정 | `PATCH /sellers/products/{productId}` | `update` | 수정 상품 | 소유권 없음, 활성 공구 연결 |
 | 상품 삭제 | `DELETE /sellers/products/{productId}` | `delete` | 성공 + null data | 소유권 없음, 활성 공구 연결 |
 | 제한 사유 목록 | `GET /withdrawal-restriction-reasons` | `getReasons` | 활성 사유 목록 | - |
 | 제한 검토 목록 | `GET /admin/products/withdrawal-restrictions` | `getPendingRestrictions` | PENDING 상품 | 관리자 권한 필요 |
@@ -1029,7 +1045,9 @@ API는 공통적으로 `ApiResponse`에 데이터와 trace ID를 담는다. 아�
 | 19 | 식물 |
 | 20 | 기타 |
 
-DB에서는 모두 `parent_id = NULL`, `depth = 1`, `sort_order = 1..20`인 최상위 항목으로 관리한다. API는 `sort_order` 순으로 응답하므로 프론트가 별도 하드코딩 정렬을 만들지 않는다.
+DB에서는 ID `10001..10020`, `parent_id = NULL`, `depth = 1`, `sort_order = 1..20`, `active = true`인 최상위 항목으로 관리한다. API는 활성 항목만 `sort_order` 순으로 응답하므로 프론트가 별도 하드코딩 정렬을 만들지 않는다.
+
+기존 카테고리 행을 바로 삭제하거나 이름을 덮어쓰지 않는 이유는 이미 등록된 상품이 그 ID를 FK로 참조할 수 있기 때문이다. 마이그레이션은 기존 항목을 `active = false`로 바꿔 새 상품 선택지와 AI 매핑에서는 제외하되, 과거 상품과 거래가 참조하는 행 자체는 보존한다. 새 기준 목록에는 충돌 가능성이 낮고 의미가 고정된 `10001..10020` ID를 부여했다.
 
 카테고리 변경은 다음 원칙을 지킨다.
 
@@ -1087,6 +1105,19 @@ DB에서는 모두 `parent_id = NULL`, `depth = 1`, `sort_order = 1..20`인 최�
 3. Redis를 실행한 뒤 실패한 3개만 먼저 재실행한다.
 4. 세 테스트가 통과하면 마지막으로 `clean test` 전체를 다시 실행한다.
 5. 결과 수와 실패 0건을 테스트 리포트에서 확인한다.
+
+### 백엔드가 MySQL 인증 오류로 시작되지 않을 때
+
+로컬 기동 검증에서 확인한 실제 실패 원인은 `Access denied for user 'gongguhan'@'localhost'`였다. 이는 Controller나 JPA 쿼리 실행 전, Flyway가 DB 연결을 얻는 단계에서 멈춘 것이다.
+
+1. MySQL 서비스가 실행 중인지 확인한다.
+2. `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`가 현재 로컬 MySQL 계정과 일치하는지 확인한다.
+3. 기본값을 사용할 경우 `gongguhan` DB와 `gongguhan` 사용자가 실제로 생성돼 있는지 확인한다.
+4. 키와 비밀번호를 Git 추적 파일에 적지 말고 로컬 환경 변수 또는 무시되는 `.env`로 주입한다.
+5. 연결이 되면 Flyway가 V1부터 V8까지 순서대로 성공하는지 로그를 확인한다.
+6. `flyway_schema_history`에서 V8 성공을 확인하고 `/api/v1/categories`가 20개 활성 카테고리를 반환하는지 확인한다.
+
+이 오류를 해결하려고 애플리케이션에서 인증을 우회하거나 Flyway를 운영 프로필에서 끄면 안 된다. 로컬 DB 접속 정보를 올바르게 맞추는 것이 해결책이다.
 
 ---
 

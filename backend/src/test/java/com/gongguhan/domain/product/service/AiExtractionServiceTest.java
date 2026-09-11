@@ -38,7 +38,7 @@ class AiExtractionServiceTest {
         MockMultipartFile second = image("detail.png", "image/png");
         Category category = mock(Category.class);
         when(category.getCategoryId()).thenReturn(12L);
-        when(categoryRepository.findFirstByNameIgnoreCase("생활"))
+        when(categoryRepository.findFirstByNameIgnoreCaseAndActiveTrue("생활"))
                 .thenReturn(Optional.of(category));
         when(client.extract(first)).thenReturn(moduleResult("생활"));
 
@@ -52,7 +52,7 @@ class AiExtractionServiceTest {
     @Test
     void unknownCategoryReturnsPartialResultAndWarning() {
         MockMultipartFile image = image("main.png", "image/png");
-        when(categoryRepository.findFirstByNameIgnoreCase("알 수 없는 품목"))
+        when(categoryRepository.findFirstByNameIgnoreCaseAndActiveTrue("알 수 없는 품목"))
                 .thenReturn(Optional.empty());
         when(client.extract(image)).thenReturn(moduleResult("알 수 없는 품목"));
 

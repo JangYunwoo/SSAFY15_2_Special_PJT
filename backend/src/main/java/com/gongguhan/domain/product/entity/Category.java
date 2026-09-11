@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.ColumnDefault;
 
 @Entity
 @Table(name = "categories")
@@ -28,6 +29,10 @@ public class Category {
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 
+    @Column(nullable = false)
+    @ColumnDefault("TRUE")
+    private boolean active = true;
+
     protected Category() {
     }
 
@@ -49,5 +54,9 @@ public class Category {
 
     public int getSortOrder() {
         return sortOrder;
+    }
+
+    public boolean isActive() {
+        return active;
     }
 }

@@ -21,8 +21,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
@@ -69,7 +69,16 @@ public class SellerProductController {
                 page.getContent(), PageResponse.from(page), TraceIdUtils.from(httpRequest)));
     }
 
-    @PutMapping(path = "/{productId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @GetMapping("/{productId}")
+    public ResponseEntity<ApiResponse<ProductResponse>> getSellerProduct(
+            @AuthenticationPrincipal Long sellerId,
+            @PathVariable Long productId,
+            HttpServletRequest httpRequest) {
+        ProductResponse response = productService.getSellerProduct(sellerId, productId);
+        return ResponseEntity.ok(ApiResponse.success(response, TraceIdUtils.from(httpRequest)));
+    }
+
+    @PatchMapping(path = "/{productId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<ProductResponse>> update(
             @AuthenticationPrincipal Long sellerId,
             @PathVariable Long productId,

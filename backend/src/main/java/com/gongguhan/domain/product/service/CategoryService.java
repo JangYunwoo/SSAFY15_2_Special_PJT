@@ -20,7 +20,8 @@ public class CategoryService {
     }
 
     public List<CategoryResponse> getTree() {
-        List<Category> categories = categoryRepository.findAllByOrderByDepthAscSortOrderAscCategoryIdAsc();
+        List<Category> categories =
+                categoryRepository.findAllByActiveTrueOrderByDepthAscSortOrderAscCategoryIdAsc();
         Map<Long, List<Category>> childrenByParent = categories.stream()
                 .filter(category -> category.getParentId() != null)
                 .collect(Collectors.groupingBy(Category::getParentId));
