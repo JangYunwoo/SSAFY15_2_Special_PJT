@@ -33,17 +33,14 @@ export interface Payment {
   participationId: Id | null
 }
 
-/** PAY-04 결제 이력 */
-export interface PaymentHistoryItem {
-  paymentId: Id
-  groupBuyId: Id
-  productName: string
-  method: PaymentMethod
-  status: PaymentStatus
-  totalAmount: Krw
-  paidAt: IsoDateTime | null
-  createdAt: IsoDateTime
-}
+/**
+ * PAY-04 결제 이력.
+ *
+ * 백엔드는 전용 DTO 없이 PAY-01/02 와 같은 PaymentResponse 를 페이지로 돌려줍니다
+ * (PaymentService.listHistory). 그래서 목록에 있으면 좋을 상품명과 결제 시각이
+ * 응답에 없습니다. 백엔드에 추가를 요청해 둔 상태입니다.
+ */
+export type PaymentHistoryItem = Payment
 
 export type PaymentHistoryParams = PageParams
 
