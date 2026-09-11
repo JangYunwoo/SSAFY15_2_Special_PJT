@@ -257,8 +257,8 @@ public class ReturnRequestRepository {
         Participation participation = request.getParticipation();
         GroupBuy groupBuy = groupBuy(participation);
         return new ReturnSummaryResponse(
-                request.getReturnId(), participation.getParticipationId(),
-                participation.getGroupBuyId(), product(groupBuy).getName(),
+                String.valueOf(request.getReturnId()), String.valueOf(participation.getParticipationId()),
+                String.valueOf(participation.getGroupBuyId()), product(groupBuy).getName(),
                 users.findById(participation.getUserId())
                         .orElseThrow(() -> new IllegalStateException("구매자 정보를 찾을 수 없습니다."))
                         .getNickname(), request.getReasonType(),
@@ -272,7 +272,8 @@ public class ReturnRequestRepository {
 
     private ReturnSummaryResponse toSummary(ReturnSummaryView view) {
         return new ReturnSummaryResponse(
-                view.getId(), view.getParticipationId(), view.getGroupBuyId(),
+                String.valueOf(view.getId()), String.valueOf(view.getParticipationId()),
+                String.valueOf(view.getGroupBuyId()),
                 view.getProductName(), view.getBuyerName(), view.getReasonType(),
                 view.getDetailReason(), view.getStatus(), view.getRefundAmount(),
                 view.getReturnShippingFee(), view.getShippingFeeBearer(),

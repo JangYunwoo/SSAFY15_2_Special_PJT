@@ -135,7 +135,7 @@ public class GroupBuyQueryRepository {
                   FROM product_images
                  WHERE product_id = :productId
                  ORDER BY sort_order ASC, image_id ASC
-                """, Map.of("productId", detail.get().productId()), String.class);
+                """, Map.of("productId", Long.valueOf(detail.get().productId())), String.class);
         return Optional.of(detail.get().withImages(images));
     }
 
@@ -321,12 +321,12 @@ public class GroupBuyQueryRepository {
         int targetCount = resultSet.getInt("target_participants");
         int paidCount = resultSet.getInt("current_participants");
         return new GroupBuySummaryResponse(
-                resultSet.getLong("id"),
-                resultSet.getLong("product_id"),
+                String.valueOf(resultSet.getLong("id")),
+                String.valueOf(resultSet.getLong("product_id")),
                 resultSet.getString("product_name"),
                 resultSet.getString("thumbnail_url"),
                 resultSet.getString("seller_name"),
-                nullableLong(resultSet, "category_id"),
+                nullableStringId(resultSet, "category_id"),
                 resultSet.getString("category_name"),
                 resultSet.getString("status"),
                 resultSet.getLong("list_price"),
@@ -345,12 +345,12 @@ public class GroupBuyQueryRepository {
         int targetCount = resultSet.getInt("target_participants");
         int paidCount = resultSet.getInt("current_participants");
         return new GroupBuyDetailResponse(
-                resultSet.getLong("id"),
-                resultSet.getLong("product_id"),
+                String.valueOf(resultSet.getLong("id")),
+                String.valueOf(resultSet.getLong("product_id")),
                 resultSet.getString("product_name"),
                 resultSet.getString("thumbnail_url"),
                 resultSet.getString("seller_name"),
-                nullableLong(resultSet, "category_id"),
+                nullableStringId(resultSet, "category_id"),
                 resultSet.getString("category_name"),
                 resultSet.getString("status"),
                 resultSet.getLong("list_price"),
@@ -377,8 +377,8 @@ public class GroupBuyQueryRepository {
 
     private SellerGroupBuySummaryResponse mapSellerGroupBuy(ResultSet resultSet, int rowNum) throws SQLException {
         return new SellerGroupBuySummaryResponse(
-                resultSet.getLong("id"),
-                resultSet.getLong("product_id"),
+                String.valueOf(resultSet.getLong("id")),
+                String.valueOf(resultSet.getLong("product_id")),
                 resultSet.getString("product_name"),
                 resultSet.getString("status"),
                 resultSet.getInt("target_participants"),
@@ -394,8 +394,8 @@ public class GroupBuyQueryRepository {
     private SellerGroupBuyDetailResponse mapSellerGroupBuyDetail(
             ResultSet resultSet, int rowNum) throws SQLException {
         return new SellerGroupBuyDetailResponse(
-                resultSet.getLong("id"),
-                resultSet.getLong("product_id"),
+                String.valueOf(resultSet.getLong("id")),
+                String.valueOf(resultSet.getLong("product_id")),
                 resultSet.getString("product_name"),
                 resultSet.getString("status"),
                 resultSet.getInt("target_participants"),
@@ -418,7 +418,7 @@ public class GroupBuyQueryRepository {
 
     private SellerParticipantResponse mapSellerParticipant(ResultSet resultSet, int rowNum) throws SQLException {
         return new SellerParticipantResponse(
-                resultSet.getLong("participation_id"),
+                String.valueOf(resultSet.getLong("participation_id")),
                 resultSet.getString("buyer_name"),
                 resultSet.getString("recipient_name"),
                 resultSet.getString("zipcode"),
@@ -429,9 +429,9 @@ public class GroupBuyQueryRepository {
                 resultSet.getString("status"));
     }
 
-    private Long nullableLong(ResultSet resultSet, String column) throws SQLException {
+    private String nullableStringId(ResultSet resultSet, String column) throws SQLException {
         long value = resultSet.getLong(column);
-        return resultSet.wasNull() ? null : value;
+        return resultSet.wasNull() ? null : String.valueOf(value);
     }
 
     private OffsetDateTime utc(ResultSet resultSet, String column) throws SQLException {

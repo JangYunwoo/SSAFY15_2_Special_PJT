@@ -120,7 +120,7 @@ class SellerGroupBuyIntegrationTest {
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.id").isNumber())
+                .andExpect(jsonPath("$.data.id").isString())
                 .andExpect(jsonPath("$.data.recruitStartAt").value("2026-09-08T01:00:00Z"))
                 .andExpect(jsonPath("$.data.status").value(GroupBuy.STATUS_RECRUITING));
 
