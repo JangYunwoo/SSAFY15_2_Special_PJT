@@ -22,6 +22,7 @@ public class HttpKakaoPayGateway implements KakaoPayGateway {
     private static final Logger log = LoggerFactory.getLogger(HttpKakaoPayGateway.class);
     private static final String READY_PATH = "/online/v1/payment/ready";
     private static final String APPROVE_PATH = "/online/v1/payment/approve";
+    private static final String CANCEL_PATH = "/online/v1/payment/cancel";
 
     private final RestClient restClient;
     private final KakaoPayProperties properties;
@@ -66,6 +67,22 @@ public class HttpKakaoPayGateway implements KakaoPayGateway {
                 response.aid(), response.tid(), response.partnerOrderId(),
                 response.partnerUserId(), response.amount().total(), response.amount().vat(),
                 response.paymentMethodType());
+    }
+
+    @Override
+    public CancelResult cancel(CancelCommand command) {
+        ensureConfigured();
+        CancelApiResponse response = post(CANCEL_PATH, new CancelApiRequest(
+                properties.cid(), command.tid(), command.cancelAmount(),
+                command.cancelTaxFreeAmount()), CancelApiResponse.class);
+        if (response == null || blank(response.aid()) || blank(response.tid())
+                || blank(response.status()) || response.approvedCancelAmount() == null
+                || response.canceledAmount() == null || response.cancelAvailableAmount() == null) {
+            throw invalidResponse("cancel");
+        }
+        return new CancelResult(response.aid(), response.tid(), response.status(),
+                response.approvedCancelAmount().total(), response.canceledAmount().total(),
+                response.cancelAvailableAmount().total());
     }
 
     private <T> T post(String path, Object body, Class<T> responseType) {
@@ -149,5 +166,24 @@ public class HttpKakaoPayGateway implements KakaoPayGateway {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     private record Amount(long total, @JsonProperty("tax_free") long taxFree, long vat) {
+    }
+
+    private record CancelApiRequest(
+            String cid,
+            String tid,
+            @JsonProperty("cancel_amount") long cancelAmount,
+            @JsonProperty("cancel_tax_free_amount") long cancelTaxFreeAmount
+    ) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record CancelApiResponse(
+            String aid,
+            String tid,
+            String status,
+            @JsonProperty("approved_cancel_amount") Amount approvedCancelAmount,
+            @JsonProperty("canceled_amount") Amount canceledAmount,
+            @JsonProperty("cancel_available_amount") Amount cancelAvailableAmount
+    ) {
     }
 }
