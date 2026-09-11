@@ -67,7 +67,10 @@ app:
     rpc-timeout-ms: ${CRYPTO_RPC_TIMEOUT_MS:5000}
     # 컨펌 폴링 1회 처리 건수. RPC 호출 한도를 넘기지 않도록 제한한다.
     confirmation-poll-batch-size: ${CRYPTO_CONFIRMATION_POLL_BATCH_SIZE:50}
-    # 컨펌 폴링 주기. 0 이하로 두면 스케줄러가 뜨지 않는다.
+    # 폴링 자체를 끄려면 이 값을 false 로. 주기를 0 으로 두는 것으로는 꺼지지 않고
+    # fixedDelay 가 양수여야 하므로 기동이 실패한다.
+    confirmation-poll-enabled: ${CRYPTO_CONFIRMATION_POLL_ENABLED:true}
+    # 컨펌 폴링 주기. 반드시 양수여야 한다.
     confirmation-poll-interval-ms: ${CRYPTO_CONFIRMATION_POLL_INTERVAL_MS:5000}
     # 기동 직후에는 커넥션 풀·체인 클라이언트가 준비되기를 기다린다.
     confirmation-poll-initial-delay-ms: ${CRYPTO_CONFIRMATION_POLL_INITIAL_DELAY_MS:10000}
