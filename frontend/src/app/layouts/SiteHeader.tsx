@@ -3,6 +3,7 @@ import { Link, NavLink } from 'react-router'
 import { useIsSignedIn } from '@/features/auth/sessionStore'
 import { useLogout } from '@/features/auth/useAuthMutations'
 import { NotificationBell } from '@/features/notification/NotificationBell'
+import { BACKEND_FEATURES } from '@/shared/config/backendFeatures'
 import { cx } from '@/shared/lib/cx'
 
 /** 로그인 여부와 무관하게 보이는 메뉴 */
@@ -61,7 +62,8 @@ export function SiteHeader() {
               </NavLink>
             )}
           </nav>
-          {isSignedIn && <NotificationBell />}
+          {/* 알림 API(NOTI-01~03)가 아직 없어, 붙기 전까지는 벨을 감춥니다. */}
+          {isSignedIn && BACKEND_FEATURES.notifications && <NotificationBell />}
           <Link className="cta" to="/seller">
             판매자센터
           </Link>

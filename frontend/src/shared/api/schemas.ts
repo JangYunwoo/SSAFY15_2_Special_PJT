@@ -30,6 +30,69 @@ export const authTokensSchema = z.object({
   actor: actorSchema,
 })
 
+export const userProfileSchema = z.object({
+  id,
+  email: z.string(),
+  nickname: z.string(),
+  phone: z.string().nullable(),
+  isSeller: z.boolean(),
+  createdAt: isoDateTime.nullable(),
+  ssafyAccountNo: z.string().nullable(),
+  ssafyLinked: z.boolean(),
+})
+
+export const sellerProfileSchema = z.object({
+  id,
+  businessName: z.string(),
+  businessPhone: z.string().nullable(),
+  ssafyAccountNo: z.string().nullable(),
+  accountHolder: z.string().nullable(),
+  accountVerified: z.boolean(),
+  returnZipcode: z.string().nullable(),
+  returnAddress1: z.string().nullable(),
+  returnAddress2: z.string().nullable(),
+  penaltyCount: z.number(),
+  status: z.string(),
+})
+
+/* ---------- 배송지 ---------- */
+
+export const addressSchema = z.object({
+  id,
+  recipientName: z.string(),
+  recipientPhone: z.string(),
+  zipcode: z.string(),
+  address1: z.string(),
+  address2: z.string().nullable(),
+  isDefault: z.boolean(),
+  deliveryRequest: z.string().nullable(),
+})
+
+/* ---------- 참여 ---------- */
+
+export const participationSummarySchema = z.object({
+  id,
+  groupBuyId: id,
+  productName: z.string(),
+  // entities/model.ts 의 PARTICIPATION_STATUS 와 같은 목록입니다.
+  // shared 는 entities 를 import 하지 않는 규칙이라 값을 그대로 적습니다.
+  status: z.enum([
+    'PAID',
+    'FULFILLED',
+    'SHIPPING',
+    'DELIVERED',
+    'CONFIRMED',
+    'SETTLED',
+    'CANCELED',
+    'RETURNING',
+    'RETURNED',
+    'REFUNDING',
+    'REFUNDED',
+  ]),
+  totalAmount: z.number(),
+  paidAt: isoDateTime,
+})
+
 /* ---------- 공동구매 ---------- */
 
 export const groupBuySummarySchema = z.object({

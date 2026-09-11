@@ -9,6 +9,7 @@ import { participationQueries } from '@/entities/participation/queries'
 import type { IsoDateTime } from '@/shared/api/types'
 import { queryKeys } from '@/shared/api/queryKeys'
 import { toMessage } from '@/shared/api/errors'
+import { BACKEND_FEATURES } from '@/shared/config/backendFeatures'
 import { cx } from '@/shared/lib/cx'
 import { date, dateTime, dday, groupBuyNo, number, won } from '@/shared/lib/format'
 import { Button } from '@/shared/ui/Button'
@@ -117,7 +118,12 @@ export function OrderAccordion({ item, defaultOpen = false }: OrderAccordionProp
           </p>
         )}
 
-        {item.status === 'PAID' && (
+        {/*
+          PAR-03(참여 취소)은 백엔드에 컨트롤러가 아직 없어 눌러도 404 입니다.
+          되지 않는 버튼을 보여주는 대신 감추고, 엔드포인트가 생기면
+          backendFeatures.participationCancel 만 켜면 됩니다.
+        */}
+        {item.status === 'PAID' && BACKEND_FEATURES.participationCancel && (
           <div className="order-actions">
             <Button
               variant="ghost"

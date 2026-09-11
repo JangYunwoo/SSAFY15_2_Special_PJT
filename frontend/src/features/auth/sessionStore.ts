@@ -9,14 +9,8 @@ interface SessionState {
   accessToken: string | null
   refreshToken: string | null
   actor: Actor | null
-  /**
-   * 판매자센터 이용 자격. 로그인 시 서버의 `actor.isSeller` 로 채우고,
-   * 판매자 전환을 마치면 true 가 됩니다 (명세서 SEL-05).
-   */
-  isSeller: boolean
   signIn: (tokens: AuthTokens) => void
   signOut: () => void
-  setIsSeller: (isSeller: boolean) => void
 }
 
 /**
@@ -25,6 +19,12 @@ interface SessionState {
  * 계정은 통합 `users` 하나이고 구매자·판매자가 별개 계정이 아닙니다.
  * 로그인하면 누구나 구매자로 쓸 수 있고, 판매자센터는 전환을 마친 계정만
  * 들어갈 수 있습니다.
+ *
+ * 판매자 자격은 `actor.isSeller` 하나만 믿습니다. 백엔드가 JWT 의 `isSeller`
+ * 클레임으로 ROLE_SELLER 를 부여하므로(JwtAuthenticationFilter), 클라이언트에서
+ * 이 값을 세워봐야 `/sellers/**` 요청은 그대로 403 입니다. 예전에는 본인인증
+ * 화면이 이 값을 직접 켜서 판매자센터에 들어간 것처럼 보였지만, 실제로는
+ * 모든 요청이 실패했습니다.
  *
  * 토큰을 localStorage 에 두면 XSS 에 노출되므로, 운영에서는 refresh 토큰을
  * HttpOnly 쿠키로 내리고 access 토큰만 메모리에 두는 편이 안전합니다.
@@ -37,23 +37,17 @@ export const useSessionStore = create<SessionState>()(
       accessToken: null,
       refreshToken: null,
       actor: null,
-      isSeller: false,
 
       signIn: (tokens) => {
         set({
           accessToken: tokens.accessToken,
           refreshToken: tokens.refreshToken,
           actor: tokens.actor,
-          isSeller: tokens.actor.isSeller,
         })
       },
 
       signOut: () => {
-        set({ accessToken: null, refreshToken: null, actor: null, isSeller: false })
-      },
-
-      setIsSeller: (isSeller) => {
-        set({ isSeller })
+        set({ accessToken: null, refreshToken: null, actor: null })
       },
     }),
     { name: 'gongguhan.session' },
@@ -65,6 +59,8 @@ export const useSessionStore = create<SessionState>()(
  *
  * 액세스 토큰은 30분(expiresIn 1800)이면 만료됩니다. 재발급이 없으면
  * 그때마다 로그아웃되므로, 401 을 만나면 refresh 토큰으로 조용히 갱신합니다.
+ * AUTH-03 컨트롤러가 아직 없어 지금은 실패하고 세션이 정리되지만, 백엔드가
+ * 붙는 즉시 여기 손대지 않고 그대로 동작합니다.
  */
 configureAuthBridge({
   getAccessToken: () => useSessionStore.getState().accessToken,
@@ -91,5 +87,6 @@ configureAuthBridge({
 
 export const useActor = () => useSessionStore((state) => state.actor)
 export const useIsSignedIn = () => useSessionStore((state) => state.accessToken !== null)
-export const useIsSeller = () => useSessionStore((state) => state.isSeller)
+/** 판매자센터 이용 자격. 서버가 내려준 actor 만 신뢰합니다 (명세서 SEL-05). */
+export const useIsSeller = () => useSessionStore((state) => state.actor?.isSeller === true)
 export const useIsAdmin = () => useSessionStore((state) => state.actor?.role === 'ADMIN')

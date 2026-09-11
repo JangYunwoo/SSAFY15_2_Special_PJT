@@ -92,6 +92,21 @@ export interface GroupBuyEscrow {
   escrows: Escrow[]
 }
 
+/**
+ * CFM-01 수동 구매확정 결과 (백엔드 PurchaseConfirmResponse).
+ *
+ * 확정해도 정산 가능 시점은 배송완료 + 정책일로 고정입니다.
+ * 수동으로 앞당겨도 판매자에게 더 일찍 지급되지 않습니다.
+ */
+export interface PurchaseConfirmResult {
+  participationId: Id
+  status: ParticipationStatus
+  /** MANUAL · AUTO */
+  confirmType: string
+  confirmedAt: IsoDateTime
+  settlementEligibleAt: IsoDateTime | null
+}
+
 /** CFM-02 이의제기 */
 export interface DisputeRequest {
   type: 'NOT_DELIVERED' | 'ITEM_MISMATCH'

@@ -52,27 +52,7 @@ export interface SignupResult {
   nickname: string
 }
 
-/**
- * SEL-05 판매자 전환 요청.
- *
- * 휴대폰(SEL-01/02)과 정산계좌(SEL-03/04) 인증을 마친 계정만 전환할 수 있고,
- * 전환 후에도 같은 user_id 를 seller_id 로 씁니다.
- */
-export interface SellerProfileRequest {
-  businessName: string
-  businessPhone: string
-  ssafyAccountNo: string
-  accountHolder: string
-  returnAddress: Omit<AddressInput, 'recipientName' | 'recipientPhone'>
-}
-
-export interface SettlementAccount {
-  bankCode: string
-  accountNumber: string
-  holderName: string
-}
-
-/** USR-01 사용자 프로필 */
+/** USR-01 사용자 프로필 (백엔드 UserProfileResponse) */
 export interface UserProfile {
   id: Id
   email: string
@@ -80,18 +60,48 @@ export interface UserProfile {
   phone: string
   isSeller: boolean
   createdAt: IsoDateTime
+  /** 카드 취소가 불가능할 때 환불을 받을 SSAFY 금융망 계좌 */
+  ssafyAccountNo: string | null
+  /** SSAFY 금융망 사용자 연동 여부. 가입 시 실패하면 로그인할 때 재시도합니다. */
+  ssafyLinked: boolean
 }
 
-/** SEL-06 판매자 프로필 */
+/** USR-02 수정 가능한 항목 */
+export interface UserProfileUpdate {
+  nickname: string
+  phone: string
+  ssafyAccountNo: string
+}
+
+/**
+ * SEL-06 판매자 프로필 (백엔드 SellerProfileResponse).
+ *
+ * 정산 계좌는 은행 코드 없이 SSAFY 금융망 계좌번호 하나로 관리합니다.
+ * 반품 주소도 중첩 객체가 아니라 평평한 세 필드로 내려옵니다.
+ */
 export interface SellerProfile {
   id: Id
-  email: string
-  shopName: string
-  phone: string
-  settlementAccount: SettlementAccount
-  returnAddress: AddressInput
+  businessName: string
+  businessPhone: string
+  ssafyAccountNo: string | null
+  accountHolder: string | null
+  /** 1원 송금 등으로 예금주 확인을 마쳤는지 */
+  accountVerified: boolean
+  returnZipcode: string | null
+  returnAddress1: string | null
+  returnAddress2: string | null
   /** 확정 위반 누적 횟수. 3회면 신규 등록·생성이 막힙니다 (명세서 13장) */
   penaltyCount: number
-  suspended: boolean
-  suspendedUntil: IsoDateTime | null
+  /** ACTIVE · SUSPENDED 등 백엔드 seller_profiles.status 값 */
+  status: string
+}
+
+/** SEL-07 수정 가능한 항목 */
+export interface SellerProfileUpdate {
+  businessPhone: string
+  ssafyAccountNo: string
+  accountHolder: string
+  returnZipcode: string
+  returnAddress1: string
+  returnAddress2: string
 }
