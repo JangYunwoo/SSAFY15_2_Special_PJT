@@ -231,6 +231,10 @@ public class Product extends BaseTimeEntity {
         return withdrawalRestricted;
     }
 
+    public boolean isApprovedWithdrawalRestriction() {
+        return withdrawalRestricted && restrictionReviewStatus == RestrictionReviewStatus.APPROVED;
+    }
+
     public Long getRestrictionReasonId() {
         return restrictionReason == null ? null : restrictionReason.getReasonId();
     }
