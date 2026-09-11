@@ -1,5 +1,7 @@
 package com.gongguhan.domain.participation.entity;
 
+import com.gongguhan.global.error.BusinessException;
+import com.gongguhan.global.error.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -13,6 +15,9 @@ import java.time.LocalDateTime;
 public class Participation {
 
     public static final String STATUS_PAID = "PAID";
+    public static final String STATUS_FULFILLED = "FULFILLED";
+    public static final String STATUS_SHIPPING = "SHIPPING";
+    public static final String STATUS_DELIVERED = "DELIVERED";
     public static final String ACTIVE_MARKER = "Y";
 
     @Id
@@ -55,6 +60,15 @@ public class Participation {
     @Column(name = "joined_at", nullable = false)
     private LocalDateTime joinedAt;
 
+    @Column(name = "delivered_at")
+    private LocalDateTime deliveredAt;
+
+    @Column(name = "withdrawal_period_end_at")
+    private LocalDateTime withdrawalPeriodEndAt;
+
+    @Column(name = "settlement_eligible_at")
+    private LocalDateTime settlementEligibleAt;
+
     @Column(name = "active_marker", length = 1)
     private String activeMarker;
 
@@ -86,6 +100,36 @@ public class Participation {
                 recipientName, recipientPhone, zipcode, address1, address2);
     }
 
+    /** 모집 완료 판정 시 일괄 전환된다 (PAID → FULFILLED). */
+    public void markFulfilled() {
+        requireStatus(STATUS_PAID, "결제 완료(PAID) 참여만 모집 확정할 수 있습니다.");
+        this.status = STATUS_FULFILLED;
+    }
+
+    public void markShipping() {
+        requireStatus(STATUS_FULFILLED, "모집 확정(FULFILLED) 참여만 발송 처리할 수 있습니다.");
+        this.status = STATUS_SHIPPING;
+    }
+
+    /**
+     * 배송 완료 전환. 청약철회 종료·정산 자격 시각은 정책값(배송완료 + N일)에서 오므로
+     * 계산 책임은 호출자(배송 유스케이스)에 있고, 여기서는 함께 기록만 한다.
+     */
+    public void markDelivered(LocalDateTime deliveredAt, LocalDateTime withdrawalPeriodEndAt,
+                               LocalDateTime settlementEligibleAt) {
+        requireStatus(STATUS_SHIPPING, "배송 중(SHIPPING) 참여만 배송 완료 처리할 수 있습니다.");
+        this.status = STATUS_DELIVERED;
+        this.deliveredAt = deliveredAt;
+        this.withdrawalPeriodEndAt = withdrawalPeriodEndAt;
+        this.settlementEligibleAt = settlementEligibleAt;
+    }
+
+    private void requireStatus(String expected, String message) {
+        if (!expected.equals(status)) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, message);
+        }
+    }
+
     public Long getParticipationId() {
         return participationId;
     }
@@ -108,5 +152,49 @@ public class Participation {
 
     public String getActiveMarker() {
         return activeMarker;
+    }
+
+    public long getShareAmount() {
+        return shareAmount;
+    }
+
+    public long getShippingFee() {
+        return shippingFee;
+    }
+
+    public String getRecipientName() {
+        return recipientName;
+    }
+
+    public String getRecipientPhone() {
+        return recipientPhone;
+    }
+
+    public String getZipcode() {
+        return zipcode;
+    }
+
+    public String getAddress1() {
+        return address1;
+    }
+
+    public String getAddress2() {
+        return address2;
+    }
+
+    public LocalDateTime getJoinedAt() {
+        return joinedAt;
+    }
+
+    public LocalDateTime getDeliveredAt() {
+        return deliveredAt;
+    }
+
+    public LocalDateTime getWithdrawalPeriodEndAt() {
+        return withdrawalPeriodEndAt;
+    }
+
+    public LocalDateTime getSettlementEligibleAt() {
+        return settlementEligibleAt;
     }
 }
