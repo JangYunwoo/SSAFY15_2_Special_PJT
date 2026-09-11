@@ -11,6 +11,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.gongguhan.domain.account.repository.UserAddressRepository;
 import com.gongguhan.domain.groupbuy.entity.GroupBuy;
 import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
 import com.gongguhan.domain.groupbuy.service.GroupBuySlotGate;
@@ -44,6 +45,7 @@ class PaymentServiceTest {
 
     private GroupBuyRepository groupBuyRepository;
     private PaymentRepository paymentRepository;
+    private UserAddressRepository userAddressRepository;
     private GroupBuySlotGate groupBuySlotGate;
     private GroupBuySlotPort groupBuySlotPort;
     private ParticipationWriterPort participationWriterPort;
@@ -55,6 +57,7 @@ class PaymentServiceTest {
     void setUp() {
         groupBuyRepository = mock(GroupBuyRepository.class);
         paymentRepository = mock(PaymentRepository.class);
+        userAddressRepository = mock(UserAddressRepository.class);
         groupBuySlotGate = mock(GroupBuySlotGate.class);
         groupBuySlotPort = mock(GroupBuySlotPort.class);
         participationWriterPort = mock(ParticipationWriterPort.class);
@@ -62,7 +65,7 @@ class PaymentServiceTest {
         slotReservationTransaction = mock(PaymentSlotReservationTransaction.class);
         Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
         paymentService = new PaymentService(
-                groupBuyRepository, paymentRepository, groupBuySlotGate,
+                groupBuyRepository, paymentRepository, userAddressRepository, groupBuySlotGate,
                 groupBuySlotPort, participationWriterPort, escrowWriterPort,
                 slotReservationTransaction, clock);
     }
@@ -389,6 +392,9 @@ class PaymentServiceTest {
         when(payment.getGroupBuyId()).thenReturn(GROUP_BUY_ID);
         when(payment.getUserId()).thenReturn(USER_ID);
         when(payment.getKrwAmount()).thenReturn(53000L);
+        // completePayment가 이제 PaymentResponse를 반환하므로(카카오페이 연동, -73)
+        // 응답 조립에 쓰이는 슬롯 만료 시각도 스텁이 필요하다.
+        when(payment.getSlotExpiresAt()).thenReturn(LocalDateTime.now());
         when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
         when(groupBuySlotPort.confirm(GROUP_BUY_ID)).thenReturn(slotView());
         ParticipationWriterPort.ParticipationRecord participationRecord =
@@ -407,7 +413,7 @@ class PaymentServiceTest {
         assertEquals("홍길동", command.recipientName());
 
         verify(escrowWriterPort).hold(eq(300L), eq(GROUP_BUY_ID), eq(53000L), any());
-        verify(payment).markPaid(300L);
+        verify(payment).markPaid(eq(300L), any());
     }
 
     @Test

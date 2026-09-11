@@ -39,6 +39,8 @@ export const RETURN_STATUS = [
   'REJECTED',
   'DISPUTED',
   'PICKED_UP',
+  'REFUND_REQUESTED',
+  'REFUND_FAILED',
   'REFUNDED',
 ] as const
 export type ReturnStatus = (typeof RETURN_STATUS)[number]
@@ -47,11 +49,7 @@ export const RETURN_REASON_TYPE = [
   /** 단순변심 — 최초 배송비 미환불, 반품비 구매자 부담 */
   'CHANGE_OF_MIND',
   /** 상품 하자 — 전액 환불, 반품비 판매자 부담 */
-  'DEFECTIVE',
-  /** 오배송 */
-  'WRONG_DELIVERY',
-  /** 표시·광고 불일치 */
-  'NOT_AS_DESCRIBED',
+  'DEFECT',
 ] as const
 export type ReturnReasonType = (typeof RETURN_REASON_TYPE)[number]
 
@@ -80,6 +78,15 @@ export const GROUP_BUY_STATUS_DISPLAY: Record<GroupBuyStatus, Display> = {
   CANCELED: { label: '취소', tone: 'neutral' },
 }
 
+/** 결제 이력에서 쓰는 표기 (PAY-04) */
+export const PAYMENT_STATUS_DISPLAY: Record<PaymentStatus, Display> = {
+  PROCESSING: { label: '결제 진행중', tone: 'live' },
+  PAID: { label: '결제 완료', tone: 'ok' },
+  FAILED: { label: '승인 실패', tone: 'alert' },
+  EXPIRED: { label: '시간 만료', tone: 'neutral' },
+  REFUNDED: { label: '환불', tone: 'keep' },
+}
+
 export const PARTICIPATION_STATUS_DISPLAY: Record<ParticipationStatus, Display> = {
   PAID: { label: '에스크로 보관중', tone: 'keep' },
   FULFILLED: { label: '모집완료', tone: 'keep' },
@@ -106,6 +113,8 @@ export const RETURN_STATUS_DISPLAY: Record<ReturnStatus, Display> = {
   REJECTED: { label: '반품거부', tone: 'alert' },
   DISPUTED: { label: '이의제기', tone: 'alert' },
   PICKED_UP: { label: '수거완료', tone: 'back' },
+  REFUND_REQUESTED: { label: '환불요청', tone: 'back' },
+  REFUND_FAILED: { label: '환불실패', tone: 'alert' },
   REFUNDED: { label: '환불완료', tone: 'ok' },
 }
 
@@ -125,9 +134,7 @@ export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
 
 export const RETURN_REASON_LABEL: Record<ReturnReasonType, string> = {
   CHANGE_OF_MIND: '단순변심',
-  DEFECTIVE: '상품 하자',
-  WRONG_DELIVERY: '오배송',
-  NOT_AS_DESCRIBED: '표시·광고 불일치',
+  DEFECT: '상품 하자·오배송',
 }
 
 /** 단순변심만 구매자가 반품비를 부담합니다 (명세서 10장) */
