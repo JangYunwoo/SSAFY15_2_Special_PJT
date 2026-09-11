@@ -11,6 +11,8 @@ import { CardFields } from '@/features/checkout/CardFields'
 import { EMPTY_CARD, isCardComplete, type CardInput } from '@/features/checkout/cardInput'
 import { useCheckoutStore } from '@/features/checkout/checkoutStore'
 import { CryptoFields } from '@/features/checkout/CryptoFields'
+import { isTxHash, isWalletAddress } from '@/features/checkout/cryptoInput'
+import { CryptoWaiting } from '@/features/checkout/CryptoWaiting'
 import { OrderSummary } from '@/features/checkout/OrderSummary'
 import { PaymentMethodPicker } from '@/features/checkout/PaymentMethodPicker'
 import { SlotTimer } from '@/features/checkout/SlotTimer'
@@ -51,6 +53,9 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
   const [card, setCard] = useState<CardInput>(EMPTY_CARD)
   const [cryptoAssetId, setCryptoAssetId] = useState<string | null>(null)
   const [walletAddress, setWalletAddress] = useState('')
+  const [txHash, setTxHash] = useState('')
+  /** 해시를 등록한 뒤 입금 확인을 기다리는 결제. 코인 결제만 이 단계를 거칩니다. */
+  const [awaitingPaymentId, setAwaitingPaymentId] = useState<string | null>(null)
   const [quote, setQuote] = useState<CryptoQuote | null>(null)
 
   const slot = usePaymentSlot({
@@ -82,19 +87,25 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
 
       if (method === 'KAKAOPAY') {
         const ready = await paymentApi.kakaoReady(payment.paymentId)
-        // 실제 환경에서는 카카오 결제창으로 이동하고, 리다이렉트로 돌아와
-        // KAKA-02(approve)를 호출합니다.
+        // 외부 결제창으로 이동하면 이 화면이 언마운트된다. 이동 전에 정산 완료로
+        // 표시하지 않으면 cleanup이 PAY-03을 호출해 방금 준비한 슬롯을 해제한다.
+        slot.markSettled()
         window.location.assign(ready.nextRedirectPcUrl)
         return null
       }
 
       if (quote === null) throw new Error('환율 정보를 먼저 발급해 주세요.')
+      /*
+       * CRYP-03. 해시를 등록해도 결제 완료가 아닙니다. 필요 컨펌 수에 도달해야
+       * 확정되므로 완료 화면으로 바로 넘기지 않고 입금 확인 단계로 넘어갑니다.
+       */
       await paymentApi.submitCryptoTx(payment.paymentId, {
         quoteId: quote.quoteId,
-        txHash: '',
-        fromAddress: walletAddress,
+        txHash: txHash.trim(),
+        fromAddress: walletAddress.trim(),
       })
-      return paymentApi.detail(payment.paymentId)
+      setAwaitingPaymentId(payment.paymentId)
+      return null
     },
     onSuccess: (result) => {
       // 승인된 결제는 이 화면을 벗어날 때 해제하지 않습니다.
@@ -118,7 +129,7 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
       ? isCardComplete(card)
       : method === 'KAKAOPAY'
         ? true
-        : quote !== null && walletAddress !== '')
+        : quote !== null && isWalletAddress(walletAddress) && isTxHash(txHash))
 
   // 서버가 확정한 1인 결제금액을 그대로 씁니다 (GRP-01/02 personalPaymentAmount).
   const total = groupBuy.personalPaymentAmount
@@ -136,6 +147,28 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
         >
           배송지 단계로 이동
         </Button>
+      </div>
+    )
+  }
+
+  if (awaitingPaymentId !== null) {
+    return (
+      <div className="split">
+        <div>
+          <CryptoWaiting
+            paymentId={awaitingPaymentId}
+            onCompleted={() => {
+              void navigate(`/checkout/complete/${awaitingPaymentId}`, { replace: true })
+            }}
+            onRetry={() => {
+              setAwaitingPaymentId(null)
+              setTxHash('')
+            }}
+          />
+        </div>
+        <aside className="sticky">
+          <OrderSummary groupBuy={groupBuy} />
+        </aside>
       </div>
     )
   }
@@ -167,6 +200,8 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
                   onAssetChange={selectAsset}
                   walletAddress={walletAddress}
                   onWalletChange={setWalletAddress}
+                  txHash={txHash}
+                  onTxHashChange={setTxHash}
                   quote={quote}
                   isQuoteLoading={issueQuote.isPending}
                   onQuoteExpired={() => {
