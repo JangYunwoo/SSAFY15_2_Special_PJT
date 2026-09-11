@@ -1,0 +1,98 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '4.1.1'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.gongguhan'
+version = '0.0.1-SNAPSHOT'
+description = 'Gongguhan group-buying platform backend'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+ext {
+	querydslVersion = '5.1.0'
+	jjwtVersion = '0.12.6'
+	awsSdkVersion = '2.54.13'
+	web3jVersion = '4.12.3'
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	compileOnly 'org.projectlombok:lombok'
+	runtimeOnly 'com.mysql:mysql-connector-j'
+	annotationProcessor 'org.projectlombok:lombok'
+	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+
+	// Flyway - 스키마(docs/database/공구한_schema_v2.sql) 기준 마이그레이션 관리
+	implementation 'org.springframework.boot:spring-boot-starter-flyway'
+	implementation 'org.flywaydb:flyway-mysql'
+
+	// AWS S3 - 상품 이미지 객체 저장소
+	implementation platform("software.amazon.awssdk:bom:${awsSdkVersion}")
+	implementation 'software.amazon.awssdk:s3'
+
+	// web3j - Polygon Amoy JSON-RPC 연동 (코인 결제)
+	// 영수증 조회·컨펌 수 확인·ERC-20 Transfer 로그 디코딩·환불 송금 서명에 사용.
+	// core 만 쓴다. codegen(ABI -> Java 래퍼 생성)은 컨트랙트를 직접 호출하지
+	// 않으므로 필요 없다.
+	implementation "org.web3j:core:${web3jVersion}"
+
+	// QueryDSL - 동적 쿼리(검색, 관리자 조회 등)
+	implementation "com.querydsl:querydsl-jpa:${querydslVersion}:jakarta"
+	annotationProcessor "com.querydsl:querydsl-apt:${querydslVersion}:jakarta"
+	annotationProcessor 'jakarta.annotation:jakarta.annotation-api'
+	annotationProcessor 'jakarta.persistence:jakarta.persistence-api'
+
+	// JWT - Access/Refresh Token 발급 및 검증
+	implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
+	runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
+	runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-actuator-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-data-redis-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testCompileOnly 'org.projectlombok:lombok'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testRuntimeOnly 'com.h2database:h2'
+	testAnnotationProcessor 'org.projectlombok:lombok'
+}
+
+sourceSets {
+	main {
+		java {
+			srcDirs += ['build/generated/sources/annotationProcessor/java/main']
+		}
+	}
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+// backend/.env(gitignore 대상)가 있으면 읽어서 bootRun 프로세스 환경변수로 주입한다.
+// AWS_ACCESS_KEY_ID 등 로컬 전용 비밀값을 매번 export하지 않아도 되게 하기 위함.
+tasks.named('bootRun') {
+	def envFile = file("${projectDir}/.env")
+	if (envFile.exists()) {
+		def props = new Properties()
+		envFile.withInputStream { props.load(it) }
+		props.each { key, value -> environment(key as String, value as String) }
+	}
+}

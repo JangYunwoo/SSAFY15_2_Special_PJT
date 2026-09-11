@@ -12,6 +12,14 @@ dist
 dist-ssr
 *.local
 
+# 로컬 환경변수. .env.example 만 커밋합니다.
+.env
+.env.*
+!.env.example
+
+# TypeScript 증분 빌드 산출물
+*.tsbuildinfo
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -1,0 +1,32 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: gongguhan-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: gongguhan
+      MYSQL_USER: gongguhan
+      MYSQL_PASSWORD: gongguhan1234!
+      MYSQL_ROOT_PASSWORD: root1234!
+      TZ: Asia/Seoul
+    ports:
+      - "3306:3306"
+    volumes:
+      - gongguhan-mysql-data:/var/lib/mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+09:00
+
+  redis:
+    image: redis:7-alpine
+    container_name: gongguhan-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - gongguhan-redis-data:/data
+
+volumes:
+  gongguhan-mysql-data:
+  gongguhan-redis-data:

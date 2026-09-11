@@ -1,0 +1,89 @@
+spring:
+  application:
+    name: gongguhan
+  profiles:
+    active: local
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 30MB
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/gongguhan?serverTimezone=Asia/Seoul&characterEncoding=UTF-8}
+    username: ${DB_USERNAME:gongguhan}
+    password: ${DB_PASSWORD:gongguhan1234!}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        default_batch_fetch_size: 100
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /api/v1
+
+jwt:
+  secret: ${JWT_SECRET:local-only-please-change-this-to-a-long-random-string-before-deploy}
+  access-token-expire-seconds: 1800
+  refresh-token-expire-seconds: 1209600
+
+app:
+  ai-extraction:
+    base-url: ${AI_EXTRACTION_BASE_URL:http://localhost:8000}
+    path: ${AI_EXTRACTION_PATH:/api/v1/products/extract}
+    timeout-ms: ${AI_EXTRACTION_TIMEOUT_MS:10000}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  kakaopay:
+    base-url: ${KAKAOPAY_BASE_URL:https://open-api.kakaopay.com}
+    cid: ${KAKAOPAY_CID:TC0ONETIME}
+    secret-key: ${KAKAOPAY_SECRET_KEY:}
+    authorization-scheme: ${KAKAOPAY_AUTHORIZATION_SCHEME:SECRET_KEY}
+    frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
+    timeout-ms: ${KAKAOPAY_TIMEOUT_MS:5000}
+  storage:
+    product-image-max-bytes: ${PRODUCT_IMAGE_MAX_BYTES:10485760}
+    s3:
+      bucket: ${AWS_S3_BUCKET:}
+      region: ${AWS_REGION:ap-northeast-2}
+      endpoint: ${AWS_S3_ENDPOINT:}
+      public-base-url: ${AWS_S3_PUBLIC_BASE_URL:}
+  crypto:
+    # Polygon Amoy 테스트넷
+    chain-id: ${CRYPTO_CHAIN_ID:80002}
+    rpc-url: ${CRYPTO_RPC_URL:https://rpc-amoy.polygon.technology}
+    rpc-timeout-ms: ${CRYPTO_RPC_TIMEOUT_MS:5000}
+    # 컨펌 폴링 1회 처리 건수. RPC 호출 한도를 넘기지 않도록 제한한다.
+    confirmation-poll-batch-size: ${CRYPTO_CONFIRMATION_POLL_BATCH_SIZE:50}
+    # 컨펌 폴링 주기. 0 이하로 두면 스케줄러가 뜨지 않는다.
+    confirmation-poll-interval-ms: ${CRYPTO_CONFIRMATION_POLL_INTERVAL_MS:5000}
+    # 기동 직후에는 커넥션 풀·체인 클라이언트가 준비되기를 기다린다.
+    confirmation-poll-initial-delay-ms: ${CRYPTO_CONFIRMATION_POLL_INITIAL_DELAY_MS:10000}
+    # Upbit 공개 시세 API. 인증 키가 필요 없다.
+    exchange-base-url: ${CRYPTO_EXCHANGE_BASE_URL:https://api.upbit.com}
+    exchange-market: ${CRYPTO_EXCHANGE_MARKET:KRW-USDT}
+    exchange-timeout-ms: ${CRYPTO_EXCHANGE_TIMEOUT_MS:3000}
+    # 짧게 유지한다. 낡은 환율은 Buffer(0.3%)로 흡수되지 않는다.
+    rate-cache-ttl-ms: ${CRYPTO_RATE_CACHE_TTL_MS:10000}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    com.gongguhan: DEBUG

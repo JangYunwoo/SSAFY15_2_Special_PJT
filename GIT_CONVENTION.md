@@ -7,11 +7,12 @@
 
 ```
 S15P21B205/
-├── backend/     # 백엔드 서버 코드
-├── frontend/    # 프론트엔드 코드
-├── ai/          # AI 상품 식별 및 정보 검색 서비스
-├── docs/        # 기획 및 설계 문서
-├── .claude/
+├── backend/     # 백엔드 서버 코드 (Spring Boot)
+├── frontend/    # 프론트엔드 코드 (React)
+├── ai/          # AI 상품 식별 및 추천 서비스
+├── docs/        # 요구사항/API/DB/외부연동/팀 문서 (docs/README.md가 색인)
+├── .claude/     # Claude Code 설정
+├── docker-compose.yml   # 로컬 개발용 MySQL, Redis
 ├── README.md
 ├── CLAUDE.md
 ├── AGENT.md
@@ -19,7 +20,7 @@ S15P21B205/
 ```
 
 - `backend/`, `frontend/`는 각자 독립적으로 빌드/실행 가능해야 합니다.
-- 공통 문서·설정은 루트에 둡니다. 새로운 최상위 폴더(`infra/`, `docs/` 등)를 추가할 때는 이 문서도 함께 갱신합니다.
+- 공통 문서·설정은 루트에 둡니다. 새로운 최상위 폴더(`infra/` 등)를 추가할 때는 이 문서도 함께 갱신합니다.
 
 ## 2. 브랜치 전략 (Git Flow)
 

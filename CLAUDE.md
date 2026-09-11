@@ -18,9 +18,11 @@ Claude Code가 이 저장소에서 작업할 때 따라야 할 지침입니다.
 
 ```
 S15P21B205/
-├── backend/     # 백엔드 서버 코드
-├── frontend/    # 프론트엔드 코드
+├── backend/     # 백엔드 서버 코드 (Spring Boot)
+├── frontend/    # 프론트엔드 코드 (React)
+├── docs/        # 요구사항/API/DB/외부연동/팀 문서 (docs/README.md가 색인)
 ├── .claude/     # Claude Code 설정
+├── docker-compose.yml   # 로컬 개발용 MySQL, Redis
 ├── README.md
 ├── CLAUDE.md
 ├── AGENT.md
