@@ -10,8 +10,12 @@ import org.hibernate.annotations.ColumnDefault;
 
 /**
  * 판매자 전환 프로필. {@code users.user_id}를 PK로 공유한다.
- * S15P21B205-63 범위는 정산 계좌·반품 주소 조회/수정(SEL-06·07)이라 그에 필요한
- * 필드만 매핑하고, 판매자 전환(SEL-05)·인증(SEL-01~04) 생성 경로는 다루지 않는다.
+ *
+ * <p>두 소비자를 함께 섬긴다: 상품·공동구매 쪽의 판매 가능 여부 확인
+ * ({@code existsBySellerIdAndStatusIn} - 원래 @Immutable 읽기 모델이었다)과
+ * S15P21B205-63의 정산 계좌·반품 주소 조회/수정(SEL-06·07). 수정 경로가 생기면서
+ * @Immutable은 제거했다. 판매자 전환(SEL-05)·인증(SEL-01~04) 생성 경로는 여기서
+ * 다루지 않는다.
  */
 @Entity
 @Table(name = "seller_profiles")

@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.gongguhan.domain.account.repository.SellerProfileRepository;
 import com.gongguhan.domain.groupbuy.dto.GroupBuyAmountPreviewRequest;
 import com.gongguhan.domain.groupbuy.dto.GroupBuyAmountPreviewResponse;
 import com.gongguhan.domain.groupbuy.dto.GroupBuyCreateRequest;
@@ -30,13 +31,16 @@ class GroupBuyServiceTest {
 
     private GroupBuyCommandRepository groupBuyCommandRepository;
     private ProductRepository productRepository;
+    private SellerProfileRepository sellerProfileRepository;
     private GroupBuyService groupBuyService;
 
     @BeforeEach
     void setUp() {
         groupBuyCommandRepository = mock(GroupBuyCommandRepository.class);
         productRepository = mock(ProductRepository.class);
-        groupBuyService = new GroupBuyService(groupBuyCommandRepository, productRepository);
+        sellerProfileRepository = mock(SellerProfileRepository.class);
+        groupBuyService = new GroupBuyService(
+                groupBuyCommandRepository, productRepository, sellerProfileRepository);
     }
 
     @Test
@@ -91,7 +95,7 @@ class GroupBuyServiceTest {
 
     @Test
     void suspendedSellerCannotPreviewAmounts() {
-        when(productRepository.countUsableSeller(10L)).thenReturn(0L);
+        when(sellerProfileRepository.existsBySellerIdAndStatusIn(any(), any())).thenReturn(false);
 
         BusinessException exception = assertThrows(
                 BusinessException.class,
@@ -106,7 +110,7 @@ class GroupBuyServiceTest {
     private void stubUsableSellerAndOwnedProduct() {
         Product product = Product.create(
                 10L, mock(Category.class), "상품", null, null, null, null, 1_000_000L);
-        when(productRepository.countUsableSeller(10L)).thenReturn(1L);
+        when(sellerProfileRepository.existsBySellerIdAndStatusIn(any(), any())).thenReturn(true);
         when(productRepository.findByProductIdAndSellerIdAndStatus(1L, 10L, Product.STATUS_ACTIVE))
                 .thenReturn(Optional.of(product));
     }
