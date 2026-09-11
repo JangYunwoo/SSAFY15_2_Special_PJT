@@ -404,7 +404,7 @@ class CryptoTxRecordServiceTest {
     @DisplayName("이미 확정된 결제는 폴링이 건드리지 않는다")
     void pollingSkipsCompletedPayment() {
         Payment payment = processingPayment(600);
-        payment.markPaid(777L);
+        payment.markPaid(777L, NOW_LDT);
         CryptoPayment cryptoPayment = CryptoPayment.submit(
                 PAYMENT_ID, usdt(), quote(), wallet(), BUYER_WALLET, TX_HASH);
         cryptoPayment.applyReceipt(true, TX_BLOCK);
