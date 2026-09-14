@@ -8,6 +8,7 @@
  * 바꾸는 것만으로 화면이 되살아나도록 한곳에 모았습니다.
  *
  * 확인 방법: `backend/**\/controller/*.java` 에 해당 경로의 매핑이 있는지 봅니다.
+ * 마지막 대조: 2026-09-14 — 컨트롤러 28개의 매핑을 전부 훑었습니다.
  *
  * 값의 타입을 `boolean` 으로 못 박은 이유: `as const` 로 두면 `false` 리터럴이
  * 되어 `flag && <A />` 가 "항상 거짓"으로 좁혀집니다. 그러면 린트가 죽은 코드로
@@ -28,16 +29,31 @@ export interface BackendFeatureFlags {
    */
   sellerOnboarding: boolean
 
-  /** PAR-03 모집 완료 전 참여 취소 · 컨트롤러 없음 */
+  /**
+   * PAR-03 모집 완료 전 참여 취소.
+   * `ParticipationQueryController` 는 조회(GET) 두 개뿐이고 취소 매핑이 없습니다.
+   */
   participationCancel: boolean
 
-  /** GRP-07·08·10 공동구매 수정 · 취소 · 판매 철회 · 컨트롤러 없음 */
-  groupBuyLifecycle: boolean
+  /**
+   * GRP-10 판매 철회 (`POST /sellers/group-buys/{id}/withdrawal`) · 컨트롤러 없음.
+   *
+   * 예전 이름은 `groupBuyLifecycle` 이었고 GRP-07·08·10 이 모두 없다고 적어
+   * 두었지만 사실과 달랐습니다. `SellerGroupBuyController` 에 수정(PATCH
+   * /sellers/group-buys/{id})과 취소(POST /{id}/cancel)는 이미 있습니다.
+   * 남은 건 철회뿐이라 이름과 범위를 거기에 맞췄습니다.
+   */
+  groupBuyWithdrawal: boolean
 
   /** AUTH-04 로그아웃 · 컨트롤러 없음 (토큰은 클라이언트에서만 폐기) */
   logout: boolean
 
-  /** AUTH-05 이메일 중복확인 · `GET /auth/email/availability` (구현됨) */
+  /**
+   * 이메일 중복확인 · `GET /auth/email/availability` (`AuthController` 에 구현됨).
+   *
+   * 명세서에 없는 추가 API 입니다. 명세서의 AUTH-05 는 관리자 로그인
+   * (`POST /auth/admins/login`) 이라 번호를 붙이지 않았습니다.
+   */
   emailAvailability: boolean
 }
 
@@ -46,7 +62,7 @@ export const BACKEND_FEATURES: BackendFeatureFlags = {
   settlements: false,
   sellerOnboarding: false,
   participationCancel: false,
-  groupBuyLifecycle: false,
+  groupBuyWithdrawal: false,
   logout: false,
   emailAvailability: true,
 }
