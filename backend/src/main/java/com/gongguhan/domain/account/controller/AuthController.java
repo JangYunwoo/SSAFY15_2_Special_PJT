@@ -1,5 +1,6 @@
 package com.gongguhan.domain.account.controller;
 
+import com.gongguhan.domain.account.dto.EmailAvailabilityResponse;
 import com.gongguhan.domain.account.dto.LoginRequest;
 import com.gongguhan.domain.account.dto.LoginResponse;
 import com.gongguhan.domain.account.dto.SignupRequest;
@@ -9,15 +10,21 @@ import com.gongguhan.global.common.ApiResponse;
 import com.gongguhan.global.common.TraceIdUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/auth")
+@Validated
 public class AuthController {
 
     private final AuthService authService;
@@ -29,11 +36,18 @@ public class AuthController {
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<SignupResponse>> signup(
             @Valid @RequestBody SignupRequest request, HttpServletRequest httpRequest) {
+        // signup이 SSAFY 연동을 동기로 처리한다(선점 충돌이면 거절, 장애면 userKey 없이 가입).
         SignupResponse response = authService.signup(request);
-        // 가입 트랜잭션 커밋 후 연동 - 실패해도 가입은 유지된다(후속 등록 방침, S15P21B205-63).
-        authService.linkSsafyMemberIfMissing(Long.valueOf(response.id()));
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response, TraceIdUtils.from(httpRequest)));
+    }
+
+    @GetMapping("/email/availability")
+    public ResponseEntity<ApiResponse<EmailAvailabilityResponse>> checkEmailAvailability(
+            @RequestParam @Email @NotBlank String email, HttpServletRequest httpRequest) {
+        boolean available = authService.isEmailAvailable(email);
+        return ResponseEntity.ok(ApiResponse.success(
+                new EmailAvailabilityResponse(available), TraceIdUtils.from(httpRequest)));
     }
 
     @PostMapping("/login")

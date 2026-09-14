@@ -5,6 +5,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from category_catalog import CategoryId
+
 
 SUPPORTED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 
@@ -23,11 +25,9 @@ class ExtractionResult(BaseModel):
         max_length=3,
         description="상품명을 하나로 확정하기 어려울 때 제시할 후보 목록",
     )
-    category_id: int | None = Field(
-        default=None,
+    category_id: CategoryId = Field(
         description="ERD products.category_id에 반영할 카테고리 ID",
     )
-    category_name: str | None = Field(default=None, description="추정한 카테고리 이름")
 
 
 class ProductAnalysis(BaseModel):
