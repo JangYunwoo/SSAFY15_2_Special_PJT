@@ -108,6 +108,10 @@ function QuotePanel({ quote, onExpired }: { quote: CryptoQuote; onExpired: () =>
       <DataRow label="적용 환율">{won(Number(quote.appliedRate))}</DataRow>
       <DataRow label="결제 수량">
         {Number(quote.assetAmount).toFixed(8)} {quote.asset}
+        <br />
+        {/* 코인 수량만으로는 얼마를 내는지 가늠하기 어렵습니다. 서버가 확정한
+            원화 금액을 함께 적습니다. 청구·환불도 이 금액이 기준입니다. */}
+        <span className="small muted">≈ {won(quote.krwAmount)}</span>
       </DataRow>
       <DataRow label="필요 컨펌">{number(quote.requiredConfirmations)}회</DataRow>
 
