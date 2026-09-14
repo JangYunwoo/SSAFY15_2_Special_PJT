@@ -61,30 +61,30 @@ public class RefundLedgerService {
      *         유일성 제약에 걸린 경우. 재시도하면 위의 멱등 경로를 타게 됩니다.
      */
     @Transactional
-    public Refund openForParticipation(Long participationId, long amount,
-                                       RefundReason reasonType, RefundMethod refundMethod) {
+    public OpenResult openForParticipation(Long participationId, long amount,
+                                           RefundReason reasonType, RefundMethod refundMethod) {
         return refundRepository.findActiveByParticipationId(participationId)
                 .map(existing -> {
                     log.info("이미 처리 중인 환불이 있어 새로 만들지 않습니다. refundId={} participationId={}",
                             existing.getRefundId(), participationId);
-                    return existing;
+                    return OpenResult.existing(existing);
                 })
-                .orElseGet(() -> insert(Refund.forParticipation(
-                        participationId, amount, reasonType, refundMethod, now())));
+                .orElseGet(() -> OpenResult.created(insert(Refund.forParticipation(
+                        participationId, amount, reasonType, refundMethod, now()))));
     }
 
     /** 반품 환불을 개시합니다 (FR-RTN-17). 반품 ID 를 남겨 환불액 근거를 되짚게 합니다. */
     @Transactional
-    public Refund openForReturn(Long returnId, Long participationId, long amount,
-                                RefundMethod refundMethod) {
+    public OpenResult openForReturn(Long returnId, Long participationId, long amount,
+                                    RefundMethod refundMethod) {
         return refundRepository.findActiveByParticipationId(participationId)
                 .map(existing -> {
                     log.info("이미 처리 중인 환불이 있어 새로 만들지 않습니다. refundId={} returnId={}",
                             existing.getRefundId(), returnId);
-                    return existing;
+                    return OpenResult.existing(existing);
                 })
-                .orElseGet(() -> insert(Refund.forReturn(
-                        returnId, participationId, amount, refundMethod, now())));
+                .orElseGet(() -> OpenResult.created(insert(Refund.forReturn(
+                        returnId, participationId, amount, refundMethod, now()))));
     }
 
     /**
@@ -94,16 +94,29 @@ public class RefundLedgerService {
      * 돌려보내면 우리 지갑에서 토큰이 두 번 나갑니다.
      */
     @Transactional
-    public Refund openForUnmatchedDeposit(Long depositId, long amount, String toAddress) {
+    public OpenResult openForUnmatchedDeposit(Long depositId, long amount, String toAddress) {
         return openForDeposit(depositId, () -> Refund.forUnmatchedDeposit(
                 depositId, amount, toAddress, now()));
     }
 
     /** 슬롯이 만료된 뒤 도착한 입금 환불을 개시합니다 (FR-SLT-10). */
     @Transactional
-    public Refund openForExpiredSlot(Long depositId, long amount, String toAddress) {
+    public OpenResult openForExpiredSlot(Long depositId, long amount, String toAddress) {
         return openForDeposit(depositId, () -> Refund.forExpiredSlot(
                 depositId, amount, toAddress, now()));
+    }
+
+    /**
+     * 계좌이체 환불의 수취 계좌를 확정합니다.
+     *
+     * <p><b>이체를 보내기 전에</b> 기록합니다. 송금 직후 장애가 나면 "어디로 보냈는지"
+     * 가 원장에 남아 있어야 금융망 거래내역과 대조할 수 있습니다.
+     */
+    @Transactional
+    public Refund assignAccount(Long refundId, String accountNo) {
+        Refund refund = load(refundId);
+        refund.assignAccount(accountNo);
+        return refund;
     }
 
     /** 카드 승인 취소 결과를 기록합니다. */
@@ -194,14 +207,40 @@ public class RefundLedgerService {
                 RefundStatus.FAILED, PageRequest.of(0, limit));
     }
 
-    private Refund openForDeposit(Long depositId, Supplier<Refund> factory) {
+    private OpenResult openForDeposit(Long depositId, Supplier<Refund> factory) {
         return refundRepository.findActiveByDepositId(depositId)
                 .map(existing -> {
                     log.info("이미 처리 중인 입금 환불이 있어 새로 만들지 않습니다. refundId={} depositId={}",
                             existing.getRefundId(), depositId);
-                    return existing;
+                    return OpenResult.existing(existing);
                 })
-                .orElseGet(() -> insert(factory.get()));
+                .orElseGet(() -> OpenResult.created(insert(factory.get())));
+    }
+
+    /**
+     * 환불 개시 결과.
+     *
+     * <p><b>{@code created} 를 돌려주는 이유는 이중 송금을 막기 위해서입니다.</b>
+     * 개시가 멱등이라 같은 요청이 두 번 오면 기존 행이 그대로 돌아오는데, 호출 측이
+     * 그걸 구분하지 못하면 <b>같은 환불에 대해 외부 송금을 두 번</b> 실행합니다.
+     * 원장은 한 건인데 돈은 두 번 나가는, 가장 알아채기 어려운 형태의 사고입니다.
+     *
+     * <p>동시에 들어온 두 요청 중 하나만 INSERT 에 성공하므로
+     * ({@code UNIQUE(participation_id, refund_marker)}), {@code created} 가 true 인
+     * 호출자도 정확히 하나입니다. 실제 송금은 그 하나만 수행하면 됩니다.
+     *
+     * @param refund  개시됐거나 이미 존재하던 환불
+     * @param created 이 호출이 행을 새로 만들었으면 true
+     */
+    public record OpenResult(Refund refund, boolean created) {
+
+        static OpenResult created(Refund refund) {
+            return new OpenResult(refund, true);
+        }
+
+        static OpenResult existing(Refund refund) {
+            return new OpenResult(refund, false);
+        }
     }
 
     /**
