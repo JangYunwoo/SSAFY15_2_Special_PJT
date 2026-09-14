@@ -1,5 +1,6 @@
 package com.gongguhan.domain.account.controller;
 
+import com.gongguhan.domain.account.dto.EmailAvailabilityResponse;
 import com.gongguhan.domain.account.dto.LoginRequest;
 import com.gongguhan.domain.account.dto.LoginResponse;
 import com.gongguhan.domain.account.dto.SignupRequest;
@@ -9,15 +10,21 @@ import com.gongguhan.global.common.ApiResponse;
 import com.gongguhan.global.common.TraceIdUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/auth")
+@Validated
 public class AuthController {
 
     private final AuthService authService;
@@ -33,6 +40,14 @@ public class AuthController {
         SignupResponse response = authService.signup(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response, TraceIdUtils.from(httpRequest)));
+    }
+
+    @GetMapping("/email/availability")
+    public ResponseEntity<ApiResponse<EmailAvailabilityResponse>> checkEmailAvailability(
+            @RequestParam @Email @NotBlank String email, HttpServletRequest httpRequest) {
+        boolean available = authService.isEmailAvailable(email);
+        return ResponseEntity.ok(ApiResponse.success(
+                new EmailAvailabilityResponse(available), TraceIdUtils.from(httpRequest)));
     }
 
     @PostMapping("/login")

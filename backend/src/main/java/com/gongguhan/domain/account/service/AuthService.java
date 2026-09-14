@@ -110,6 +110,20 @@ public class AuthService {
         return new SignupResponse(String.valueOf(user.getUserId()), user.getEmail(), user.getNickname());
     }
 
+    /**
+     * 이메일 사용 가능 여부 조회(AUTH-05). 회원가입 전 중복확인 버튼용이다.
+     *
+     * <p>우리 서비스 DB의 유니크 제약({@code existsByEmail})만 확인하는 사이드이펙트 없는
+     * 조회다. SSAFY 금융망 연동은 {@code createMember}가 실제 회원을 생성하는 쓰기라
+     * 확인 단계에서 호출하지 않으며, 금융망 이메일 선점 충돌은 기존대로 가입 시점에만
+     * {@code SSAFY_EMAIL_UNAVAILABLE}로 판별된다.
+     *
+     * @return 아직 가입되지 않았으면 {@code true}
+     */
+    public boolean isEmailAvailable(String email) {
+        return !userRepository.existsByEmail(email);
+    }
+
     public LoginResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_CREDENTIALS));
