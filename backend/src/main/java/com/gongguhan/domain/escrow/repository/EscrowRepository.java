@@ -26,18 +26,33 @@ public interface EscrowRepository extends JpaRepository<Escrow, Long> {
      * {@code long} 반환 타입에서 NPE 가 난다.
      */
     @Query("""
-           select coalesce(sum(e.amount), 0) from Escrow e
+           select coalesce(sum(e.amount - e.refundedAmount), 0) from Escrow e
             where e.groupBuyId = :groupBuyId
               and e.status = com.gongguhan.domain.escrow.entity.EscrowStatus.HELD
            """)
     long sumHeldAmountByGroupBuy(@Param("groupBuyId") Long groupBuyId);
 
-    /** 플랫폼 전체 보관 총액 (FR-ADM-12). */
+    /**
+     * 플랫폼 전체 보관 총액 (FR-ADM-12).
+     *
+     * <p>부분 환불로 빠져나간 금액을 뺍니다. {@code amount} 만 더하면 이미 돌려준 돈을
+     * 아직 들고 있는 것처럼 보고하게 됩니다.
+     */
     @Query("""
-           select coalesce(sum(e.amount), 0) from Escrow e
+           select coalesce(sum(e.amount - e.refundedAmount), 0) from Escrow e
             where e.status = com.gongguhan.domain.escrow.entity.EscrowStatus.HELD
            """)
     long sumHeldAmount();
+
+    /**
+     * 환불로 빠져나간 총액 (FR-ADM-12).
+     *
+     * <p>상태별 집계로는 부분 환불이 보이지 않습니다. 42,000원을 환불하고 12,000원이
+     * 남은 에스크로는 여전히 {@code HELD} 라, 상태만 세면 그 42,000원이 어디에도
+     * 나타나지 않습니다. 환불 총액은 상태가 아니라 이 누계로 봐야 합니다.
+     */
+    @Query("select coalesce(sum(e.refundedAmount), 0) from Escrow e")
+    long sumRefundedAmount();
 
     /** ESC-02 목록. 페이지로 끊되 합계는 별도 집계 쿼리로 전체를 센다. */
     Page<Escrow> findByGroupBuyId(Long groupBuyId, Pageable pageable);

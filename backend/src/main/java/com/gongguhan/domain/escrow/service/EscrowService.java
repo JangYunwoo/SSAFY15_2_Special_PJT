@@ -107,9 +107,49 @@ public class EscrowService {
         Escrow escrow = findByParticipationId(participationId);
         escrow.refund(LocalDateTime.now(clock));
 
-        log.info("에스크로 환불 escrowId={} participationId={} amount={} reason={}",
+        log.info("에스크로 전액 환불 escrowId={} participationId={} amount={} reason={}",
                 escrow.getEscrowId(), participationId, escrow.getAmount(), reason);
         return escrow;
+    }
+
+    /**
+     * 일부만 환불합니다 (FR-ESC-05).
+     *
+     * <p>반품 환불액이 결제금액 전액이 아닌 경우가 있습니다. 단순변심 반품이면 최초
+     * 배송비를 돌려주지 않아 54,000원 중 42,000원만 환불되고, <b>남은 12,000원은
+     * 판매자에게 정산되어야 합니다.</b>
+     *
+     * <p>그래서 남은 금액이 있으면 에스크로는 {@code HELD} 로 남습니다. 여기서
+     * 종료시키면 판매자가 받아야 할 돈이 정산 대상에서 조용히 사라집니다.
+     *
+     * @param refundAmount 이번에 환불할 금액. 누계가 보관 금액을 넘으면 거부합니다.
+     */
+    @Transactional
+    public Escrow refundPartially(Long participationId, long refundAmount, String reason) {
+        Escrow escrow = findByParticipationId(participationId);
+        escrow.refundPartially(refundAmount, LocalDateTime.now(clock));
+
+        log.info("에스크로 부분 환불 escrowId={} participationId={} 환불={} 잔액={} 상태={} reason={}",
+                escrow.getEscrowId(), participationId, refundAmount,
+                escrow.heldAmount(), escrow.getStatus(), reason);
+        return escrow;
+    }
+
+    /**
+     * 정산 대상 금액 (FR-STL-07).
+     *
+     * <p>{@code amount} 가 아니라 잔액입니다. 이미 환불한 만큼을 판매자에게 한 번 더
+     * 주지 않기 위한 구분입니다.
+     */
+    @Transactional(readOnly = true)
+    public long getSettlementAmount(Long participationId) {
+        return findByParticipationId(participationId).heldAmount();
+    }
+
+    /** 환불로 빠져나간 총액 (FR-ADM-12). 부분 환불은 상태 집계에 잡히지 않습니다. */
+    @Transactional(readOnly = true)
+    public long getTotalRefundedAmount() {
+        return escrowRepository.sumRefundedAmount();
     }
 
     /**
