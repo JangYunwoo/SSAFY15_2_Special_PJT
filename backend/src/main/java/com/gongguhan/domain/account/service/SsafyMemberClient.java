@@ -32,6 +32,7 @@ public class SsafyMemberClient {
 
     private static final Logger log = LoggerFactory.getLogger(SsafyMemberClient.class);
     public static final String RESPONSE_CODE_ALREADY_EXISTS = "E4002";
+    public static final String RESPONSE_CODE_NOT_FOUND = "E4003";
 
     private final RestClient restClient;
     private final SsafyProperties properties;
@@ -109,6 +110,11 @@ public class SsafyMemberClient {
 
         public boolean isAlreadyExists() {
             return RESPONSE_CODE_ALREADY_EXISTS.equals(responseCode);
+        }
+
+        /** 우리 apiKey 기준으로 해당 회원이 없음(E4003). 조회 실패 또는 다른 apiKey 소유. */
+        public boolean isNotFound() {
+            return RESPONSE_CODE_NOT_FOUND.equals(responseCode);
         }
     }
 }

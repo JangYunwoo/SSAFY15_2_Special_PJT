@@ -29,9 +29,8 @@ public class AuthController {
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<SignupResponse>> signup(
             @Valid @RequestBody SignupRequest request, HttpServletRequest httpRequest) {
+        // signup이 SSAFY 연동을 동기로 처리한다(선점 충돌이면 거절, 장애면 userKey 없이 가입).
         SignupResponse response = authService.signup(request);
-        // 가입 트랜잭션 커밋 후 연동 - 실패해도 가입은 유지된다(후속 등록 방침, S15P21B205-63).
-        authService.linkSsafyMemberIfMissing(Long.valueOf(response.id()));
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response, TraceIdUtils.from(httpRequest)));
     }
