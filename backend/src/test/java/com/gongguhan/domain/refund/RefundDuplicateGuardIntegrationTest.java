@@ -63,9 +63,9 @@ class RefundDuplicateGuardIntegrationTest {
     @DisplayName("같은 참여 건에 환불을 두 번 개시하면 기존 건을 그대로 돌려준다")
     void reusesExistingRefund() {
         Refund first = ledgerService.openForParticipation(PARTICIPATION_ID, AMOUNT,
-                RefundReason.RECRUIT_FAILED, RefundMethod.ACCOUNT_TRANSFER);
+                RefundReason.RECRUIT_FAILED, RefundMethod.ACCOUNT_TRANSFER).refund();
         Refund second = ledgerService.openForParticipation(PARTICIPATION_ID, AMOUNT,
-                RefundReason.RECRUIT_FAILED, RefundMethod.ACCOUNT_TRANSFER);
+                RefundReason.RECRUIT_FAILED, RefundMethod.ACCOUNT_TRANSFER).refund();
 
         assertThat(second.getRefundId()).isEqualTo(first.getRefundId());
         assertThat(refundRepository.count()).isEqualTo(1);
@@ -118,7 +118,7 @@ class RefundDuplicateGuardIntegrationTest {
         refundRepository.saveAndFlush(failed);
 
         Refund retryRow = ledgerService.openForParticipation(PARTICIPATION_ID, AMOUNT,
-                RefundReason.RECRUIT_FAILED, RefundMethod.ACCOUNT_TRANSFER);
+                RefundReason.RECRUIT_FAILED, RefundMethod.ACCOUNT_TRANSFER).refund();
 
         assertThat(retryRow.getRefundId()).isNotEqualTo(failed.getRefundId());
         assertThat(refundRepository.count()).isEqualTo(2);
@@ -131,8 +131,8 @@ class RefundDuplicateGuardIntegrationTest {
     @Test
     @DisplayName("참여 건 없는 입금 환불은 여러 건 만들 수 있다 - UNIQUE 에서 NULL 은 서로 다르다")
     void allowsMultipleDepositRefunds() {
-        ledgerService.openForUnmatchedDeposit(7001L, AMOUNT, BUYER_WALLET);
-        ledgerService.openForExpiredSlot(7002L, AMOUNT, BUYER_WALLET);
+        ledgerService.openForUnmatchedDeposit(7001L, AMOUNT, BUYER_WALLET).refund();
+        ledgerService.openForExpiredSlot(7002L, AMOUNT, BUYER_WALLET).refund();
 
         assertThat(refundRepository.count()).isEqualTo(2);
     }
@@ -140,8 +140,8 @@ class RefundDuplicateGuardIntegrationTest {
     @Test
     @DisplayName("같은 입금을 두 번 돌려보내려 하면 기존 건을 돌려준다")
     void reusesExistingDepositRefund() {
-        Refund first = ledgerService.openForUnmatchedDeposit(7001L, AMOUNT, BUYER_WALLET);
-        Refund second = ledgerService.openForUnmatchedDeposit(7001L, AMOUNT, BUYER_WALLET);
+        Refund first = ledgerService.openForUnmatchedDeposit(7001L, AMOUNT, BUYER_WALLET).refund();
+        Refund second = ledgerService.openForUnmatchedDeposit(7001L, AMOUNT, BUYER_WALLET).refund();
 
         assertThat(second.getRefundId()).isEqualTo(first.getRefundId());
         assertThat(refundRepository.count()).isEqualTo(1);
@@ -156,10 +156,10 @@ class RefundDuplicateGuardIntegrationTest {
     void rejectsSharedTxHash() {
         String txHash = "0xa18e6822603f143775eb06fc6597ccb06b8256b21aedcd4bdb24f66c85f22134";
 
-        Refund first = ledgerService.openForUnmatchedDeposit(7001L, AMOUNT, BUYER_WALLET);
+        Refund first = ledgerService.openForUnmatchedDeposit(7001L, AMOUNT, BUYER_WALLET).refund();
         ledgerService.completeByCrypto(first.getRefundId(), txHash, null);
 
-        Refund second = ledgerService.openForUnmatchedDeposit(7002L, AMOUNT, BUYER_WALLET);
+        Refund second = ledgerService.openForUnmatchedDeposit(7002L, AMOUNT, BUYER_WALLET).refund();
 
         assertThatThrownBy(() ->
                 ledgerService.completeByCrypto(second.getRefundId(), txHash, null))
@@ -170,7 +170,7 @@ class RefundDuplicateGuardIntegrationTest {
     @DisplayName("재처리는 실패 건을 다시 진행 중으로 되돌린다")
     void retryReopensFailedRefund() {
         Refund refund = ledgerService.openForParticipation(PARTICIPATION_ID, AMOUNT,
-                RefundReason.RECRUIT_FAILED, RefundMethod.ACCOUNT_TRANSFER);
+                RefundReason.RECRUIT_FAILED, RefundMethod.ACCOUNT_TRANSFER).refund();
         ledgerService.fail(refund.getRefundId(), "노드 응답 없음");
 
         Refund reopened = ledgerService.retry(refund.getRefundId());
@@ -188,10 +188,10 @@ class RefundDuplicateGuardIntegrationTest {
     @DisplayName("다른 환불이 진행 중인 참여 건은 재처리할 수 없다")
     void rejectsRetryWhenAnotherRefundIsActive() {
         Refund failed = ledgerService.openForParticipation(PARTICIPATION_ID, AMOUNT,
-                RefundReason.RECRUIT_FAILED, RefundMethod.ACCOUNT_TRANSFER);
+                RefundReason.RECRUIT_FAILED, RefundMethod.ACCOUNT_TRANSFER).refund();
         ledgerService.fail(failed.getRefundId(), "잔액 부족");
         ledgerService.openForParticipation(PARTICIPATION_ID, AMOUNT,
-                RefundReason.SELLER_FAULT, RefundMethod.ACCOUNT_TRANSFER);
+                RefundReason.SELLER_FAULT, RefundMethod.ACCOUNT_TRANSFER).refund();
 
         assertThatThrownBy(() -> ledgerService.retry(failed.getRefundId()))
                 .hasMessageContaining("다른 환불이 진행 중");
@@ -201,14 +201,14 @@ class RefundDuplicateGuardIntegrationTest {
     @DisplayName("반품 환불은 반품 ID 를 남기고 같은 참여 건 중복을 막는다")
     void returnRefundKeepsReturnIdAndBlocksDuplicate() {
         Refund refund = ledgerService.openForReturn(9001L, PARTICIPATION_ID, 42_000L,
-                RefundMethod.KAKAOPAY);
+                RefundMethod.KAKAOPAY).refund();
 
         assertThat(refund.getReturnId()).isEqualTo(9001L);
         assertThat(refundRepository.findByReturnId(9001L)).isPresent();
 
         // 같은 참여 건에 다른 반품으로 또 환불을 걸면 기존 건이 돌아온다.
         Refund again = ledgerService.openForReturn(9002L, PARTICIPATION_ID, 10_000L,
-                RefundMethod.KAKAOPAY);
+                RefundMethod.KAKAOPAY).refund();
         assertThat(again.getRefundId()).isEqualTo(refund.getRefundId());
         assertThat(refundRepository.count()).isEqualTo(1);
     }

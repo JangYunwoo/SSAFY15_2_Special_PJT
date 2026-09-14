@@ -1,0 +1,307 @@
+package com.gongguhan.domain.refund.service;
+
+import com.gongguhan.domain.account.entity.User;
+import com.gongguhan.domain.account.repository.UserRepository;
+import com.gongguhan.domain.payment.common.entity.Payment;
+import com.gongguhan.domain.payment.common.repository.PaymentRepository;
+import com.gongguhan.domain.refund.entity.Refund;
+import com.gongguhan.domain.refund.entity.RefundMethod;
+import com.gongguhan.domain.refund.entity.RefundReason;
+import com.gongguhan.domain.refund.service.RefundLedgerService.OpenResult;
+import com.gongguhan.domain.payment.card.service.SsafyApiLogService;
+import com.gongguhan.domain.returnrequest.port.RefundPort;
+import com.gongguhan.global.error.BusinessException;
+import com.gongguhan.global.error.ErrorCode;
+import com.gongguhan.global.policy.PolicyKey;
+import com.gongguhan.global.policy.PolicyService;
+import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+/**
+ * 환불 실행 오케스트레이션 (S15P21B205-109).
+ *
+ * <p>원장({@link RefundLedgerService})은 "돌려주기로 했다" 를 기록할 뿐 돈을 보내지
+ * 않습니다. 이 클래스가 <b>결제수단을 보고 어느 경로로 돌려줄지 정하고, 외부 호출을
+ * 실행하고, 결과를 원장에 적습니다.</b>
+ *
+ * <h2>왜 카드 결제도 계좌이체로 돌려주는가</h2>
+ *
+ * <p>SSAFY 카드 취소({@code deleteTransaction})는 취소 요청마다 <b>카드번호와 CVC 를
+ * 다시 요구</b>합니다. 보안 요건상 카드 원문은 어디에도 저장하지 않으므로, 사람이
+ * 카드를 다시 입력하는 화면이 없는 <b>자동 환불은 카드 취소를 호출할 수 없습니다</b>.
+ * 모집 실패 배치·반품 수거 완료·참여 취소가 전부 여기 해당합니다.
+ *
+ * <p>API 명세 11장이 "카드 승인 취소가 불가능한 경우 SSAFY 계좌이체 환불로 전환할 수
+ * 있다" 고 허용하므로, 자동 환불은 처음부터 계좌이체로 갑니다. 구매자가 받는 금액은
+ * 같습니다. 카드 취소를 쓰려면 카드 재입력을 받는 별도 유스케이스가 필요하고, 그건
+ * 이 클래스가 아니라 화면이 있는 경로에서 {@code CardRefundPort} 를 직접 부르면 됩니다.
+ *
+ * <h2>트랜잭션 경계</h2>
+ *
+ * <p>이 클래스에는 {@code @Transactional} 이 없습니다. 외부 송금은 수 초가 걸리는데
+ * DB 트랜잭션 안에서 부르면 커넥션과 잠금이 그만큼 묶입니다. 원장 쓰기는
+ * {@link RefundLedgerService} 의 짧은 트랜잭션이 담당합니다. 코인 결제 검증에서
+ * {@code CryptoTxVerificationService} / {@code CryptoTxRecordService} 를 나눈 것과
+ * 같은 구조입니다.
+ *
+ * <h2>이중 송금 방지</h2>
+ *
+ * <p>{@link OpenResult#created()} 가 true 일 때만 송금합니다. 개시는 멱등이라 같은
+ * 요청이 두 번 오면 기존 행이 돌아오는데, 그걸 구분하지 않으면 원장은 한 건인데
+ * 돈이 두 번 나갑니다. 동시 요청 중 INSERT 에 성공하는 쪽은 DB 유일성 제약 덕에
+ * 정확히 하나입니다.
+ */
+@Service
+public class RefundOrchestrationService {
+
+    private static final Logger log = LoggerFactory.getLogger(RefundOrchestrationService.class);
+
+    /** 결제 수단 값. {@code payments.method} 의 CHECK 주석과 같은 값입니다. */
+    private static final String METHOD_CARD = "CARD";
+    private static final String METHOD_KAKAOPAY = "KAKAOPAY";
+    private static final String METHOD_CRYPTO = "CRYPTO";
+
+    /** {@code ssafy_api_logs.target_type}. 카드 결제는 PAYMENT 를 쓴다. */
+    private static final String TARGET_TYPE_REFUND = "REFUND";
+
+    private static final String WITHDRAWAL_SUMMARY = "공구한 환불 출금";
+    private static final String DEPOSIT_SUMMARY = "공구한 환불 입금";
+
+    private final RefundLedgerService ledgerService;
+    private final PaymentRepository paymentRepository;
+    private final UserRepository userRepository;
+    private final SsafyTransferClient transferClient;
+    private final SsafyApiLogService ssafyApiLogService;
+    private final PolicyService policyService;
+    private final List<RefundPort> refundPorts;
+
+    public RefundOrchestrationService(RefundLedgerService ledgerService,
+                                      PaymentRepository paymentRepository,
+                                      UserRepository userRepository,
+                                      SsafyTransferClient transferClient,
+                                      SsafyApiLogService ssafyApiLogService,
+                                      PolicyService policyService,
+                                      List<RefundPort> refundPorts) {
+        this.ledgerService = ledgerService;
+        this.paymentRepository = paymentRepository;
+        this.userRepository = userRepository;
+        this.transferClient = transferClient;
+        this.ssafyApiLogService = ssafyApiLogService;
+        this.policyService = policyService;
+        this.refundPorts = refundPorts;
+    }
+
+    /**
+     * 참여 건 환불을 개시하고 실행합니다.
+     *
+     * <p>모집 실패·참여 취소·판매자 귀책이 이 경로입니다.
+     *
+     * @return 원장의 환불 건. 실행에 실패해도 행은 남고 {@code FAILED} 가 됩니다.
+     */
+    public Refund refundParticipation(Long participationId, long amount, RefundReason reason) {
+        Payment payment = loadPayment(participationId);
+        RefundMethod method = resolveMethod(payment.getMethod());
+
+        OpenResult opened = ledgerService.openForParticipation(
+                participationId, amount, reason, method);
+        return executeIfCreated(opened, payment);
+    }
+
+    /** 반품 승인·수거 완료에 따른 환불을 개시하고 실행합니다 (FR-RTN-17). */
+    public Refund refundReturn(Long returnId, Long participationId, long amount) {
+        Payment payment = loadPayment(participationId);
+        RefundMethod method = resolveMethod(payment.getMethod());
+
+        OpenResult opened = ledgerService.openForReturn(returnId, participationId, amount, method);
+        return executeIfCreated(opened, payment);
+    }
+
+    /**
+     * 실패한 환불을 다시 실행합니다 (RFD-04, FR-ADM-08).
+     *
+     * <p>원장을 {@code PROCESSING} 으로 되돌린 뒤 같은 경로로 재실행합니다.
+     * 기관거래고유번호는 매번 새로 채번합니다 — 같은 값을 다시 쓰면 금융망이 중복
+     * 거래로 거부합니다(H1007).
+     */
+    public Refund retry(Long refundId) {
+        Refund refund = ledgerService.retry(refundId);
+        Long participationId = refund.getParticipationId();
+        if (participationId == null) {
+            // 입금 단위 환불(슬롯 만료·미매칭)은 코인 송금 경로이며 아직 어댑터가 없다.
+            return ledgerService.fail(refundId, "코인 환불 송금은 아직 지원되지 않습니다.");
+        }
+        return execute(refund, loadPayment(participationId));
+    }
+
+    private Refund executeIfCreated(OpenResult opened, Payment payment) {
+        if (!opened.created()) {
+            log.info("이미 진행 중이거나 완료된 환불이라 송금을 건너뜁니다. refundId={}",
+                    opened.refund().getRefundId());
+            return opened.refund();
+        }
+        return execute(opened.refund(), payment);
+    }
+
+    /**
+     * 결제수단에 맞는 환불 수단을 정합니다.
+     *
+     * <p>카드는 위 클래스 주석의 이유로 계좌이체가 됩니다. 코인은 온체인 송금 어댑터가
+     * 아직 없어 {@link RefundMethod#CRYPTO} 로 두고 실행 단계에서 실패로 남깁니다.
+     * 임의로 원화 계좌이체로 바꾸지 않는 이유는, 구매자가 USDT 로 냈는데 원화를
+     * 받게 되는 것이 <b>환율 변동 손익을 누가 지는지</b>를 건드리는 제품 결정이기
+     * 때문입니다. 팀이 정하기 전까지 조용히 통화를 바꾸지 않습니다.
+     */
+    private RefundMethod resolveMethod(String paymentMethod) {
+        return switch (paymentMethod) {
+            case METHOD_KAKAOPAY -> RefundMethod.KAKAOPAY;
+            case METHOD_CARD -> RefundMethod.ACCOUNT_TRANSFER;
+            case METHOD_CRYPTO -> RefundMethod.CRYPTO;
+            default -> throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR,
+                    "환불할 수 없는 결제수단입니다. method=" + paymentMethod);
+        };
+    }
+
+    private Refund execute(Refund refund, Payment payment) {
+        Long refundId = refund.getRefundId();
+        try {
+            return switch (refund.getRefundMethod()) {
+                case KAKAOPAY -> refundByPort(refund, payment);
+                case ACCOUNT_TRANSFER -> refundByTransfer(refund, payment);
+                case CRYPTO -> ledgerService.fail(refundId,
+                        "코인 환불 송금은 아직 지원되지 않습니다.");
+                case CARD_CANCEL -> ledgerService.fail(refundId,
+                        "카드 취소는 카드 재입력이 필요해 자동 환불로 처리할 수 없습니다.");
+            };
+        } catch (BusinessException exception) {
+            // 외부 연동 실패는 재처리 대상으로 남긴다. 사유를 그대로 적어 관리자가 판단한다.
+            log.warn("환불 실행 실패 refundId={} reason={}", refundId, exception.getMessage());
+            return ledgerService.fail(refundId, truncate(exception.getMessage()));
+        }
+    }
+
+    /** 카카오페이처럼 제공사 취소 어댑터가 있는 수단. */
+    private Refund refundByPort(Refund refund, Payment payment) {
+        RefundPort port = refundPorts.stream()
+                .filter(candidate -> candidate.supports(payment.getMethod()))
+                .findFirst()
+                .orElse(null);
+        if (port == null) {
+            return ledgerService.fail(refund.getRefundId(),
+                    "지원하는 환불 어댑터가 없습니다: " + payment.getMethod());
+        }
+
+        RefundPort.RefundCommand command = new RefundPort.RefundCommand(
+                idempotencyKeyOf(refund), refund.getReturnId(), payment.getPaymentId(),
+                payment.getMethod(), refund.getAmount());
+        RefundPort.RefundResult result = port.refund(command);
+
+        if (result.status() == RefundPort.RefundResult.Status.SUCCEEDED) {
+            return ledgerService.completeByKakaoPay(refund.getRefundId(), result.providerRefundId());
+        }
+        return ledgerService.fail(refund.getRefundId(), truncate(result.failureReason()));
+    }
+
+    /**
+     * 플랫폼 계좌에서 구매자 계좌로 이체합니다.
+     *
+     * <p>구매자 계좌가 없으면 실행하지 않고 실패로 남깁니다. 조용히 넘어가면 구매자는
+     * 환불이 진행 중인 줄 알고 기다리게 됩니다.
+     */
+    private Refund refundByTransfer(Refund refund, Payment payment) {
+        String platformAccount = policyService.getString(PolicyKey.SSAFY_PLATFORM_ACCOUNT_NO);
+        if (platformAccount == null || platformAccount.isBlank()) {
+            return ledgerService.fail(refund.getRefundId(),
+                    "플랫폼 출금 계좌가 설정되지 않았습니다.");
+        }
+
+        User buyer = userRepository.findById(payment.getUserId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND,
+                        "구매자를 찾을 수 없습니다. userId=" + payment.getUserId()));
+        String buyerAccount = buyer.getSsafyAccountNo();
+        if (buyerAccount == null || buyerAccount.isBlank()) {
+            return ledgerService.fail(refund.getRefundId(),
+                    "환불 수취 계좌가 등록되지 않았습니다. 프로필에서 계좌를 등록해야 합니다.");
+        }
+        if (buyer.getSsafyUserKey() == null || buyer.getSsafyUserKey().isBlank()) {
+            return ledgerService.fail(refund.getRefundId(),
+                    "SSAFY 금융망 회원 연동이 완료되지 않았습니다.");
+        }
+
+        ledgerService.assignAccount(refund.getRefundId(), buyerAccount);
+
+        // 호출 전에 채번한다. 응답을 못 받아도 이 번호로 금융망 거래를 되짚을 수 있다.
+        String institutionTxNo = ssafyApiLogService.generateInstitutionTransactionUniqueNo(
+                SsafyTransferClient.API_SERVICE_CODE);
+
+        SsafyTransferClient.TransferResponse response;
+        try {
+            response = transferClient.transfer(institutionTxNo,
+                    policyService.getString(PolicyKey.SSAFY_INSTITUTION_CODE),
+                    policyService.getString(PolicyKey.SSAFY_FINTECH_APP_NO),
+                    buyer.getSsafyUserKey(), platformAccount, buyerAccount,
+                    refund.getAmount(), WITHDRAWAL_SUMMARY, DEPOSIT_SUMMARY);
+        } catch (BusinessException exception) {
+            // 응답을 받지 못했다. 이체가 실제로 일어났는지 알 수 없으므로 자동 재시도하면
+            // 이중 지급 위험이 있다. 실패로 남기고 관리자가 금융망 거래내역을 확인한다.
+            ssafyApiLogService.record(SsafyTransferClient.API_SERVICE_CODE, institutionTxNo,
+                    TARGET_TYPE_REFUND, refund.getRefundId(),
+                    sanitized(platformAccount, buyerAccount, refund.getAmount()),
+                    null, exception.getMessage(), null);
+            throw exception;
+        }
+
+        ssafyApiLogService.record(SsafyTransferClient.API_SERVICE_CODE, institutionTxNo,
+                TARGET_TYPE_REFUND, refund.getRefundId(),
+                sanitized(platformAccount, buyerAccount, refund.getAmount()),
+                response.header().responseCode(), response.header().responseMessage(), response);
+
+        if (!response.isSuccess()) {
+            return ledgerService.fail(refund.getRefundId(),
+                    truncate(response.header().responseMessage()));
+        }
+        return ledgerService.completeByAccountTransfer(refund.getRefundId(), institutionTxNo,
+                response.firstTransactionUniqueNo());
+    }
+
+    /** 로그에 남길 요청 스냅샷. 계좌번호는 뒤 4자리만 남깁니다. */
+    private Object sanitized(String withdrawalAccountNo, String depositAccountNo, long amount) {
+        return java.util.Map.of(
+                "withdrawalAccountNo", mask(withdrawalAccountNo),
+                "depositAccountNo", mask(depositAccountNo),
+                "transactionBalance", String.valueOf(amount));
+    }
+
+    private String mask(String accountNo) {
+        if (accountNo == null || accountNo.length() <= 4) {
+            return "****";
+        }
+        return "*".repeat(accountNo.length() - 4) + accountNo.substring(accountNo.length() - 4);
+    }
+
+    /**
+     * 제공사 어댑터에 넘길 멱등 키.
+     *
+     * <p>환불 ID 를 그대로 씁니다. 같은 환불 건의 재시도는 같은 키가 되어 제공사 쪽에서
+     * 중복 취소를 걸러낼 수 있습니다.
+     */
+    private String idempotencyKeyOf(Refund refund) {
+        return "refund-" + refund.getRefundId();
+    }
+
+    private Payment loadPayment(Long participationId) {
+        return paymentRepository.findByParticipationId(participationId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND,
+                        "환불할 결제 건을 찾을 수 없습니다. participationId=" + participationId));
+    }
+
+    /** {@code refunds.fail_reason} 이 VARCHAR(255) 라 넘치면 저장 시점에 깨진다. */
+    private String truncate(String reason) {
+        if (reason == null) {
+            return "사유가 기록되지 않았습니다.";
+        }
+        return reason.length() <= 255 ? reason : reason.substring(0, 255);
+    }
+
+}
