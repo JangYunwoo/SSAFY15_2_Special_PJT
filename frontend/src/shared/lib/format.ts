@@ -94,9 +94,8 @@ export function maskName(name: string): string {
 /**
  * 공동구매 번호를 #1024 형태로 표기합니다.
  *
- * 명세서 1.5 는 식별자를 문자열로 내리도록 권장하지만, 공동구매 응답은
- * 아직 JSON number 로 옵니다 (백엔드 GroupBuySummaryResponse 의 Long id).
- * 숫자가 와도 깨지지 않도록 문자열로 맞춘 뒤 자릿수를 채웁니다.
+ * 명세서 1.5 에 따라 서버 식별자는 문자열로 오지만, 오래된 캐시나 목 응답의 숫자도
+ * 화면을 깨뜨리지 않도록 String()으로 정규화한 뒤 자릿수를 채웁니다.
  */
 export function groupBuyNo(id: string | number): string {
   return `#${String(id).padStart(4, '0')}`

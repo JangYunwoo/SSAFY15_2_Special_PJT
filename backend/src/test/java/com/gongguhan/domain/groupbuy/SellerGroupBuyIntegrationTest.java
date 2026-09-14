@@ -3,6 +3,8 @@ package com.gongguhan.domain.groupbuy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -118,7 +120,7 @@ class SellerGroupBuyIntegrationTest {
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.groupBuyId").isNumber())
+                .andExpect(jsonPath("$.data.id").isString())
                 .andExpect(jsonPath("$.data.recruitStartAt").value("2026-09-08T01:00:00Z"))
                 .andExpect(jsonPath("$.data.status").value(GroupBuy.STATUS_RECRUITING));
 
@@ -133,6 +135,57 @@ class SellerGroupBuyIntegrationTest {
                 Long.class,
                 saved.getFirst().getGroupBuyId());
         assertThat(expectedSettlementAmount).isEqualTo(1_030_019L);
+    }
+
+    @Test
+    void sellerCanReadUpdateAndCancelGroupBuyBeforeParticipation() throws Exception {
+        UsernamePasswordAuthenticationToken seller = new UsernamePasswordAuthenticationToken(
+                SELLER_ID, null, List.of(new SimpleGrantedAuthority("ROLE_SELLER")));
+        mockMvc.perform(post("/sellers/group-buys")
+                        .with(authentication(seller))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "productId": 301,
+                                  "productPrice": 1000000,
+                                  "targetCount": 20,
+                                  "shippingFee": 4000,
+                                  "recruitStartAt": "2026-09-08T01:00:00Z",
+                                  "recruitEndAt": "2026-09-15T01:00:00Z"
+                                }
+                                """))
+                .andExpect(status().isCreated());
+        Long groupBuyId = groupBuyRepository.findAll().getFirst().getGroupBuyId();
+
+        mockMvc.perform(get("/sellers/group-buys/{groupBuyId}", groupBuyId)
+                        .with(authentication(seller)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.productName").value("테스트 상품"))
+                .andExpect(jsonPath("$.data.canEdit").value(true))
+                .andExpect(jsonPath("$.data.canCancel").value(true));
+
+        mockMvc.perform(patch("/sellers/group-buys/{groupBuyId}", groupBuyId)
+                        .with(authentication(seller))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "productPrice": 900001,
+                                  "targetCount": 10,
+                                  "shippingFee": 3000
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.unitShareAmount").value(90001))
+                .andExpect(jsonPath("$.data.roundingSurplus").value(9));
+
+        mockMvc.perform(post("/sellers/group-buys/{groupBuyId}/cancel", groupBuyId)
+                        .with(authentication(seller))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"판매 계획 변경\"}"))
+                .andExpect(status().isNoContent());
+
+        assertThat(groupBuyRepository.findById(groupBuyId).orElseThrow().getStatus())
+                .isEqualTo("CANCELED");
     }
 
     private void addGroupBuyCreationColumns() {

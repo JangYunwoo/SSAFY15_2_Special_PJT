@@ -111,6 +111,15 @@ public class ReturnRequestRepository {
         return requests.findSellerList(sellerId, status, groupBuyId, pageable).map(this::toSummary);
     }
 
+    public Page<ReturnSummaryResponse> findAdminReviewList(String status, Long groupBuyId,
+                                                            Pageable pageable) {
+        return requests.findAdminReviewList(status, groupBuyId, pageable).map(this::toSummary);
+    }
+
+    public Optional<ReturnDetailResponse> findAdminDetail(Long returnId) {
+        return requests.findDetailByReturnId(returnId).map(this::toDetail);
+    }
+
     public Optional<ReturnLock> findSellerLock(Long sellerId, Long returnId) {
         return requests.findWithLockByReturnId(returnId)
                 .filter(request -> groupBuy(request.getParticipation()).getSellerId().equals(sellerId))
@@ -138,7 +147,33 @@ public class ReturnRequestRepository {
     }
 
     public void dispute(Long returnId) {
-        request(returnId).dispute();
+        ReturnRequest request = request(returnId);
+        if (request.dispute()) {
+            request.getParticipation().holdConfirmation();
+        }
+    }
+
+    public Optional<ReturnLock> findAdminLock(Long returnId) {
+        return requests.findWithLockByReturnId(returnId).map(this::toLock);
+    }
+
+    public boolean approveByAdmin(Long returnId, Long adminId, LocalDateTime resolvedAt) {
+        ReturnRequest request = request(returnId);
+        if (!request.approveByAdmin(adminId, resolvedAt)) {
+            return false;
+        }
+        request.getParticipation().markReturning();
+        return true;
+    }
+
+    public boolean rejectByAdmin(Long returnId, Long adminId, String reason,
+                                 LocalDateTime resolvedAt) {
+        ReturnRequest request = request(returnId);
+        if (!request.rejectByAdmin(adminId, reason, resolvedAt)) {
+            return false;
+        }
+        request.getParticipation().releaseConfirmationHold();
+        return true;
     }
 
     public List<Long> findAutoApprovalCandidates(LocalDateTime now, int limit) {
@@ -222,8 +257,8 @@ public class ReturnRequestRepository {
         Participation participation = request.getParticipation();
         GroupBuy groupBuy = groupBuy(participation);
         return new ReturnSummaryResponse(
-                request.getReturnId(), participation.getParticipationId(),
-                participation.getGroupBuyId(), product(groupBuy).getName(),
+                String.valueOf(request.getReturnId()), String.valueOf(participation.getParticipationId()),
+                String.valueOf(participation.getGroupBuyId()), product(groupBuy).getName(),
                 users.findById(participation.getUserId())
                         .orElseThrow(() -> new IllegalStateException("구매자 정보를 찾을 수 없습니다."))
                         .getNickname(), request.getReasonType(),
@@ -233,6 +268,19 @@ public class ReturnRequestRepository {
                 request.getAutoApproveAt() == null ? null
                         : request.getAutoApproveAt().atOffset(ZoneOffset.UTC),
                 request.isPostConfirm(), request.isAdminReviewRequired());
+    }
+
+    private ReturnSummaryResponse toSummary(ReturnSummaryView view) {
+        return new ReturnSummaryResponse(
+                String.valueOf(view.getId()), String.valueOf(view.getParticipationId()),
+                String.valueOf(view.getGroupBuyId()),
+                view.getProductName(), view.getBuyerName(), view.getReasonType(),
+                view.getDetailReason(), view.getStatus(), view.getRefundAmount(),
+                view.getReturnShippingFee(), view.getShippingFeeBearer(),
+                view.getRequestedAt().atOffset(ZoneOffset.UTC),
+                view.getAutoApproveAt() == null ? null
+                        : view.getAutoApproveAt().atOffset(ZoneOffset.UTC),
+                view.getPostConfirm(), view.getAdminReviewRequired());
     }
 
     private Optional<RefundContext> toRefundContext(ReturnRequest request) {

@@ -4,9 +4,9 @@ import java.time.OffsetDateTime;
 import java.util.List;
 
 public record ReturnDetailResponse(
-        Long id,
-        Long participationId,
-        Long groupBuyId,
+        String id,
+        String participationId,
+        String groupBuyId,
         String productName,
         String buyerName,
         String reasonType,

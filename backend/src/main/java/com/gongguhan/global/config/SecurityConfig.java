@@ -51,10 +51,11 @@ public class SecurityConfig {
                 .cors(cors -> {})
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/auth/signup", "/auth/login", "/auth/admins/login", "/auth/refresh").permitAll()
                         .requestMatchers(HttpMethod.GET,
-                                "/categories", "/group-buys", "/group-buys/*").permitAll()
+                                "/categories", "/group-buys", "/group-buys/*", "/product-images/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/withdrawal-restriction-reasons").hasRole("SELLER")
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")

@@ -208,6 +208,49 @@ public class GroupBuy extends BaseTimeEntity {
         return STATUS_RECRUITING.equals(status);
     }
 
+    /** 참여나 유효 결제 슬롯이 생기기 전까지만 모집 조건을 바꿀 수 있다. */
+    public boolean canEditRecruitment() {
+        return isRecruiting() && currentParticipants == 0 && reservedSlots == 0;
+    }
+
+    public void updateRecruitment(
+            Long productId,
+            long productPrice,
+            int targetParticipants,
+            long unitShareAmount,
+            long shippingFee,
+            long roundingDiff,
+            BigDecimal platformFeeRate,
+            long expectedPlatformFee,
+            long expectedSettlementAmount,
+            LocalDateTime recruitStartAt,
+            LocalDateTime recruitEndAt) {
+        if (!canEditRecruitment()) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
+                    "참여자나 진행 중인 결제 슬롯이 없는 모집 중 공동구매만 수정할 수 있습니다.");
+        }
+        this.productId = productId;
+        this.productPrice = productPrice;
+        this.targetParticipants = targetParticipants;
+        this.unitShareAmount = unitShareAmount;
+        this.shippingFee = shippingFee;
+        this.roundingDiff = roundingDiff;
+        this.platformFeeRate = platformFeeRate;
+        this.expectedPlatformFee = expectedPlatformFee;
+        this.expectedSettlementAmount = expectedSettlementAmount;
+        this.recruitStartAt = recruitStartAt;
+        this.recruitEndAt = recruitEndAt;
+    }
+
+    /** 참여자가 전혀 없는 모집 건만 일반 취소할 수 있다. */
+    public void cancelBeforeParticipation() {
+        if (!canEditRecruitment()) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
+                    "참여자나 진행 중인 결제 슬롯이 없는 모집 중 공동구매만 취소할 수 있습니다.");
+        }
+        status = "CANCELED";
+    }
+
     public void reserveSlot() {
         if (!isRecruiting()) {
             throw new BusinessException(ErrorCode.GROUP_BUY_NOT_RECRUITING);

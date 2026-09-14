@@ -1178,3 +1178,242 @@ DB에서는 ID `10001..10020`, `parent_id = NULL`, `depth = 1`, `sort_order = 1.
 5. 그 SQL을 JPA 엔티티 탐색으로 바꿨을 때 필요한 조회 수와 객체 수를 예상한다.
 
 학습 목표: “SQL 제거”가 아니라 쓰기 일관성과 읽기 성능을 기준으로 저장 기술을 선택할 수 있다.
+
+---
+
+## 23. 공동구매 운영 상세·수정·취소를 추가한 과정
+
+### 23.1 왜 판매자 목록 조회로 상세를 대신하면 안 되는가
+
+초기 프론트는 판매자 공동구매 상세 화면을 열 때 목록을 `size=100`으로 받은 뒤 브라우저에서 ID를 찾아 썼다. 데이터가 100건을 넘으면 존재하는 공동구매도 찾지 못하고, 한 건만 필요한데 상품·상태가 다른 최대 100건을 전송한다. 또한 상세 화면에 필요한 에스크로 보관액, 정산 요약, 반품 수는 목록 DTO에 넣기 어렵다.
+
+그래서 GRP-06 `GET /sellers/group-buys/{groupBuyId}`를 별도 유스케이스로 만들었다. `SellerGroupBuyDetailResponse`는 다음 두 책임을 가진다.
+
+1. 판매자 소유 공동구매인지 한 번의 조회 조건으로 검증한다.
+2. 상품·모집·결제 참여·송장 등록률·에스크로·반품 집계를 상세 화면 모양으로 반환한다.
+
+여기서 전용 SQL을 선택한 이유는 여러 aggregate의 개수를 읽기 위해 엔티티 컬렉션을 모두 로딩하지 않기 위해서다. 상세 조회가 상태를 변경하지 않으므로 쓰기 aggregate의 경계를 침범하지 않는 읽기 모델로 격리할 수 있다.
+
+### 23.2 수정 조건을 엔티티가 판단하는 이유
+
+GRP-07 수정은 단순 `UPDATE group_buys SET ...`가 아니다. 다음 조건을 모두 만족해야 한다.
+
+- 판매자 소유인가?
+- 현재 `RECRUITING`인가?
+- 확정 참여자가 0명인가?
+- 결제 중 선점된 Redis 슬롯도 0명인가?
+
+DB의 `current_participants`만 검사하면 결제창을 연 사용자의 자리를 무시할 수 있다. 반대로 Redis만 검사하면 이미 확정된 참여를 놓친다. 서비스가 두 값을 확인하고, 엔티티의 `updateRecruitmentConditions`가 상태와 확정 참여 조건을 다시 방어한다.
+
+가격·목표 인원·배송비가 하나라도 바뀌면 분담금, 절상 차액, 예상 수수료, 예상 정산액을 서버가 전부 다시 계산한다. 기존 파생값 일부만 남기면 `unit_share_amount × target`과 상품 가격이 맞지 않는 혼합 snapshot이 생기기 때문이다.
+
+### 23.3 낙관적 잠금이 남아 있는 이유
+
+공동구매에는 `@Version`이 있다. 판매자가 “참여자 0명”을 확인한 직후 결제가 확정되는 경쟁이 있을 수 있기 때문이다. 수정 트랜잭션과 결제 확정이 같은 version을 바꾸면 한쪽이 충돌해 오래된 조건을 덮어쓰지 못한다. 서비스의 사전 검사는 친절한 오류를 위한 것이고, version은 마지막 DB 경쟁을 막는 장치다.
+
+### 23.4 취소와 판매자 귀책 철회를 분리한 이유
+
+GRP-08은 참여자와 예약 슬롯이 모두 0일 때 모집만 취소한다. 환불도 제재도 없다. GRP-10은 참여가 발생한 뒤 판매자 귀책으로 거래를 무산시키므로 전원 환불, 정산 제외, 제재 후보가 함께 발생한다.
+
+두 API를 하나의 `cancel` 메서드에 조건문으로 합치면 그룹바이 도메인이 카드·카카오·코인·정산·제재 구현을 직접 알아야 한다. GRP-08은 독립 구현하고, GRP-10은 공통 환불·귀책 이벤트 계약이 준비된 뒤 orchestration만 붙이는 것이 역할 분담에도 맞다.
+
+관련 테스트: `GroupBuyOperationsTest`, `GroupBuyServiceTest`, `SellerGroupBuyIntegrationTest`, `GroupBuyQueryIntegrationTest`
+
+---
+
+## 24. 관리자 반품 심사와 목록 성능 개선을 따라 읽기
+
+### 24.1 RTN-10/11은 왜 반품 담당 기능인가
+
+URL이 `/admin`으로 시작해도 심사의 상태와 규칙은 `return_requests`에 있다. API 명세도 RTN-10/11로 분류하고 ERD는 `admin_review_required`, `forced_by`, `forced_at`을 반품 테이블에 둔다. 공통 관리자 담당자에게 상태 전이를 넘기면 반품 규칙이 두 서비스에 나뉜다.
+
+따라서 보안의 `ROLE_ADMIN` 검사는 공통 SecurityConfig가 담당하고, 어떤 반품을 어떤 상태로 바꿀지는 반품 aggregate가 담당한다.
+
+### 24.2 관리자 검토로 들어오는 두 경로
+
+```mermaid
+stateDiagram-v2
+    [*] --> REQUESTED: 배송완료 후 일반 반품
+    REQUESTED --> APPROVED: 판매자 승인 또는 자동 승인
+    REQUESTED --> REJECTED: 판매자 거부
+    REJECTED --> DISPUTED: 구매자 이의제기
+    [*] --> REQUESTED_REVIEW: 구매확정 후 반품 신청
+    DISPUTED --> APPROVED: 관리자 승인
+    DISPUTED --> REJECTED: 관리자 기각
+    REQUESTED_REVIEW --> APPROVED: 관리자 승인
+    REQUESTED_REVIEW --> REJECTED: 관리자 기각
+```
+
+실제 DB status에서 `REQUESTED_REVIEW`라는 별도 문자열을 만들지는 않는다. `status=REQUESTED`, `admin_review_required=true`, `post_confirm=true`의 조합이다. 상태 문자열을 추가하지 않은 이유는 기존 상태 전이와 API 응답을 유지하면서 “누가 판단해야 하는가”를 orthogonal flag로 표현하기 위해서다.
+
+### 24.3 이의제기 때 구매확정 hold를 다시 거는 이유
+
+반품 신청 시 `confirm_hold=true`가 되고 판매자가 기각하면 false로 돌아간다. 구매자가 기각에 이의를 제기하는 순간 관리자 결정 전까지 원 거래는 다시 확정되면 안 된다.
+
+기존 코드는 `ReturnRequest.status`만 `DISPUTED`로 바꾸고 participation의 hold를 복원하지 않았다. 그 사이 자동 구매확정 scheduler가 참여를 확정하면 관리자 승인과 정산이 경쟁할 수 있다. `ReturnRequestRepository.dispute`가 상태 전이 성공과 같은 트랜잭션에서 `Participation.holdConfirmation()`을 호출하도록 고쳤다.
+
+### 24.4 관리자 승인·기각의 원자적 변화
+
+관리자 승인은 다음 값을 같은 트랜잭션에서 바꾼다.
+
+- return status: `APPROVED`
+- approve type: `ADMIN`
+- approved/forced 시각
+- forced actor ID
+- 자동 환불 마감: 승인 후 7일
+- admin review flag: false
+- participation status: `RETURNING`
+- history: `APPROVED`
+
+관리자 기각은 return을 `REJECTED`로 바꾸고 기각 사유·actor·시각을 기록하며 participation의 confirmation hold를 해제한다. `findWithLockByReturnId`의 비관적 잠금은 두 관리자가 같은 심사를 동시에 처리하는 것을 직렬화한다. 잠금을 잡은 뒤에도 Entity가 `REQUESTED`/`DISPUTED + adminReviewRequired` 조합을 다시 확인하므로 잘못된 직접 호출을 방어한다.
+
+### 24.5 반품 목록에서 왜 N+1이 발생했는가
+
+기존 `toSummary(ReturnRequest)`는 각 행마다 다음을 했다.
+
+```text
+ReturnRequest 페이지 + count
+  └─ GroupBuyRepository.findById
+       └─ ProductRepository.findById
+  └─ UserRepository.findById
+```
+
+모든 ID가 다르면 N행에서 최대 `2 + 3N` 쿼리다. `default_batch_fetch_size`는 지연 연관을 모아서 초기화할 때 적용되지만, 반복문이 서로 다른 repository의 `findById`를 직접 부르는 구조는 자동으로 하나의 쿼리가 되지 않는다.
+
+`ReturnSummaryView`는 목록에 필요한 값만 선언한 Spring Data JPA 인터페이스 projection이다. `ReturnRequestJpaRepository`의 JPQL이 반품, 참여, 공동구매, 상품, 구매자를 ID로 조인하고 scalar 값만 반환한다. 구매자·판매자·관리자 목록 모두 같은 projection을 써 데이터 쿼리 1회와 count 1회로 끝난다.
+
+이 조회에 JDBC native SQL을 쓰지 않은 이유는 MySQL 전용 기능이 필요하지 않기 때문이다. 공동구매 fulltext 검색은 SQL을 유지하고, 반품 목록은 JPQL로 해결한 차이가 바로 “모든 SQL 제거”가 목표가 아니라 목적에 맞는 JPA/SQL 경계를 선택한다는 뜻이다.
+
+### 24.6 성능 수치를 읽는 방법
+
+성능 비교는 한 DB 왕복을 2ms로 둔 통제 모델과 실제 Hibernate query count 테스트를 분리했다.
+
+| 행 수 | 변경 전 쿼리 | 변경 후 쿼리 | 변경 전 중앙값 | 변경 후 중앙값 |
+| ---: | ---: | ---: | ---: | ---: |
+| 20 | 62 | 2 | 129.006ms | 15.648ms |
+| 100 | 302 | 2 | 608.496ms | 15.679ms |
+| 1,000 | 3,002 | 2 | 6,014.375ms | 15.504ms |
+
+Windows 타이머 때문에 짧은 4ms 대기가 약 15ms로 측정되므로 이 표를 운영 응답시간으로 해석하면 안 된다. 중요한 검증은 H2 JPA 통합 테스트에서 20건 페이지가 실제 prepared statement 2회로 끝났다는 사실이다. 운영 2초 SLA는 MySQL 대용량 데이터와 HTTP 부하 테스트로 별도 확인해야 한다.
+
+자세한 기획, 선택지, 측정 한계와 P95는 `docs/performance/반품_목록_N+1_최적화_성능_테스트.md`를 읽는다.
+
+### 24.7 테스트를 따라 읽는 순서
+
+1. `ReturnRequestServiceTest.adminCanApproveDisputedReturn`: 유스케이스 명령과 history 확인
+2. `ReturnRequestServiceTest.adminRejectRequiresReason`: 입력 계약 확인
+3. `ReturnRequestRepositoryTest.disputeRestoresConfirmationHoldUntilAdminDecision`: 두 aggregate의 원자 변화 확인
+4. `ReturnRequestRepositoryTest.adminResolutionRecordsForcedActorAndUpdatesParticipation`: 실제 DB 컬럼 확인
+5. `ReturnRequestRepositoryTest.listProjectionKeepsQueryCountConstant`: 조회 수 회귀 확인
+6. `ReturnRequestRepositoryTest.adminReviewEndpointsEnforceRoleAndResolveRequest`: HTTP 권한과 JSON 응답 확인
+7. `ReturnListPerformanceTest`: 동일 지연 모델에서 변경 전·후 증가율 비교
+
+각 테스트가 다른 층을 보는 이유를 설명할 수 있어야 한다. service mock 테스트만으로는 JPQL과 DB column을 증명할 수 없고, repository 테스트만으로는 SecurityConfig의 ADMIN 권한을 증명할 수 없기 때문이다.
+
+---
+
+## 25. 실제 서버를 연결하며 발견한 계약·로컬 환경 결함 수정
+
+### 25.1 왜 자동 테스트 통과 뒤에도 실제 서버 점검이 필요한가
+
+단위 테스트는 메서드가 의도한 값을 반환하는지 빠르게 알려 주지만, 서버와 프론트를 실제로 연결했을 때 생기는 JSON 직렬화 타입, 프로필별 Bean 선택, 외부 인프라 부재, multipart 처리까지 자동으로 보장하지는 않는다. 이번 수정은 고정 MySQL fixture를 넣고 Spring Boot와 프론트를 실서버 모드로 연결한 뒤 브라우저 콘솔과 실제 JSON을 함께 본 결과에서 시작했다.
+
+발견된 문제는 네 가지였다.
+
+1. Java의 `Long` 식별자가 JSON number로 직렬화되어 프론트의 `Id = string` 계약과 충돌했다.
+2. 빈 페이지 응답은 정상인데 프론트가 존재하지 않는 첫 항목을 스키마 검사해 오류 로그를 남겼다.
+3. 상품 서비스가 S3 구현 하나만 주입받아 S3 정보가 없는 로컬에서는 상품 등록 자체가 막혔다.
+4. DB 동시성 테스트까지 외부 Redis 기동 여부에 묶여, Redis가 없으면 업무 정합성 테스트도 실행되지 않았다.
+
+이 네 문제의 공통점은 개별 계산 공식이 틀린 것이 아니라 경계가 섞여 있었다는 점이다. Java와 JSON의 경계, 목록과 항목의 경계, 저장 포트와 저장 기술의 경계, DB 검증과 Redis 통합 검증의 경계를 다시 분리했다.
+
+### 25.2 BIGINT 식별자를 JSON 문자열로 내리는 이유
+
+MySQL `BIGINT`와 Java `Long`은 정수 64비트 범위를 다룬다. 반면 브라우저의 일반 `number`는 IEEE-754 배정밀도라 `9,007,199,254,740,991`보다 큰 정수를 정확히 표현하지 못한다. 지금 fixture ID가 작다고 number 계약을 허용하면 데이터가 커진 뒤 같은 ID가 다른 값으로 반올림될 수 있다.
+
+따라서 API 명세 1.5처럼 식별자는 계산 대상 숫자가 아니라 불투명한 문자열로 전달한다. 이번 변경에서 다음 출력 경계를 문자열로 통일했다.
+
+- 공동구매 공개 목록·상세: `id`, `productId`, `categoryId`
+- 판매자 공동구매 목록·상세: `id`, `productId`
+- 판매자 참여자 현황: `participationId`
+- 반품 목록·상세: `id`, `participationId`, `groupBuyId`
+
+DB 조회 조건과 JPA Entity는 계속 `Long`을 쓴다. 즉 저장·조인·잠금에 적합한 내부 타입은 유지하고, HTTP DTO를 만드는 마지막 지점에서 `String.valueOf`로 바꾼다. Entity 자체의 ID를 String으로 바꾸지 않은 이유는 JSON 문제를 DB 모델까지 전파할 필요가 없기 때문이다.
+
+프론트의 `groupBuyNo`는 여전히 `String(id)` 방어를 남겼다. 서버 계약은 문자열로 고쳤지만 브라우저 캐시, 오래된 mock, 아직 배포되지 않은 서버가 잠시 숫자를 줄 수 있기 때문이다. 이 방어는 계약을 대체하는 것이 아니라 마이그레이션 동안 화면 전체가 죽지 않게 하는 완충 장치다.
+
+### 25.3 빈 목록과 잘못된 항목을 구분하는 계약 검사
+
+`unwrapPage`는 개발 중 서버 응답 모양을 빨리 발견하려고 첫 항목만 Zod로 검사한다. 모든 항목을 검사하지 않는 이유는 큰 목록에서 개발 로그와 검사 비용이 불필요하게 늘기 때문이다.
+
+기존 구현은 다음 의미였다.
+
+```text
+항목이 1개 이상이면 data[0] 검사
+항목이 0개여도 data[0], 즉 undefined 검사
+```
+
+두 번째 경우의 `undefined`는 서버가 잘못 준 값이 아니다. 페이지 안에 항목이 없다는 정상 상태다. 그래서 `data.length > 0`일 때만 항목 스키마를 검사하도록 바꿨다. 빈 배열 자체가 올바른지까지 검증하려면 향후 `z.array(itemSchema)`를 페이지 응답 전체에 적용할 수 있지만, 현재 구조에서는 request 계층이 이미 `TItem[]` 계약으로 파싱하고 첫 항목 검사만 개발 진단용으로 사용한다.
+
+### 25.4 상품 서비스에서 S3를 제거한 것이 아니라 어댑터를 분리한 것
+
+`ProductService`는 원래부터 `ProductImageStorage` 인터페이스만 알고 있었다. 문제는 런타임 Bean이 `S3ProductImageStorage` 하나뿐이었다는 점이다. 따라서 서비스 코드를 조건문으로 바꾸지 않고 Spring profile로 구현체를 선택했다.
+
+```text
+ProductService
+  └─ ProductImageStorage 포트
+       ├─ local 프로필: LocalProductImageStorage
+       └─ 그 외 프로필: S3ProductImageStorage
+```
+
+두 어댑터는 같은 `ProductImageValidator`를 사용한다. 검증 규칙이 어댑터마다 복제되면 로컬은 PNG를 허용하지만 운영은 거부하는 식으로 동작이 갈릴 수 있기 때문이다. 공통 검증은 다음을 확인한다.
+
+- 파일이 비어 있지 않은가
+- 설정한 최대 크기를 넘지 않는가
+- Content-Type이 JPEG 또는 PNG인가
+- 확장자만 바꾼 가짜 파일이 아니라 ImageIO가 실제 이미지로 읽을 수 있는가
+
+로컬 저장 파일명은 사용자가 올린 원래 이름을 사용하지 않고 UUID와 검증된 확장자로 생성한다. 조회 Controller도 `[0-9a-f-]+.(jpg|png)` 형식만 받고, `normalize()`한 최종 경로가 설정 루트로 시작하는지 다시 확인한다. 이는 `../` 같은 경로 이동으로 서버의 다른 파일을 읽는 path traversal을 막기 위한 이중 방어다.
+
+상품 삭제나 트랜잭션 실패 때 `deleteByUrl`이 호출되므로 로컬 어댑터도 S3 어댑터와 같은 정리 의미를 구현한다. 실제 검증에서는 PNG multipart 상품 생성 HTTP 201, 반환 URL 조회 HTTP 200과 `image/png`, 검증용 상품 삭제 HTTP 200을 순서대로 확인했다.
+
+### 25.5 Redis 없는 로컬 게이트가 정합성을 약화시키지 않는 조건
+
+Redis 슬롯 게이트의 목적은 DB 정합성의 유일한 보장이 아니라, 정원 초과 요청을 DB 락 전에 빠르게 거부하는 성능 최적화다. 최종 정합성은 `group_buys`의 슬롯 값, Entity 상태 전이, version과 DB 제약이 지킨다.
+
+로컬 프로필은 보통 Spring Boot 한 프로세스만 실행한다. 이 조건에서 `ConcurrentHashMap.compute`는 같은 공동구매 ID의 초기 DB 값 반영, 정원 검사, 카운터 증가를 한 원자 연산으로 묶는다. 단순히 `get` 후 `put`을 사용하면 두 스레드가 같은 값을 읽고 모두 승인할 수 있으므로 사용하지 않았다. 실패·중단 때 `release`는 같은 키를 원자적으로 감소시키며 0이면 키를 제거한다.
+
+이 구현을 배포 기본값으로 사용하면 안 된다. 서버가 두 대면 각 JVM이 별도 Map을 가져 전체 정원을 공유하지 못하기 때문이다. `local-fallback-enabled`의 기본값은 false이고 `application-local.yml`에서만 true다. 배포 프로필은 기존 Redis Lua를 그대로 사용한다.
+
+테스트도 책임에 따라 나눴다.
+
+- `PaymentServiceConcurrencyTest`: 외부 Redis 없이 항상 실행하며 실제 DB 슬롯 불변식을 검증한다.
+- `GroupBuySlotGateTest`: Redis 호출 계약과 로컬 게이트의 승인·거부·해제를 빠르게 검증한다.
+- `GroupBuySlotGateIntegrationTest`: 실제 Redis가 응답할 때만 Lua의 다중 스레드 원자성과 최초 hydration 1회를 검증한다.
+
+Redis가 없을 때 마지막 테스트를 성공으로 가장하지 않고 ‘조건 미충족으로 건너뜀’으로 표시한다. 그래서 로컬 전체 회귀는 거짓 실패하지 않으며, 실제 Redis 경로를 mock 테스트로 대체했다는 오해도 피한다.
+
+### 25.6 GRP-10을 404만 없애는 방식으로 고치지 않은 이유
+
+판매자 귀책 철회 Controller만 추가해 공동구매 상태를 `CANCELED`로 바꾸면 화면에서는 성공처럼 보이지만 돈은 환불되지 않는다. 참여 상태와 에스크로만 `REFUNDED`로 바꾸면 더 위험하다. 외부 카드·카카오페이·코인 자산은 그대로인데 DB만 환불 완료로 거짓 기록하기 때문이다.
+
+현재 카카오페이는 반품용 공통 `RefundPort`를 구현하지만, 카드 취소는 카드번호와 CVC를 다시 받아야 하는 별도 `CardRefundPort`이고, 코인 공통 환불 어댑터와 `refunds` 영속 모델은 없다. 따라서 GRP-10을 안전하게 완성하려면 먼저 다음 계약이 필요하다.
+
+1. 모든 결제수단이 받을 수 있는 공통 환불 명령과 멱등 키
+2. 즉시 성공, 재시도 가능 실패, 수동/계좌이체 보상 필요 상태
+3. 외부 호출 전후를 기록하는 `refunds` 상태 모델
+4. 참여자 전원 처리 중 일부만 성공했을 때 재개하는 방식
+5. 에스크로 환불과 정산 제외를 언제 확정할지
+6. 판매자 제재 후보를 중복 없이 생성하는 이벤트
+
+이 계약 없이 Controller만 추가하는 것은 ‘미구현’을 ‘거짓 성공’으로 바꾸는 일이다. 그래서 이번 수정에서는 GRP-10을 알려진 P0 누락으로 명확히 남기고, 독립 담당자들이 먼저 맞춰야 할 환불 경계를 문서에 기록했다.
+
+### 25.7 이번 수정의 검증 근거
+
+- 백엔드 전체 회귀: 350개, 통과 348, 실패 0, 실제 Redis 조건부 건너뜀 2
+- 프론트: TypeScript typecheck, ESLint, production build 모두 통과
+- fixture API 회귀: 기대 16개 모두 일치. 구현 성공 15개, GRP-10 알려진 누락 1개
+- 실제 응답: 공동구매·참여·반품 식별자가 JSON 문자열임을 확인
+- 실제 이미지: multipart 생성, 로컬 URL 조회, 상품 삭제 확인
+
+관련 결과 원문과 환경 한계는 `docs/testing/김태민_fixture_테스트_결과_2026-09-11.md`와 `docs/testing/results/김태민_fixture_API_결과_2026-09-11.json`에서 확인한다.

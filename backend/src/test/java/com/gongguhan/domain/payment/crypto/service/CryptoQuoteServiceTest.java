@@ -43,6 +43,8 @@ class CryptoQuoteServiceTest {
     private static final Long ADDRESS_ID = 501L;
     private static final long CHAIN_ID = 80002L;
     private static final long KRW_AMOUNT = 54_000L;
+    /** USDT 의 소수 자리. 온체인 uint256 변환 기준이다. */
+    private static final int DECIMALS = 6;
     private static final String RECEIVE_ADDRESS = "0x1111111111111111111111111111111111111111";
 
     private static final Instant NOW = Instant.parse("2026-01-01T00:00:00Z");
@@ -87,6 +89,12 @@ class CryptoQuoteServiceTest {
         when(asset.getChainId()).thenReturn(CHAIN_ID);
         when(asset.getTokenContract()).thenReturn("0x2222222222222222222222222222222222222222");
         when(asset.getRequiredConfirmations()).thenReturn(5);
+        when(asset.getDecimals()).thenReturn(DECIMALS);
+        // Quote 응답이 송금할 uint256 을 직접 내려주므로 이 변환이 호출된다.
+        // 내림 규칙 자체의 검증은 CryptoAssetTest 가 맡고, 여기서는 응답이 자산의
+        // 변환 결과를 그대로 실어 보내는지만 본다.
+        when(asset.toRawAmount(any())).thenAnswer(call ->
+                ((BigDecimal) call.getArgument(0)).movePointRight(DECIMALS).toBigInteger());
         return asset;
     }
 
@@ -157,6 +165,27 @@ class CryptoQuoteServiceTest {
         assertEquals("0.0030", response.bufferRate());
         assertTrue(response.assetAmount().contains("."), "수량은 소수 문자열이어야 한다");
         assertEquals(18, response.assetAmount().split("\\.")[1].length());
+    }
+
+    /**
+     * 프론트가 소수 18자리를 어디서 잘라야 하는지 스스로 판단하지 않게 한다.
+     *
+     * <p>{@code assetAmount} 는 원장값이라 소수 18자리다. USDT 는 6자리이므로 그대로
+     * 송금할 수 없고, 프론트가 임의로 자르면 서버 기대치와 어긋나 언더페이로 실패한다.
+     * 그래서 서버가 송금할 uint256 과 소수 자리를 확정해 내려준다.
+     */
+    @Test
+    @DisplayName("송금할 uint256 과 decimals 를 함께 응답한다 - 프론트가 자릿수를 추측하지 않게 한다")
+    void exposesRawAmountAndDecimals() {
+        givenIssuableContext(cryptoPayment(600), 600);
+
+        CryptoQuoteResponse response = cryptoQuoteService.issueQuote(USER_ID, PAYMENT_ID, request());
+
+        assertEquals("39.010002424688372931", response.assetAmount());
+        // 18자리를 6자리로 내린 값. 소수점이 없는 정수 문자열이어야 한다.
+        assertEquals("39010002", response.rawAmount());
+        assertEquals(DECIMALS, response.decimals());
+        assertTrue(!response.rawAmount().contains("."), "rawAmount 는 uint256 정수여야 한다");
     }
 
     // ------------------------------------------------------------------

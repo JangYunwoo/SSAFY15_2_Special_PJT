@@ -102,6 +102,13 @@ public class ReturnRequestService {
     }
 
     @Transactional(readOnly = true)
+    public Page<ReturnSummaryResponse> adminReviewList(Long adminId, String status,
+                                                       Long groupBuyId, Pageable pageable) {
+        requireAuthenticated(adminId);
+        return repository.findAdminReviewList(normalize(status), groupBuyId, pageable);
+    }
+
+    @Transactional(readOnly = true)
     public ReturnDetailResponse findSellerDetail(Long sellerId, Long returnId) {
         requireAuthenticated(sellerId);
         return repository.findSellerDetail(sellerId, returnId).orElseThrow(this::notFound);
@@ -146,6 +153,41 @@ public class ReturnRequestService {
         LocalDateTime disputedAt = now();
         repository.dispute(returnId);
         repository.addHistory(returnId, "DISPUTED", detailReason.trim(), disputedAt);
+    }
+
+    @Transactional
+    public ReturnDetailResponse resolveByAdmin(Long adminId, Long returnId,
+                                               String decision, String reason) {
+        requireAuthenticated(adminId);
+        String normalizedDecision = normalize(decision);
+        if (!"APPROVE".equals(normalizedDecision) && !"REJECT".equals(normalizedDecision)) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR,
+                    "처리 결정은 APPROVE 또는 REJECT여야 합니다.");
+        }
+        String normalizedReason = normalize(reason);
+        if ("REJECT".equals(normalizedDecision) && normalizedReason == null) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR,
+                    "관리자 기각 사유는 필수입니다.");
+        }
+
+        ReturnLock target = repository.findAdminLock(returnId).orElseThrow(this::notFound);
+        if (!target.adminReviewRequired()
+                || (!"REQUESTED".equals(target.status()) && !"DISPUTED".equals(target.status()))) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
+                    "관리자 검토 중인 반품만 처리할 수 있습니다.");
+        }
+
+        LocalDateTime resolvedAt = now();
+        if ("APPROVE".equals(normalizedDecision)) {
+            repository.approveByAdmin(returnId, adminId, resolvedAt);
+            repository.addHistory(returnId, "APPROVED",
+                    normalizedReason == null ? "관리자가 반품을 승인했습니다." : normalizedReason,
+                    resolvedAt);
+        } else {
+            repository.rejectByAdmin(returnId, adminId, normalizedReason, resolvedAt);
+            repository.addHistory(returnId, "REJECTED", normalizedReason, resolvedAt);
+        }
+        return repository.findAdminDetail(returnId).orElseThrow(this::notFound);
     }
 
     @Transactional

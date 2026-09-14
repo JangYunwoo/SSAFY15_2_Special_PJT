@@ -42,28 +42,117 @@ interface ReturnRequestJpaRepository extends JpaRepository<ReturnRequest, Long> 
     Optional<ReturnRequest> findSellerDetail(
             @Param("sellerId") Long sellerId, @Param("returnId") Long returnId);
 
-    @EntityGraph(attributePaths = "participation")
-    @Query("""
-            SELECT r FROM ReturnRequest r
+    @Query(value = """
+            SELECT r.returnId AS id,
+                   p.participationId AS participationId,
+                   p.groupBuyId AS groupBuyId,
+                   product.name AS productName,
+                   buyer.nickname AS buyerName,
+                   r.reasonType AS reasonType,
+                   r.reasonDetail AS detailReason,
+                   r.status AS status,
+                   r.refundAmount AS refundAmount,
+                   r.returnShippingFee AS returnShippingFee,
+                   r.feeBearer AS shippingFeeBearer,
+                   r.requestedAt AS requestedAt,
+                   r.autoApproveAt AS autoApproveAt,
+                   r.postConfirm AS postConfirm,
+                   r.adminReviewRequired AS adminReviewRequired
+              FROM ReturnRequest r, Participation p, GroupBuy g, Product product, User buyer
+             WHERE r.participation.userId = :userId
+               AND r.participation.participationId = p.participationId
+               AND p.groupBuyId = g.groupBuyId
+               AND g.productId = product.productId
+               AND p.userId = buyer.userId
+               AND (:status IS NULL OR r.status = :status)
+               AND (:groupBuyId IS NULL OR r.participation.groupBuyId = :groupBuyId)
+            """,
+            countQuery = """
+            SELECT COUNT(r)
+              FROM ReturnRequest r
              WHERE r.participation.userId = :userId
                AND (:status IS NULL OR r.status = :status)
                AND (:groupBuyId IS NULL OR r.participation.groupBuyId = :groupBuyId)
             """)
-    Page<ReturnRequest> findBuyerList(
+    Page<ReturnSummaryView> findBuyerList(
             @Param("userId") Long userId, @Param("status") String status,
             @Param("groupBuyId") Long groupBuyId, Pageable pageable);
 
-    @EntityGraph(attributePaths = "participation")
-    @Query("""
-            SELECT r FROM ReturnRequest r, GroupBuy g
+    @Query(value = """
+            SELECT r.returnId AS id,
+                   p.participationId AS participationId,
+                   p.groupBuyId AS groupBuyId,
+                   product.name AS productName,
+                   buyer.nickname AS buyerName,
+                   r.reasonType AS reasonType,
+                   r.reasonDetail AS detailReason,
+                   r.status AS status,
+                   r.refundAmount AS refundAmount,
+                   r.returnShippingFee AS returnShippingFee,
+                   r.feeBearer AS shippingFeeBearer,
+                   r.requestedAt AS requestedAt,
+                   r.autoApproveAt AS autoApproveAt,
+                   r.postConfirm AS postConfirm,
+                   r.adminReviewRequired AS adminReviewRequired
+              FROM ReturnRequest r, Participation p, GroupBuy g, Product product, User buyer
+             WHERE r.participation.participationId = p.participationId
+               AND p.groupBuyId = g.groupBuyId
+               AND g.productId = product.productId
+               AND p.userId = buyer.userId
+               AND g.sellerId = :sellerId
+               AND (:status IS NULL OR r.status = :status)
+               AND (:groupBuyId IS NULL OR r.participation.groupBuyId = :groupBuyId)
+            """,
+            countQuery = """
+            SELECT COUNT(r)
+              FROM ReturnRequest r, GroupBuy g
              WHERE r.participation.groupBuyId = g.groupBuyId
                AND g.sellerId = :sellerId
                AND (:status IS NULL OR r.status = :status)
                AND (:groupBuyId IS NULL OR r.participation.groupBuyId = :groupBuyId)
             """)
-    Page<ReturnRequest> findSellerList(
+    Page<ReturnSummaryView> findSellerList(
             @Param("sellerId") Long sellerId, @Param("status") String status,
             @Param("groupBuyId") Long groupBuyId, Pageable pageable);
+
+    @Query(value = """
+            SELECT r.returnId AS id,
+                   p.participationId AS participationId,
+                   p.groupBuyId AS groupBuyId,
+                   product.name AS productName,
+                   buyer.nickname AS buyerName,
+                   r.reasonType AS reasonType,
+                   r.reasonDetail AS detailReason,
+                   r.status AS status,
+                   r.refundAmount AS refundAmount,
+                   r.returnShippingFee AS returnShippingFee,
+                   r.feeBearer AS shippingFeeBearer,
+                   r.requestedAt AS requestedAt,
+                   r.autoApproveAt AS autoApproveAt,
+                   r.postConfirm AS postConfirm,
+                   r.adminReviewRequired AS adminReviewRequired
+              FROM ReturnRequest r, Participation p, GroupBuy g, Product product, User buyer
+             WHERE r.participation.participationId = p.participationId
+               AND p.groupBuyId = g.groupBuyId
+               AND g.productId = product.productId
+               AND p.userId = buyer.userId
+               AND r.adminReviewRequired = true
+               AND (:status IS NULL OR r.status = :status)
+               AND (:groupBuyId IS NULL OR p.groupBuyId = :groupBuyId)
+            """,
+            countQuery = """
+            SELECT COUNT(r)
+              FROM ReturnRequest r
+             WHERE r.adminReviewRequired = true
+               AND (:status IS NULL OR r.status = :status)
+               AND (:groupBuyId IS NULL OR r.participation.groupBuyId = :groupBuyId)
+            """)
+    Page<ReturnSummaryView> findAdminReviewList(
+            @Param("status") String status, @Param("groupBuyId") Long groupBuyId,
+            Pageable pageable);
+
+    @EntityGraph(attributePaths = "participation")
+    Optional<ReturnRequest> findDetailByReturnId(Long returnId);
 
     @Query("""
             SELECT r.returnId FROM ReturnRequest r

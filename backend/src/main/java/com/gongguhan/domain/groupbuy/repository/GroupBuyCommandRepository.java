@@ -20,7 +20,8 @@ public class GroupBuyCommandRepository {
                 command.targetParticipants(), command.unitShareAmount(), command.shippingFee(),
                 command.roundingDiff(), command.platformFeeRate(), command.expectedPlatformFee(),
                 command.expectedSettlementAmount(), command.recruitStartAt(), command.recruitEndAt());
-        GroupBuy stored = groupBuys.save(groupBuy);
+        // 바로 뒤의 JDBC 운영 상세 조회에서도 같은 트랜잭션의 신규 행을 볼 수 있게 flush한다.
+        GroupBuy stored = groupBuys.saveAndFlush(groupBuy);
         return new StoredGroupBuy(
                 stored.getGroupBuyId(), stored.getCreatedAt(), stored.getUpdatedAt());
     }

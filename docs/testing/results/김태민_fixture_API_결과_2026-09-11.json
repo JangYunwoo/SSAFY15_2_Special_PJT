@@ -1,0 +1,145 @@
+{
+  "generatedAt": "2026-09-11T15:24:12+09:00",
+  "sourceBranch": "DevelopV1",
+  "sourceCommit": "31add81bb292a496f5fa8bb5c01dd34572f7f674",
+  "environment": {
+    "site": "http://127.0.0.1:5175/",
+    "swagger": "http://127.0.0.1:8082/api/v1/swagger-ui.html",
+    "api": "http://127.0.0.1:8082/api/v1",
+    "database": "local MySQL 8.0",
+    "redisAvailable": false,
+    "imageStorage": "local-profile filesystem adapter",
+    "aiServerAvailable": false
+  },
+  "fixture": {
+    "users": 3,
+    "products": 4,
+    "groupBuys": 3,
+    "participations": 2,
+    "returnRequests": 1,
+    "idempotentReloadVerified": true
+  },
+  "apiRegression": {
+    "total": 16,
+    "expectationsPassed": 16,
+    "implementedScenariosPassed": 15,
+    "knownGapsConfirmed": 1,
+    "results": [
+      { "id": "CAT-01", "name": "카테고리 20개", "status": 200, "elapsedMs": 16, "passed": true },
+      { "id": "PRD-02", "name": "판매자 상품 4개", "status": 200, "elapsedMs": 37, "passed": true },
+      { "id": "PRD-AUTH", "name": "구매자의 판매자 API 접근 차단", "status": 403, "elapsedMs": 13, "passed": true },
+      { "id": "PRD-03", "name": "판매자 상품 상세", "status": 200, "elapsedMs": 30, "passed": true },
+      { "id": "WDR-01", "name": "청약철회 제한 사유", "status": 200, "elapsedMs": 18, "passed": true },
+      { "id": "GRP-01", "name": "공개 모집 목록", "status": 200, "elapsedMs": 15, "passed": true },
+      { "id": "GRP-02", "name": "공개 공동구매 상세", "status": 200, "elapsedMs": 13, "passed": true },
+      { "id": "GRP-03", "name": "금액 미리보기", "status": 200, "elapsedMs": 20, "passed": true,
+        "responseSummary": { "unitShareAmount": 25000, "estimatedPlatformFee": 5000, "estimatedSettlementAmount": 107000 } },
+      { "id": "GRP-05", "name": "판매자 공동구매 목록", "status": 200, "elapsedMs": 26, "passed": true },
+      { "id": "GRP-06", "name": "판매자 운영 상세", "status": 200, "elapsedMs": 15, "passed": true },
+      { "id": "GRP-09", "name": "참여자 2명", "status": 200, "elapsedMs": 17, "passed": true },
+      { "id": "GRP-10", "name": "판매자 귀책 철회", "status": 404, "elapsedMs": 19, "passed": true, "classification": "known-gap",
+        "responseSummary": { "success": false, "errorCode": "RESOURCE_NOT_FOUND" } },
+      { "id": "RTN-01", "name": "판매자 귀책 반품 미리보기", "status": 200, "elapsedMs": 21, "passed": true,
+        "responseSummary": { "eligible": true, "refundAmount": 63000, "shippingFeeBearer": "SELLER" } },
+      { "id": "RTN-03", "name": "구매자 반품 목록", "status": 200, "elapsedMs": 21, "passed": true },
+      { "id": "RTN-04", "name": "구매자 반품 상세와 이력", "status": 200, "elapsedMs": 27, "passed": true },
+      { "id": "RTN-05", "name": "판매자 반품 목록", "status": 200, "elapsedMs": 15, "passed": true }
+    ]
+  },
+  "mutationScenarios": [
+    { "id": "PRD-04", "name": "미연결 상품 수정", "status": 200, "passed": true },
+    { "id": "GRP-04", "name": "공동구매 생성", "status": 201, "passed": true,
+      "responseSummary": { "generatedGroupBuyId": 930004, "unitShareAmount": 27000 } },
+    { "id": "GRP-07", "name": "무참여 모집 조건 수정", "status": 200, "passed": true,
+      "responseSummary": { "shippingFee": 3500 } },
+    { "id": "GRP-08", "name": "무참여 공동구매 취소", "status": 204, "passed": true },
+    { "id": "PRD-05", "name": "취소 후 상품 삭제", "status": 200, "passed": true },
+    { "id": "RTN-02", "name": "반품 신청", "status": 201, "passed": true },
+    { "id": "RTN-07", "name": "판매자 반품 거절", "status": 200, "passed": true },
+    { "id": "RTN-09", "name": "구매자 이의제기", "status": 200, "passed": true },
+    { "id": "RTN-06", "name": "판매자 반품 승인", "status": 200, "passed": true }
+  ],
+  "blockedOrDegraded": [
+    {
+      "id": "AI-01",
+      "status": 200,
+      "classification": "graceful-degradation-only",
+      "response": {
+        "success": true,
+        "data": {
+          "status": "FAILED",
+          "warnings": ["AI 분석을 완료하지 못했습니다. 직접 입력해 주세요."]
+        }
+      }
+    },
+    {
+      "id": "GRP-10",
+      "status": 404,
+      "classification": "not-implemented",
+      "response": {
+        "success": false,
+        "error": { "code": "RESOURCE_NOT_FOUND" }
+      }
+    },
+    {
+      "id": "AI-01-SUCCESS-PATH",
+      "classification": "environment-blocked",
+      "response": {
+        "reason": "AI extraction server unavailable; graceful fallback verified separately"
+      }
+    }
+  ],
+  "resolvedFindings": [
+    {
+      "id": "PRD-01",
+      "classification": "fixed-and-verified",
+      "response": {
+        "createStatus": 201,
+        "productIdType": "String",
+        "imageGetStatus": 200,
+        "imageContentType": "image/png",
+        "cleanupDeleteStatus": 200
+      }
+    },
+    {
+      "id": "INFRA-REDIS",
+      "classification": "local-runtime-decoupled",
+      "response": {
+        "localStrategy": "single-instance atomic map",
+        "productionStrategy": "Redis Lua",
+        "redisIntegrationTestsSkippedWhenUnavailable": 2
+      }
+    },
+    {
+      "id": "API-ID-TYPE",
+      "classification": "fixed-and-verified",
+      "response": {
+        "expected": "identifier as JSON string",
+        "actual": "group-buy, participation and return identifiers as JSON string"
+      }
+    },
+    {
+      "id": "FE-EMPTY-PAGE-CONTRACT",
+      "classification": "fixed",
+      "response": {
+        "behavior": "skip item schema validation only when data is an empty array"
+      }
+    }
+  ],
+  "automatedTests": {
+    "scope": "full backend regression",
+    "total": 350,
+    "passed": 348,
+    "failed": 0,
+    "skipped": 2,
+    "skips": [
+      { "testClass": "GroupBuySlotGateIntegrationTest", "count": 2, "reason": "real Redis unavailable" }
+    ]
+  },
+  "frontendChecks": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "build": "passed",
+    "fixtureHomeRendering": { "status": "passed", "visibleRecruitingGroupBuys": 2 }
+  }
+}
