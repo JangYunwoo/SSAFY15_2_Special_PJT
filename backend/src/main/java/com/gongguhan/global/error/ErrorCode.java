@@ -23,6 +23,7 @@ public enum ErrorCode {
     PAYMENT_ALREADY_PROCESSED(HttpStatus.CONFLICT, "이미 완료되었거나 실패한 결제입니다."),
     PAYMENT_SLOT_EXPIRED(HttpStatus.CONFLICT, "결제 가능 시간이 만료되었습니다."),
     INVALID_STATE_TRANSITION(HttpStatus.CONFLICT, "허용되지 않은 상태 전이입니다."),
+    DUPLICATE_TRACKING_NUMBER(HttpStatus.CONFLICT, "이미 등록된 송장번호입니다."),
     SLOT_RESERVATION_CONFLICT(HttpStatus.CONFLICT, "일시적인 동시 요청 충돌로 처리하지 못했습니다. 다시 시도해주세요."),
     PURCHASE_CONFIRM_RETURN_CONFLICT(HttpStatus.CONFLICT, "구매확정과 반품 신청이 동시에 진행될 수 없습니다."),
     RETURN_NOT_ELIGIBLE(HttpStatus.UNPROCESSABLE_CONTENT, "반품 가능 기간이 아니거나 제한 사유에 해당합니다."),
@@ -30,6 +31,7 @@ public enum ErrorCode {
     CRYPTO_AMOUNT_MISMATCH(HttpStatus.UNPROCESSABLE_CONTENT, "입금액이 일치하지 않거나 자산이 다릅니다."),
     EXTERNAL_PAYMENT_ERROR(HttpStatus.BAD_GATEWAY, "외부 결제기관 오류가 발생했습니다."),
     EXTERNAL_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AI·시세·체인·금융망 연동이 일시적으로 불가능합니다."),
+    SSAFY_MEMBER_NOT_LINKED(HttpStatus.UNPROCESSABLE_CONTENT, "SSAFY 금융망 회원 연동이 완료되지 않았습니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다.");
 
     private final HttpStatus status;

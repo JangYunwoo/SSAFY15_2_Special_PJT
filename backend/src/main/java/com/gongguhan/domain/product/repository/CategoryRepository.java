@@ -7,7 +7,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CategoryRepository extends JpaRepository<Category, Long> {
 
-    List<Category> findAllByOrderByDepthAscSortOrderAscCategoryIdAsc();
+    List<Category> findAllByActiveTrueOrderByDepthAscSortOrderAscCategoryIdAsc();
 
-    Optional<Category> findFirstByNameIgnoreCase(String name);
+    Optional<Category> findFirstByNameIgnoreCaseAndActiveTrue(String name);
+
+    Optional<Category> findByCategoryIdAndActiveTrue(Long categoryId);
 }

@@ -1,5 +1,8 @@
 package com.gongguhan.domain.product.service;
 
+import com.gongguhan.domain.account.repository.SellerProfileRepository;
+import com.gongguhan.domain.groupbuy.entity.GroupBuy;
+import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
 import com.gongguhan.domain.product.dto.ProductResponse;
 import com.gongguhan.domain.product.dto.ProductUpsertRequest;
 import com.gongguhan.domain.product.entity.Category;
@@ -10,9 +13,12 @@ import com.gongguhan.domain.product.repository.ProductRepository;
 import com.gongguhan.domain.product.repository.WithdrawalRestrictionReasonRepository;
 import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
-import java.util.ArrayList;
-import java.util.List;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -25,20 +31,30 @@ import org.springframework.web.multipart.MultipartFile;
 @Transactional(readOnly = true)
 public class ProductService {
 
+    private static final List<String> USABLE_SELLER_STATUSES = List.of("ACTIVE", "WARNED");
+    private static final List<String> ACTIVE_GROUP_BUY_STATUSES = List.of(
+            "RECRUITING", "FULFILLED", "SHIPPING", "DELIVERED");
+
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final ProductImageStorage imageStorage;
     private final WithdrawalRestrictionReasonRepository restrictionReasonRepository;
+    private final SellerProfileRepository sellerProfileRepository;
+    private final GroupBuyRepository groupBuyRepository;
 
     public ProductService(
             ProductRepository productRepository,
             CategoryRepository categoryRepository,
             ProductImageStorage imageStorage,
-            WithdrawalRestrictionReasonRepository restrictionReasonRepository) {
+            WithdrawalRestrictionReasonRepository restrictionReasonRepository,
+            SellerProfileRepository sellerProfileRepository,
+            GroupBuyRepository groupBuyRepository) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
         this.imageStorage = imageStorage;
         this.restrictionReasonRepository = restrictionReasonRepository;
+        this.sellerProfileRepository = sellerProfileRepository;
+        this.groupBuyRepository = groupBuyRepository;
     }
 
     @Transactional
@@ -122,18 +138,46 @@ public class ProductService {
     }
 
     public Page<ProductResponse> getSellerProducts(Long sellerId, Pageable pageable) {
-        return productRepository.findBySellerIdAndStatus(sellerId, Product.STATUS_ACTIVE, pageable)
-                .map(ProductResponse::from);
+        Page<Product> products =
+                productRepository.findBySellerIdAndStatus(sellerId, Product.STATUS_ACTIVE, pageable);
+        Map<Long, GroupBuy> linkedGroupBuys = findLinkedGroupBuys(products.getContent());
+        return products.map(product -> ProductResponse.from(
+                product, linkedGroupBuys.get(product.getProductId())));
+    }
+
+    public ProductResponse getSellerProduct(Long sellerId, Long productId) {
+        ensureUsableSeller(sellerId);
+        Product product = findOwnedProduct(sellerId, productId);
+        var linked = groupBuyRepository
+                .findFirstByProductIdAndStatusInOrderByGroupBuyIdDesc(
+                        productId, ACTIVE_GROUP_BUY_STATUSES)
+                .orElse(null);
+        return ProductResponse.from(product, linked);
+    }
+
+    private Map<Long, GroupBuy> findLinkedGroupBuys(List<Product> products) {
+        if (products.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> productIds = products.stream().map(Product::getProductId).toList();
+        Map<Long, GroupBuy> result = new HashMap<>();
+        groupBuyRepository.findByProductIdInAndStatusIn(productIds, ACTIVE_GROUP_BUY_STATUSES)
+                .stream()
+                .sorted(Comparator.comparing(GroupBuy::getGroupBuyId).reversed())
+                .forEach(groupBuy -> result.putIfAbsent(groupBuy.getProductId(), groupBuy));
+        return result;
     }
 
     private void ensureUsableSeller(Long sellerId) {
-        if (sellerId == null || productRepository.countUsableSeller(sellerId) == 0) {
+        if (sellerId == null
+                || !sellerProfileRepository.existsBySellerIdAndStatusIn(
+                        sellerId, USABLE_SELLER_STATUSES)) {
             throw new BusinessException(ErrorCode.SELLER_SUSPENDED);
         }
     }
 
     private Category findCategory(Long categoryId) {
-        return categoryRepository.findById(categoryId)
+        return categoryRepository.findByCategoryIdAndActiveTrue(categoryId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "카테고리를 찾을 수 없습니다."));
     }
 
@@ -175,7 +219,8 @@ public class ProductService {
     }
 
     private void ensureNoActiveGroupBuy(Long productId) {
-        if (productRepository.countActiveGroupBuys(productId) > 0) {
+        if (groupBuyRepository.existsByProductIdAndStatusIn(
+                productId, ACTIVE_GROUP_BUY_STATUSES)) {
             throw new BusinessException(
                     ErrorCode.INVALID_STATE_TRANSITION,
                     "진행 중인 공동구매에 연결된 상품은 수정하거나 삭제할 수 없습니다.");

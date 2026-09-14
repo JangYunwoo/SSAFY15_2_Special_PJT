@@ -10,10 +10,9 @@ import com.gongguhan.domain.account.entity.UserAddress;
 import com.gongguhan.domain.account.repository.UserAddressRepository;
 import com.gongguhan.domain.groupbuy.entity.GroupBuy;
 import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
-import com.gongguhan.domain.participation.entity.Participation;
-import com.gongguhan.domain.participation.repository.ParticipationRepository;
 import com.gongguhan.domain.payment.common.dto.PaymentPrepareRequest;
 import com.gongguhan.domain.payment.common.entity.Payment;
+import com.gongguhan.domain.payment.common.port.ParticipationWriterPort;
 import com.gongguhan.domain.payment.common.repository.PaymentRepository;
 import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
@@ -31,7 +30,7 @@ class PaymentSlotReservationTransactionTest {
     private static final String IDEMPOTENCY_KEY = "idem-key-1";
 
     private GroupBuyRepository groupBuyRepository;
-    private ParticipationRepository participationRepository;
+    private ParticipationWriterPort participationWriterPort;
     private PaymentRepository paymentRepository;
     private UserAddressRepository userAddressRepository;
     private PaymentSlotReservationTransaction transaction;
@@ -39,12 +38,12 @@ class PaymentSlotReservationTransactionTest {
     @BeforeEach
     void setUp() {
         groupBuyRepository = mock(GroupBuyRepository.class);
-        participationRepository = mock(ParticipationRepository.class);
+        participationWriterPort = mock(ParticipationWriterPort.class);
         paymentRepository = mock(PaymentRepository.class);
         userAddressRepository = mock(UserAddressRepository.class);
         Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
         transaction = new PaymentSlotReservationTransaction(
-                groupBuyRepository, participationRepository, paymentRepository, userAddressRepository, clock);
+                groupBuyRepository, participationWriterPort, paymentRepository, userAddressRepository, clock);
     }
 
     private PaymentPrepareRequest cardRequest() {
@@ -65,8 +64,7 @@ class PaymentSlotReservationTransactionTest {
     void failsWhenActiveParticipationExists() {
         when(groupBuyRepository.findById(GROUP_BUY_ID))
                 .thenReturn(Optional.of(mock(GroupBuy.class)));
-        when(participationRepository.existsByGroupBuyIdAndUserIdAndActiveMarker(
-                GROUP_BUY_ID, USER_ID, Participation.ACTIVE_MARKER)).thenReturn(true);
+        when(participationWriterPort.existsActiveParticipation(GROUP_BUY_ID, USER_ID)).thenReturn(true);
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> transaction.execute(USER_ID, GROUP_BUY_ID, cardRequest(), IDEMPOTENCY_KEY));

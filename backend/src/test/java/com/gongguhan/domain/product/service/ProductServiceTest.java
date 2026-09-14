@@ -8,6 +8,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.gongguhan.domain.account.repository.SellerProfileRepository;
+import com.gongguhan.domain.groupbuy.entity.GroupBuy;
+import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
 import com.gongguhan.domain.product.dto.ProductUpsertRequest;
 import com.gongguhan.domain.product.entity.Category;
 import com.gongguhan.domain.product.entity.Product;
@@ -29,6 +32,8 @@ class ProductServiceTest {
     private CategoryRepository categoryRepository;
     private ProductImageStorage imageStorage;
     private WithdrawalRestrictionReasonRepository restrictionReasonRepository;
+    private SellerProfileRepository sellerProfileRepository;
+    private GroupBuyRepository groupBuyRepository;
     private ProductService productService;
 
     @BeforeEach
@@ -37,15 +42,18 @@ class ProductServiceTest {
         categoryRepository = mock(CategoryRepository.class);
         imageStorage = mock(ProductImageStorage.class);
         restrictionReasonRepository = mock(WithdrawalRestrictionReasonRepository.class);
+        sellerProfileRepository = mock(SellerProfileRepository.class);
+        groupBuyRepository = mock(GroupBuyRepository.class);
         productService = new ProductService(
-                productRepository, categoryRepository, imageStorage, restrictionReasonRepository);
+                productRepository, categoryRepository, imageStorage, restrictionReasonRepository,
+                sellerProfileRepository, groupBuyRepository);
     }
 
     @Test
     void createStoresImagesAndAssignsExactlyOneThumbnail() {
         Category category = category(1L, "가전");
-        when(productRepository.countUsableSeller(10L)).thenReturn(1L);
-        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        allowSeller();
+        when(categoryRepository.findByCategoryIdAndActiveTrue(1L)).thenReturn(Optional.of(category));
         when(imageStorage.store(any())).thenReturn(
                 new ProductImageStorage.StoredImage("one.jpg", "/api/v1/product-images/one.jpg"),
                 new ProductImageStorage.StoredImage("two.png", "/api/v1/product-images/two.png"));
@@ -63,7 +71,7 @@ class ProductServiceTest {
 
     @Test
     void suspendedSellerCannotCreateProduct() {
-        when(productRepository.countUsableSeller(10L)).thenReturn(0L);
+        when(sellerProfileRepository.existsBySellerIdAndStatusIn(any(), any())).thenReturn(false);
 
         BusinessException exception = assertThrows(
                 BusinessException.class,
@@ -76,10 +84,10 @@ class ProductServiceTest {
     @Test
     void productLinkedToActiveGroupBuyCannotBeUpdated() {
         Product product = Product.create(10L, category(1L, "가전"), "상품", null, null, null, null, 1000L);
-        when(productRepository.countUsableSeller(10L)).thenReturn(1L);
+        allowSeller();
         when(productRepository.findByProductIdAndSellerIdAndStatus(1L, 10L, Product.STATUS_ACTIVE))
                 .thenReturn(Optional.of(product));
-        when(productRepository.countActiveGroupBuys(1L)).thenReturn(1L);
+        when(groupBuyRepository.existsByProductIdAndStatusIn(any(), any())).thenReturn(true);
 
         BusinessException exception = assertThrows(
                 BusinessException.class,
@@ -90,10 +98,43 @@ class ProductServiceTest {
     }
 
     @Test
+    void sellerCanReadOnlyAnOwnedActiveProduct() {
+        Product product = Product.create(
+                10L, category(1L, "가전"), "상품", null, null, null, null, 1000L);
+        allowSeller();
+        when(productRepository.findByProductIdAndSellerIdAndStatus(
+                1L, 10L, Product.STATUS_ACTIVE)).thenReturn(Optional.of(product));
+        GroupBuy linkedGroupBuy = mock(GroupBuy.class);
+        when(linkedGroupBuy.getGroupBuyId()).thenReturn(30L);
+        when(linkedGroupBuy.getStatus()).thenReturn(GroupBuy.STATUS_RECRUITING);
+        when(groupBuyRepository.findFirstByProductIdAndStatusInOrderByGroupBuyIdDesc(
+                any(), any())).thenReturn(Optional.of(linkedGroupBuy));
+
+        var response = productService.getSellerProduct(10L, 1L);
+
+        assertEquals("상품", response.name());
+        assertEquals("30", response.linkedGroupBuyId());
+        assertEquals(GroupBuy.STATUS_RECRUITING, response.linkedGroupBuyStatus());
+    }
+
+    @Test
+    void sellerCannotReadAnotherSellersProduct() {
+        allowSeller();
+        when(productRepository.findByProductIdAndSellerIdAndStatus(
+                1L, 10L, Product.STATUS_ACTIVE)).thenReturn(Optional.empty());
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> productService.getSellerProduct(10L, 1L));
+
+        assertEquals(ErrorCode.RESOURCE_NOT_FOUND, exception.getErrorCode());
+    }
+
+    @Test
     void invalidThumbnailIndexIsRejectedBeforeUploading() {
         Category category = category(1L, "가전");
-        when(productRepository.countUsableSeller(10L)).thenReturn(1L);
-        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        allowSeller();
+        when(categoryRepository.findByCategoryIdAndActiveTrue(1L)).thenReturn(Optional.of(category));
 
         BusinessException exception = assertThrows(
                 BusinessException.class,
@@ -107,8 +148,8 @@ class ProductServiceTest {
     void evidenceRequiredReasonRejectsProductWithoutEvidenceUrl() {
         Category category = category(1L, "가전");
         var reason = mock(com.gongguhan.domain.product.entity.WithdrawalRestrictionReason.class);
-        when(productRepository.countUsableSeller(10L)).thenReturn(1L);
-        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        allowSeller();
+        when(categoryRepository.findByCategoryIdAndActiveTrue(1L)).thenReturn(Optional.of(category));
         when(restrictionReasonRepository.findById(3L)).thenReturn(Optional.of(reason));
         when(reason.isActive()).thenReturn(true);
         when(reason.isRequiresEvidence()).thenReturn(true);
@@ -127,8 +168,8 @@ class ProductServiceTest {
     @Test
     void reviewedAiValuesAreRecordedOnlyWhenProductIsFinallyCreated() {
         Category category = category(1L, "가전");
-        when(productRepository.countUsableSeller(10L)).thenReturn(1L);
-        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        allowSeller();
+        when(categoryRepository.findByCategoryIdAndActiveTrue(1L)).thenReturn(Optional.of(category));
         when(imageStorage.store(any())).thenReturn(
                 new ProductImageStorage.StoredImage("one.jpg", "/api/v1/product-images/one.jpg"));
         when(productRepository.saveAndFlush(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -151,6 +192,10 @@ class ProductServiceTest {
 
     private MockMultipartFile image(String name) {
         return new MockMultipartFile("images", name, "image/jpeg", new byte[] {1});
+    }
+
+    private void allowSeller() {
+        when(sellerProfileRepository.existsBySellerIdAndStatusIn(any(), any())).thenReturn(true);
     }
 
     private Category category(Long id, String name) {

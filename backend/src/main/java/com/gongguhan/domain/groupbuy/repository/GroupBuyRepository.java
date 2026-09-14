@@ -4,6 +4,7 @@ import com.gongguhan.domain.groupbuy.entity.GroupBuy;
 import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,6 +13,16 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface GroupBuyRepository extends JpaRepository<GroupBuy, Long> {
+
+    boolean existsByProductIdAndStatusIn(Long productId, Collection<String> statuses);
+
+    List<GroupBuy> findByProductIdInAndStatusIn(
+            Collection<Long> productIds, Collection<String> statuses);
+
+    Optional<GroupBuy> findFirstByProductIdAndStatusInOrderByGroupBuyIdDesc(
+            Long productId, Collection<String> statuses);
+
+    Optional<GroupBuy> findByGroupBuyIdAndSellerId(Long groupBuyId, Long sellerId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT g FROM GroupBuy g WHERE g.groupBuyId = :groupBuyId")
@@ -37,6 +48,9 @@ public interface GroupBuyRepository extends JpaRepository<GroupBuy, Long> {
             """)
     List<GroupBuy> findJudgementCandidates(
             @Param("judgedAt") LocalDateTime judgedAt, Pageable pageable);
+
+    /** 배송 기한 초과 감지 배치(S15P21B205-77) 후보 조회. */
+    List<GroupBuy> findByStatusAndShippingDeadlineAtBefore(String status, LocalDateTime threshold);
 
     interface SlotCounts {
         int getTargetParticipants();

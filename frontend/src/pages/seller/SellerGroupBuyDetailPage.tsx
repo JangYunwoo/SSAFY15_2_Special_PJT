@@ -2,10 +2,9 @@ import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router'
 
 import { GROUP_BUY_STATUS_DISPLAY } from '@/entities/model'
-import type { Participant, SellerGroupBuySummary } from '@/entities/groupBuy/model'
+import type { Participant, SellerGroupBuyDetail } from '@/entities/groupBuy/model'
 import { groupBuyQueries } from '@/entities/groupBuy/queries'
 import { date, dateTime, groupBuyNo, maskName, won } from '@/shared/lib/format'
-import { sameId } from '@/shared/lib/id'
 import { usePageParam } from '@/shared/lib/hooks/usePageParam'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
 import { ButtonLink } from '@/shared/ui/Button'
@@ -16,23 +15,13 @@ import { ProgressBar } from '@/shared/ui/ProgressBar'
 import { StateChip } from '@/shared/ui/StateChip'
 import { EmptyState, QueryBoundary } from '@/shared/ui/states'
 
-/** 판매자 목록과 같은 조건. 캐시를 함께 써서 목록에서 들어오면 다시 부르지 않습니다. */
-const SELLER_LIST_PARAMS = { size: 100 } as const
-
 export default function SellerGroupBuyDetailPage() {
   useDocumentTitle('공동구매 상세')
 
   const { groupBuyId = '' } = useParams()
   const { page, goToPage } = usePageParam()
 
-  /**
-   * GRP-06(판매자 운영 상세)이 백엔드에 아직 없어 목록에서 해당 건을 골라 씁니다.
-   * 엔드포인트가 생기면 groupBuyQueries.sellerDetail 로 바꾸면 됩니다.
-   */
-  const summary = useQuery({
-    ...groupBuyQueries.sellerList(SELLER_LIST_PARAMS),
-    select: (result) => result.items.find((item) => sameId(item.id, groupBuyId)),
-  })
+  const detail = useQuery(groupBuyQueries.sellerDetail(groupBuyId))
 
   const participants = useQuery(groupBuyQueries.participants(groupBuyId, { page }))
 
@@ -48,8 +37,7 @@ export default function SellerGroupBuyDetailPage() {
         </ButtonLink>
       </div>
 
-      {/* 목록에 없는 id 면 select 가 undefined 를 돌려주고 QueryBoundary 가 빈 상태를 그립니다. */}
-      <QueryBoundary query={summary}>
+      <QueryBoundary query={detail}>
         {(found) => (
           <div className="split">
             <div>
@@ -89,7 +77,7 @@ export default function SellerGroupBuyDetailPage() {
   )
 }
 
-function SummaryPanel({ item }: { item: SellerGroupBuySummary }) {
+function SummaryPanel({ item }: { item: SellerGroupBuyDetail }) {
   const display = GROUP_BUY_STATUS_DISPLAY[item.status]
 
   return (
@@ -113,6 +101,9 @@ function SummaryPanel({ item }: { item: SellerGroupBuySummary }) {
           ? '배송 준비 전'
           : `${String(Math.round(item.invoiceRegisteredRate * 100))}%`}
       </DataRow>
+      <DataRow label="에스크로 보관액">{won(item.escrowHeldAmount)}</DataRow>
+      <DataRow label="예상 정산액">{won(item.estimatedSettlementAmount)}</DataRow>
+      <DataRow label="반품 접수">{item.returnCount}건</DataRow>
 
       <ButtonLink variant="ghost" block className="mt16" to="/seller/orders">
         주문 관리로 이동

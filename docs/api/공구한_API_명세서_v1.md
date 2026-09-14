@@ -182,6 +182,70 @@
 | WDR-02 | GET | `/admin/products/withdrawal-restrictions` | 제한 상품 검토 목록 조회 | ADMIN | ERD v2 `restriction_review_status` |
 | WDR-03 | POST | `/admin/products/{productId}/withdrawal-restriction/review` | 제한 상품 승인·반려 | ADMIN | ERD v2 `restriction_review_status` |
 
+### 카테고리 기준 데이터
+
+CAT-01은 다음 20개 최상위 카테고리를 표의 순서대로 반환한다. 새 상품 등록과 AI 카테고리 이름 매핑에는 `active=true`인 기준 데이터만 사용한다. 과거 상품이 참조하는 이전 카테고리 행은 외래키와 거래 이력을 보존하기 위해 삭제하지 않고 비활성화한다.
+
+| ID | 순서 | 이름 |
+| ---: | ---: | --- |
+| 10001 | 1 | 디지털기기 |
+| 10002 | 2 | 생활가전 |
+| 10003 | 3 | 가구/인테리어 |
+| 10004 | 4 | 생활/주방 |
+| 10005 | 5 | 유아동 |
+| 10006 | 6 | 유아도서 |
+| 10007 | 7 | 여성의류 |
+| 10008 | 8 | 여성잡화 |
+| 10009 | 9 | 남성패션/잡화 |
+| 10010 | 10 | 뷰티/미용 |
+| 10011 | 11 | 스포츠/레저 |
+| 10012 | 12 | 취미/게임/음반 |
+| 10013 | 13 | 도서 |
+| 10014 | 14 | 티켓/교환권 |
+| 10015 | 15 | e쿠폰 |
+| 10016 | 16 | 가공식품 |
+| 10017 | 17 | 건강기능식품 |
+| 10018 | 18 | 반려동물용품 |
+| 10019 | 19 | 식물 |
+| 10020 | 20 | 기타 |
+
+### 상품 응답
+
+PRD-01~04의 상품 응답은 같은 형태를 사용한다. `images`는 표시 순서와 대표 이미지 여부를 잃지 않도록 문자열 배열이 아니라 객체 배열로 반환한다. `linkedGroupBuyId`와 `linkedGroupBuyStatus`는 수정·삭제 가능 여부를 화면에 미리 표시하기 위한 현재 활성 공동구매 정보이며, 연결 건이 없으면 둘 다 `null`이다.
+
+```json
+{
+  "productId": "301",
+  "sellerId": "201",
+  "categoryId": "10001",
+  "categoryName": "디지털기기",
+  "name": "무선 블루투스 이어폰",
+  "brand": "Example",
+  "modelName": "EB-100",
+  "color": "화이트",
+  "description": "상품 상세 설명",
+  "price": 129000,
+  "aiExtracted": true,
+  "withdrawalRestricted": false,
+  "withdrawalRestrictionReasonId": null,
+  "withdrawalRestrictionReason": null,
+  "restrictionEvidenceUrl": null,
+  "restrictionReviewStatus": "NONE",
+  "status": "ACTIVE",
+  "images": [
+    {
+      "imageId": "901",
+      "imageUrl": "https://cdn.example.com/products/301/main.jpg",
+      "sortOrder": 0,
+      "thumbnail": true
+    }
+  ],
+  "linkedGroupBuyId": null,
+  "linkedGroupBuyStatus": null,
+  "createdAt": "2026-09-11T02:00:00Z"
+}
+```
+
 ### AI 상품 정보 추출
 
 AI 분석은 ERD v2에 따라 동기 요청으로 처리한다. 분석 결과를 메인 DB에 별도 저장하지 않으며, 판매자가 결과를 검수해 상품을 등록할 때만 `products.ai_extracted=true`를 기록한다.
@@ -581,10 +645,12 @@ AI 분석은 ERD v2에 따라 동기 요청으로 처리한다. 분석 결과를
 | 409 | `PAYMENT_SLOT_EXPIRED` | 슬롯 만료 후 승인 도달 |
 | 409 | `SLOT_RESERVATION_CONFLICT` | 슬롯 예약 낙관적 락 충돌 재시도 소진 |
 | 409 | `INVALID_STATE_TRANSITION` | 허용되지 않은 상태 전이 |
+| 409 | `DUPLICATE_TRACKING_NUMBER` | 동일 택배사·송장번호 중복 등록 |
 | 409 | `PURCHASE_CONFIRM_RETURN_CONFLICT` | 구매확정과 반품 신청 충돌 |
 | 422 | `RETURN_NOT_ELIGIBLE` | 반품 기간·제한 사유 위반 |
 | 422 | `QUOTE_EXPIRED` | 만료된 디지털 자산 Quote |
 | 422 | `CRYPTO_AMOUNT_MISMATCH` | 입금액 과소·과다 또는 자산 불일치 |
+| 422 | `SSAFY_MEMBER_NOT_LINKED` | SSAFY 금융망 회원(userKey) 미연동 |
 | 502 | `EXTERNAL_PAYMENT_ERROR` | 외부 결제기관 오류 |
 | 503 | `EXTERNAL_SERVICE_UNAVAILABLE` | AI·시세·체인·금융망 일시 장애 |
 

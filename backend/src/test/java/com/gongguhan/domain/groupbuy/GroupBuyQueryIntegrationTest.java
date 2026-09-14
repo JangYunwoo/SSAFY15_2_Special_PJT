@@ -215,10 +215,12 @@ class GroupBuyQueryIntegrationTest {
         insertUser(OTHER_SELLER_ID, "other@test.com", "다른 판매자");
         insertUser(BUYER_ID, "buyer@test.com", "구매자");
         jdbcTemplate.update(
-                "MERGE INTO seller_profiles (seller_id, business_name, status) KEY(seller_id) VALUES (?, ?, ?)",
+                "MERGE INTO seller_profiles (seller_id, business_name, status, created_at, updated_at) "
+                        + "KEY(seller_id) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                 SELLER_ID, "키보드 상점", "ACTIVE");
         jdbcTemplate.update(
-                "MERGE INTO seller_profiles (seller_id, business_name, status) KEY(seller_id) VALUES (?, ?, ?)",
+                "MERGE INTO seller_profiles (seller_id, business_name, status, created_at, updated_at) "
+                        + "KEY(seller_id) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                 OTHER_SELLER_ID, "다른 상점", "ACTIVE");
     }
 

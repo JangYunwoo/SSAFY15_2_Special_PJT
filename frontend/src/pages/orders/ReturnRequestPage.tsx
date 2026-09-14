@@ -19,7 +19,7 @@ import { RadioGroup } from '@/shared/ui/RadioGroup'
 import { TextAreaField, TextField } from '@/shared/ui/Field'
 import { QueryBoundary } from '@/shared/ui/states'
 
-const REASON_OPTIONS = (['CHANGE_OF_MIND', 'DEFECTIVE', 'WRONG_DELIVERY'] as const).map(
+const REASON_OPTIONS = (['CHANGE_OF_MIND', 'DEFECT'] as const).map(
   (value) => ({ value, label: RETURN_REASON_LABEL[value] }),
 )
 

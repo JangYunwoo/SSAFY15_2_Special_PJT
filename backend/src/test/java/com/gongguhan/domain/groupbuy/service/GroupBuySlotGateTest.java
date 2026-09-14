@@ -33,7 +33,7 @@ class GroupBuySlotGateTest {
 
     @BeforeEach
     void setUp() {
-        gate = new GroupBuySlotGate(redisTemplate, reserveScript, releaseScript);
+        gate = new GroupBuySlotGate(redisTemplate, reserveScript, releaseScript, false);
     }
 
     @Test
@@ -63,5 +63,19 @@ class GroupBuySlotGateTest {
         gate.release(1L);
 
         verify(redisTemplate).execute(releaseScript, List.of("slot-gate:group-buy:1"));
+    }
+
+    @Test
+    void localFallbackAtomicallyLimitsCapacityAndReleasesSlot() {
+        GroupBuySlotGate localGate = new GroupBuySlotGate(
+                redisTemplate, reserveScript, releaseScript, true);
+
+        assertTrue(localGate.tryReserve(1L, 2, 0));
+        assertTrue(localGate.tryReserve(1L, 2, 0));
+        assertFalse(localGate.tryReserve(1L, 2, 0));
+
+        localGate.release(1L);
+
+        assertTrue(localGate.tryReserve(1L, 2, 0));
     }
 }

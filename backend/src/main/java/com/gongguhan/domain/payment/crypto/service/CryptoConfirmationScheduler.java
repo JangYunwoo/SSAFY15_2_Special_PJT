@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -24,8 +25,16 @@ import org.springframework.stereotype.Component;
  *
  * <p><b>RPC 호출을 아끼는 방식.</b> 최신 블록 번호는 주기당 한 번만 조회하고 모든
  * 건에 재사용한다. 건당 조회하면 공용 테스트넷 노드의 호출 한도에 금방 걸린다.
+ *
+ * <p><b>폴링을 끄는 방법은 주기를 0 으로 두는 것이 아니다.</b>
+ * {@code @Scheduled} 의 {@code fixedDelay} 는 양수여야 하고, 0 을 넣으면 스케줄러가
+ * 조용히 멈추는 대신 <b>애플리케이션 기동이 실패</b>한다. 끄려면
+ * {@code app.crypto.confirmation-poll-enabled=false} 로 빈 자체를 만들지 않는다.
+ * 전역 스위치 {@code app.scheduling.enabled=false} 로도 함께 꺼진다.
  */
 @Component
+@ConditionalOnProperty(name = "app.crypto.confirmation-poll-enabled",
+        havingValue = "true", matchIfMissing = true)
 public class CryptoConfirmationScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(CryptoConfirmationScheduler.class);

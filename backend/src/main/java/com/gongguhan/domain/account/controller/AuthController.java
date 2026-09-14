@@ -30,6 +30,8 @@ public class AuthController {
     public ResponseEntity<ApiResponse<SignupResponse>> signup(
             @Valid @RequestBody SignupRequest request, HttpServletRequest httpRequest) {
         SignupResponse response = authService.signup(request);
+        // 가입 트랜잭션 커밋 후 연동 - 실패해도 가입은 유지된다(후속 등록 방침, S15P21B205-63).
+        authService.linkSsafyMemberIfMissing(Long.valueOf(response.id()));
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response, TraceIdUtils.from(httpRequest)));
     }
@@ -38,6 +40,8 @@ public class AuthController {
     public ResponseEntity<ApiResponse<LoginResponse>> login(
             @Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         LoginResponse response = authService.login(request);
+        // 가입 시점에 SSAFY 장애였던 계정을 로그인 때마다 재시도해 백필한다.
+        authService.linkSsafyMemberIfMissing(Long.valueOf(response.actor().id()));
         return ResponseEntity.ok(ApiResponse.success(response, TraceIdUtils.from(httpRequest)));
     }
 }

@@ -1,4 +1,5 @@
 import { api } from '@/shared/api/client'
+import { authTokensSchema } from '@/shared/api/schemas'
 import type { NoContent } from '@/shared/api/types'
 
 import type {
@@ -16,7 +17,8 @@ export const authApi = {
   /** AUTH-01 통합 회원가입 */
   signup: (body: SignupRequest) => api.post<SignupResult>('/auth/signup', body),
   /** AUTH-02 통합 로그인 */
-  login: (body: LoginRequest) => api.post<AuthTokens>('/auth/login', body),
+  login: (body: LoginRequest) =>
+    api.post<AuthTokens>('/auth/login', body, { schema: authTokensSchema }),
   /** AUTH-03 */
   refresh: (refreshToken: string) =>
     api.post<AuthTokens>('/auth/refresh', { refreshToken }, { skipRefresh: true }),

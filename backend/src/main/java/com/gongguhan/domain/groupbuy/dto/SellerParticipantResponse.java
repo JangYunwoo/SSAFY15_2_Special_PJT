@@ -3,7 +3,7 @@ package com.gongguhan.domain.groupbuy.dto;
 import java.time.OffsetDateTime;
 
 public record SellerParticipantResponse(
-        Long participationId,
+        String participationId,
         String buyerName,
         String recipientName,
         String zipcode,
