@@ -1,5 +1,7 @@
 ollama>=0.6,<1
 pydantic>=2.10,<3
+google-genai>=2.23,<3
+python-dotenv>=1.1,<2
 pandas>=2.2,<3
 scikit-learn>=1.7,<2
 streamlit>=1.40,<2
