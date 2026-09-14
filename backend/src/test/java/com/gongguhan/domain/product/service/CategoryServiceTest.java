@@ -18,7 +18,7 @@ class CategoryServiceTest {
         Category root = category(1L, null, "가전", 1);
         Category laptop = category(2L, 1L, "노트북", 2);
         Category monitor = category(3L, 1L, "모니터", 2);
-        when(repository.findAllByOrderByDepthAscSortOrderAscCategoryIdAsc()).thenReturn(List.of(
+        when(repository.findAllByActiveTrueOrderByDepthAscSortOrderAscCategoryIdAsc()).thenReturn(List.of(
                 root, laptop, monitor));
 
         List<CategoryResponse> result = new CategoryService(repository).getTree();

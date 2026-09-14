@@ -7,6 +7,8 @@ public interface KakaoPayGateway {
 
     ApproveResult approve(ApproveCommand command);
 
+    CancelResult cancel(CancelCommand command);
+
     record ReadyCommand(
             String partnerOrderId,
             String partnerUserId,
@@ -37,6 +39,19 @@ public interface KakaoPayGateway {
             long totalAmount,
             long vatAmount,
             String paymentMethodType
+    ) {
+    }
+
+    record CancelCommand(String tid, long cancelAmount, long cancelTaxFreeAmount) {
+    }
+
+    record CancelResult(
+            String aid,
+            String tid,
+            String status,
+            long approvedCancelAmount,
+            long canceledAmount,
+            long cancelAvailableAmount
     ) {
     }
 }

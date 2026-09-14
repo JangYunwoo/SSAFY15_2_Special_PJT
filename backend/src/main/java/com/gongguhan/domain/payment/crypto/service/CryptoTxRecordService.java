@@ -103,14 +103,23 @@ public class CryptoTxRecordService {
                     "이미 사용되었거나 만료된 견적입니다. 견적을 다시 발급받아 주세요.");
         }
 
-        CryptoPayment cryptoPayment = CryptoPayment.submit(
+        CryptoPayment submitted = CryptoPayment.submit(
                 paymentId, asset, quote, wallet, fromAddress, txHash);
+
+        // save() 의 반환값을 반드시 받아서 써야 한다.
+        //
+        // crypto_payments 는 payment_id 를 직접 지정하는 엔티티다(@GeneratedValue 없음).
+        // 그래서 Spring Data 의 isNew() 가 false 로 판단해 persist() 가 아니라 merge() 를
+        // 호출하고, merge() 는 "새로운 관리 객체"를 반환하며 넘긴 인스턴스는 detached 로
+        // 남긴다. 원본을 계속 쓰면 이후 변경(컨펌 수·확정 시각)이 DB 에 반영되지 않는다.
+        //
+        // 실제로 이 버그로 confirmations 가 0, confirmed_at 이 NULL 로 남았다.
+        // API 응답은 메모리 객체를 읽어 정상으로 보였기 때문에 단위 테스트로는 잡히지 않았다.
+        CryptoPayment cryptoPayment = cryptoPaymentRepository.save(submitted);
 
         if (receipt == null) {
             // 노드가 아직 모른다. 실패가 아니므로 폴링이 이어받는다.
-            cryptoPaymentRepository.save(cryptoPayment);
-            log.info("영수증 미확인 상태로 등록 payment={} txHash={}",
-                    payment.getPaymentId(), txHash);
+            log.info("영수증 미확인 상태로 등록 payment={} txHash={}", paymentId, txHash);
             return cryptoPayment;
         }
 
@@ -118,14 +127,14 @@ public class CryptoTxRecordService {
 
         if (!receipt.success()) {
             // 트랜잭션이 revert 됐다. 자금이 이동하지 않았으므로 입금 기록도 없다.
-            cryptoPaymentRepository.save(cryptoPayment);
+            // 여기서 save() 를 다시 부르지 않는다. cryptoPayment 는 이미 관리 객체이므로
+            // 변경이 커밋 시점에 자동으로 반영된다.
             failPayment(payment, "TX_REVERTED");
-            log.info("트랜잭션 revert payment={} txHash={}", payment.getPaymentId(), txHash);
+            log.info("트랜잭션 revert payment={} txHash={}", paymentId, txHash);
             return cryptoPayment;
         }
 
         ChainClient.TransferLog transfer = requireMatchingTransfer(cryptoPayment, receipt);
-        cryptoPaymentRepository.save(cryptoPayment);
         recordDeposit(cryptoPayment, transfer, receipt, latestBlock, now);
 
         cryptoPayment.updateConfirmations(
@@ -266,7 +275,7 @@ public class CryptoTxRecordService {
         boolean underpaid = closest.rawAmount().compareTo(expected) < 0;
         throw new BusinessException(ErrorCode.CRYPTO_AMOUNT_MISMATCH,
                 underpaid
-                        ? "입금액이 견적보다 적습니다. 견적 금액 그대로 ì¡ê¸해야 합니다."
+                        ? "입금액이 견적보다 적습니다. 견적 금액 그대로 송금해야 합니다."
                         : "입금액이 견적과 다릅니다. 견적 금액 그대로 송금해야 합니다.");
     }
 

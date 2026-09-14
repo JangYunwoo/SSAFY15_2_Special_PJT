@@ -86,6 +86,14 @@ class CryptoTxRecordServiceTest {
     @BeforeEach
     void setUp() {
         cryptoPaymentRepository = mock(CryptoPaymentRepository.class);
+        // save() 는 넘긴 인스턴스를 그대로 돌려주도록 둔다.
+        //
+        // 실제 JpaRepository 는 payment_id 가 직접 지정된 엔티티에 merge() 를 호출해
+        // "다른" 관리 객체를 돌려주지만, mock 에 그 의미론을 재현하면 테스트가
+        // 프로덕션 코드의 버그를 감추는 방향으로 기울어진다. merge 의미론에 대한
+        // 회귀 방지는 CryptoTxPersistenceIntegrationTest 가 실제 DB 로 담당한다.
+        // 여기서는 반환값을 쓰지 않아 null 이 되는 것만 막는다.
+        when(cryptoPaymentRepository.save(any())).thenAnswer(call -> call.getArgument(0));
         cryptoDepositRepository = mock(CryptoDepositRepository.class);
         cryptoQuoteRepository = mock(CryptoQuoteRepository.class);
         paymentRepository = mock(PaymentRepository.class);

@@ -35,7 +35,8 @@ class AuthServiceTest {
                 userRepository,
                 mock(UserAddressRepository.class),
                 passwordEncoder,
-                mock(JwtTokenProvider.class));
+                mock(JwtTokenProvider.class),
+                mock(SsafyMemberClient.class));
     }
 
     @Test

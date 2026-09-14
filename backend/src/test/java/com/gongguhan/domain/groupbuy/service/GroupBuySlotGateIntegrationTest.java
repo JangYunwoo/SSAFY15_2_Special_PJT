@@ -1,6 +1,7 @@
 package com.gongguhan.domain.groupbuy.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -18,6 +19,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
@@ -39,9 +42,24 @@ class GroupBuySlotGateIntegrationTest {
     private StringRedisTemplate redisTemplate;
 
     @BeforeEach
+    void requireRedisAndCleanKey() {
+        boolean available;
+        try (RedisConnection connection = redisTemplate.getConnectionFactory().getConnection()) {
+            available = "PONG".equals(connection.ping());
+        } catch (RedisConnectionFailureException e) {
+            available = false;
+        }
+        assumeTrue(available, "실제 Redis가 실행 중일 때만 Redis 통합 테스트를 수행합니다.");
+        cleanKey();
+    }
+
     @AfterEach
     void cleanKey() {
-        redisTemplate.delete("slot-gate:group-buy:" + GROUP_BUY_ID);
+        try {
+            redisTemplate.delete("slot-gate:group-buy:" + GROUP_BUY_ID);
+        } catch (RedisConnectionFailureException ignored) {
+            // Redis가 없는 개발 환경에서는 @BeforeEach에서 테스트를 건너뛴다.
+        }
     }
 
     @Test

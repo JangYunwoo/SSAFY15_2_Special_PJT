@@ -4,8 +4,8 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 public record SellerGroupBuySummaryResponse(
-        Long id,
-        Long productId,
+        String id,
+        String productId,
         String productName,
         String status,
         int targetCount,

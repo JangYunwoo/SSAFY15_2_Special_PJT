@@ -2,7 +2,7 @@ spring:
   application:
     name: gongguhan
   profiles:
-    active: local
+    active: ${SPRING_PROFILES_ACTIVE:local}
   servlet:
     multipart:
       max-file-size: 10MB
@@ -67,7 +67,10 @@ app:
     rpc-timeout-ms: ${CRYPTO_RPC_TIMEOUT_MS:5000}
     # 컨펌 폴링 1회 처리 건수. RPC 호출 한도를 넘기지 않도록 제한한다.
     confirmation-poll-batch-size: ${CRYPTO_CONFIRMATION_POLL_BATCH_SIZE:50}
-    # 컨펌 폴링 주기. 0 이하로 두면 스케줄러가 뜨지 않는다.
+    # 폴링 자체를 끄려면 이 값을 false 로. 주기를 0 으로 두는 것으로는 꺼지지 않고
+    # fixedDelay 가 양수여야 하므로 기동이 실패한다.
+    confirmation-poll-enabled: ${CRYPTO_CONFIRMATION_POLL_ENABLED:true}
+    # 컨펌 폴링 주기. 반드시 양수여야 한다.
     confirmation-poll-interval-ms: ${CRYPTO_CONFIRMATION_POLL_INTERVAL_MS:5000}
     # 기동 직후에는 커넥션 풀·체인 클라이언트가 준비되기를 기다린다.
     confirmation-poll-initial-delay-ms: ${CRYPTO_CONFIRMATION_POLL_INITIAL_DELAY_MS:10000}
@@ -77,12 +80,26 @@ app:
     exchange-timeout-ms: ${CRYPTO_EXCHANGE_TIMEOUT_MS:3000}
     # 짧게 유지한다. 낡은 환율은 Buffer(0.3%)로 흡수되지 않는다.
     rate-cache-ttl-ms: ${CRYPTO_RATE_CACHE_TTL_MS:10000}
+  ssafy:
+    # SSAFY 교육용 금융망. 기관코드·핀테크앱일련번호·가맹점ID는 platform_policies(PolicyKey)로
+    # 관리하고(관리자가 재배포 없이 바꿀 수 있어야 함), apiKey만 비밀값이라 env로 둔다.
+    # 개발 문서상 URL(ssafy-dev.maum.ai)은 DNS가 열리지 않는다 - 운영 URL이 실제 응답 서버다
+    # (2026-09-10 inquireCategoryList 호출로 H0000 확인).
+    base-url: ${SSAFY_BASE_URL:https://finopenapi.ssafy.io/ssafy/api/v1/edu}
+    api-key: ${SSAFY_API_KEY:}
+    timeout-ms: ${SSAFY_TIMEOUT_MS:5000}
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
 
 logging:
   level:

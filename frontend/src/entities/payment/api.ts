@@ -1,4 +1,5 @@
 import { api, newIdempotencyKey } from '@/shared/api/client'
+import { cryptoStatusSchema, paymentSchema } from '@/shared/api/schemas'
 import type { Id, NoContent } from '@/shared/api/types'
 
 import type {
@@ -25,14 +26,18 @@ export const paymentApi = {
     api.post<Payment>(`/group-buys/${groupBuyId}/payments/prepare`, body, { idempotencyKey }),
 
   /** PAY-02 */
-  detail: (paymentId: Id) => api.get<Payment>(`/payments/${paymentId}`),
+  detail: (paymentId: Id) =>
+    api.get<Payment>(`/payments/${paymentId}`, { schema: paymentSchema }),
 
   /** PAY-03 구매자 이탈 시 슬롯 해제 */
   abort: (paymentId: Id) => api.post<NoContent>(`/payments/${paymentId}/abort`),
 
   /** PAY-04 */
   history: (params: PaymentHistoryParams = {}) =>
-    api.getPage<PaymentHistoryItem>('/users/me/payments', { query: { ...params } }),
+    api.getPage<PaymentHistoryItem>('/users/me/payments', {
+      query: { ...params },
+      schema: paymentSchema,
+    }),
 
   /** CARD-01 카드 승인 및 서버 검증 */
   approveCard: (paymentId: Id, body: CardApproveRequest, idempotencyKey = newIdempotencyKey()) =>
@@ -70,5 +75,6 @@ export const paymentApi = {
     }),
 
   /** CRYP-04 */
-  cryptoStatus: (paymentId: Id) => api.get<CryptoStatus>(`/payments/${paymentId}/crypto/status`),
+  cryptoStatus: (paymentId: Id) =>
+    api.get<CryptoStatus>(`/payments/${paymentId}/crypto/status`, { schema: cryptoStatusSchema }),
 } as const

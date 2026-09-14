@@ -16,12 +16,9 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -30,11 +27,11 @@ import org.springframework.test.context.ActiveProfiles;
  * 없어야 한다. target_participants=1인 공동구매에 N명이 동시에 슬롯 선점을 시도해 정확히
  * 1건만 성공하는지 실제 DB(H2) 위에서 확인한다.
  *
- * <p>H2는 매 테스트마다 create-drop으로 새로 만들어지지만, PaymentService가 의존하는
- * Redis 슬롯 게이트는 실제(docker-compose) Redis라 재실행 간에 상태가 남는다. 같은
- * groupBuyId를 재사용하므로 매 실행 전후로 게이트 키를 지워야 한다.
+ * <p>이 테스트는 DB의 최종 정합성을 검증하므로 외부 Redis에 의존하지 않는 로컬 원자
+ * 게이트를 사용한다. 실제 Redis Lua 원자성은 GroupBuySlotGateIntegrationTest에서
+ * Redis가 실행 중일 때 별도로 검증한다.
  */
-@SpringBootTest
+@SpringBootTest(properties = "app.slot-gate.local-fallback-enabled=true")
 @ActiveProfiles("test")
 class PaymentServiceConcurrencyTest {
 
@@ -46,15 +43,6 @@ class PaymentServiceConcurrencyTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
-
-    @Autowired
-    private StringRedisTemplate redisTemplate;
-
-    @BeforeEach
-    @AfterEach
-    void cleanSlotGateKey() {
-        redisTemplate.delete("slot-gate:group-buy:" + GROUP_BUY_ID);
-    }
 
     @Test
     void onlyOneConcurrentPrepareSucceedsForSingleSlotGroupBuy() throws InterruptedException {
