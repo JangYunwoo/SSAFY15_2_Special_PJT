@@ -115,7 +115,7 @@ function OrdersView({ items }: { items: readonly ParticipationSummary[] }) {
               <br />
               {defaultAddress.address2}
             </p>
-            <ButtonLink variant="ghost" style={{ display: 'block' }} to="/orders">
+            <ButtonLink variant="ghost" style={{ display: 'block' }} to="/me">
               배송지 변경하기
             </ButtonLink>
           </Panel>

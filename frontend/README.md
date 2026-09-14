@@ -8,11 +8,8 @@ npm install
 npm run dev
 ```
 
-## 템플릿 기본 안내 (Vite)
-
-공동구매 플랫폼 "공구한"의 웹 프론트엔드입니다.
-
-- 기준 문서: [`docs/공구한_API_명세서_v1.md`](../docs/공구한_API_명세서_v1.md), [`docs/공구한_schema_v2.sql`](../docs/공구한_schema_v2.sql)
+- 기준 문서: [`docs/api/공구한_API_명세서_v1.md`](../docs/api/공구한_API_명세서_v1.md),
+  [`docs/database/공구한_schema_v2.sql`](../docs/database/공구한_schema_v2.sql)
 - 화면 기준: `mockup/` (HTML 목업 19개 화면 + 캡처)
 
 ## 실행
@@ -37,6 +34,7 @@ cd backend && ./gradlew bootRun   # http://localhost:8080/api/v1
 | `npm run dev` | 개발 서버 (백엔드 프록시) |
 | `npm run build` | 타입 검사 + 프로덕션 빌드 |
 | `npm run typecheck` | 타입 검사만 |
+| `npm run test` | Vitest 단위 테스트 (`test:watch` 로 감시 실행) |
 | `npm run lint` | ESLint (`lint:fix` 로 자동 수정) |
 | `npm run format` | Prettier 포매팅 |
 
@@ -85,6 +83,7 @@ cd backend && ./gradlew bootRun   # http://localhost:8080/api/v1
 | 서버 상태 | TanStack Query 5 | 캐시·무효화·로딩/오류 상태를 한곳에서 |
 | 클라이언트 상태 | Zustand 5 | 세션과 결제 단계 값만 (그 외는 서버 상태) |
 | 스타일 | 목업 CSS 이관 (토큰 + 컴포넌트 레이어) | 디자인을 그대로 유지 |
+| 테스트 | Vitest (node 환경) | 금액 계산·상태 매핑·표기 같은 순수 함수부터 잠금 |
 
 ## 폴더 구조
 
@@ -103,7 +102,8 @@ src/
 │   ├── HomePage.tsx                GroupBuyListPage.tsx    GroupBuyDetailPage.tsx
 │   ├── AboutPage.tsx               LoginPage.tsx           SignupPage.tsx
 │   ├── checkout/           # ShippingPage · PaymentPage · CompletePage
-│   ├── orders/             # OrdersPage · ConfirmPage · ReturnRequestPage
+│   ├── orders/             # OrdersPage · OrdersPaymentsPage · ReturnsPage
+│                           #   · ConfirmPage · ReturnRequestPage · DisputePage
 │   └── seller/             # Verify · Home · Products · ProductNew · GroupBuyNew
 │                           #   · Orders · Returns · Settlements
 │
@@ -175,7 +175,14 @@ const { items, meta } = await groupBuyApi.list({ keyword: '키보드' })
 카드번호·CVC는 **승인 요청에만** 쓰고 전역 상태·스토리지·로그에 남기지 않습니다
 (명세서 6장). 그래서 결제 화면의 지역 state 로만 들고 있다가 승인 후 비웁니다.
 
-### 5. 목업과 달라진 부분
+### 5. 배송 상태는 판매자가 넘깁니다
+
+배송 상태를 자동으로 옮기는 스케줄러는 없습니다. 판매자가 주문 관리에서 송장을
+등록(DLV-02)하고 **배송중 → 배송완료**로 넘겨야(DLV-03 개별 · DLV-04 일괄) 구매자
+쪽에서 구매확정·반품이 열립니다. 자동 구매확정 기한과 청약철회 기한도 배송완료
+시각부터 계산되므로, 종단 흐름을 확인하려면 이 단계를 반드시 거쳐야 합니다.
+
+### 6. 목업과 달라진 부분
 
 목업(`mockup/assets/app.js`)은 API 명세서보다 앞선 버전이라 정책이 다릅니다.
 **명세서(ERD v2)를 기준**으로 구현했습니다.
@@ -200,6 +207,20 @@ const { items, meta } = await groupBuyApi.list({ keyword: '키보드' })
 상품·AI 추출(PRD-01~05, AI-01, WDR-01) · 결제 전체(PAY, CARD, KAKA, CRYP) ·
 참여·구매확정·이의제기(PAR-01·02, CFM-01·02) · 에스크로(ESC-01·02) ·
 배송(DLV-01~05) · 반품(RTN-01~09) · 판매자 프로필(SEL-06·07).
+
+화면과의 연결은 이렇습니다.
+
+| API | 화면 |
+| --- | --- |
+| DLV-01·02 | 판매자센터 → 주문 관리 (송장 등록) |
+| DLV-03·04 | 판매자센터 → 주문 관리 (행별 상태 select · 선택 일괄 변경) |
+| DLV-05 | 거래관리 → 참여 내역 아코디언의 배송 행 (택배사·송장·발송일) |
+| CFM-01 | 거래관리 → 구매확정 |
+| CFM-02 | 거래관리 → 이의제기 (`/orders/:id/dispute`, 미배송·상품 불일치) |
+| RTN-01·02 | 거래관리 → 반품 신청 |
+| RTN-03·04 | 거래관리 → 반품·환불 탭 (`/orders/returns`, 처리 내역·수거지·이력) |
+| RTN-09 | 반품·환불 탭에서 거부된 건의 이의제기 폼 |
+| RTN-05~08 | 판매자센터 → 반품 관리 |
 
 ### 아직 없는 API
 
@@ -232,6 +253,6 @@ const { items, meta } = await groupBuyApi.list({ keyword: '키보드' })
 - **토큰 저장 방식** — 지금은 `localStorage`(persist)입니다. Refresh 토큰을
   HttpOnly 쿠키로 내리기로 정하면 `sessionStore.ts` 의 `partialize` 에서 토큰을
   제외하세요.
-- **디지털 자산 결제** — CRYP-03(트랜잭션 해시 등록) 화면이 지갑 주소까지만
-  받습니다. 입금 확인·컨펌 폴링 UI는 `paymentQueries.cryptoStatus` 를 붙여
-  만들면 됩니다.
+- **관리자 화면** — 반품 심사(RTN-10·11)는 백엔드에 있지만 화면이 없습니다.
+  관리자 로그인(AUTH-05)도 없어 들어갈 경로 자체가 없으니, 만들 때 두 가지를
+  함께 봐야 합니다.

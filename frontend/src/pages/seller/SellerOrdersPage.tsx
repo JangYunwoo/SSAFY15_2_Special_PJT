@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { DELIVERY_STATUS_DISPLAY } from '@/entities/model'
+import { DELIVERY_STATUS, DELIVERY_STATUS_DISPLAY, type DeliveryStatus } from '@/entities/model'
 import { deliveryApi } from '@/entities/delivery/api'
 import { CARRIERS, type Delivery, type DeliveryBoard } from '@/entities/delivery/model'
 import { deliveryQueries } from '@/entities/delivery/queries'
@@ -55,7 +55,8 @@ export default function SellerOrdersPage() {
       {activeId === null ? (
         <EmptyState>등록한 공동구매가 없습니다.</EmptyState>
       ) : (
-        <DeliveryBoardView groupBuyId={activeId} />
+        /* 공동구매를 바꾸면 선택·편집 상태를 들고 가지 않도록 다시 마운트합니다. */
+        <DeliveryBoardView key={activeId} groupBuyId={activeId} />
       )}
     </section>
   )
@@ -69,7 +70,7 @@ function DeliveryBoardView({ groupBuyId }: { groupBuyId: string }) {
       {(board) => (
         <div className="split">
           <div>
-            <Panel title="참여자 주문" description="송장을 등록하면 배송 상태가 바뀝니다">
+            <Panel title="참여자 주문" description="송장을 등록하고 배송 상태를 넘깁니다">
               <DeliveryTable board={board} groupBuyId={groupBuyId} />
             </Panel>
           </div>
@@ -84,6 +85,16 @@ function DeliveryBoardView({ groupBuyId }: { groupBuyId: string }) {
                 모집 완료 상태에서만 송장을 등록할 수 있고, 같은 송장번호는 중복 등록되지 않습니다.
               </p>
             </Panel>
+
+            <Panel className="mt16" title="배송 상태" description="상태를 넘기면 생기는 일">
+              <DataRow label="발송대기">송장 등록 전</DataRow>
+              <DataRow label="배송중">송장을 등록하고 발송한 상태</DataRow>
+              <DataRow label="배송완료">구매확정 대기 시작</DataRow>
+              <p className="small muted mt16" style={{ marginBottom: 0, lineHeight: 1.8 }}>
+                자동 구매확정 기한과 청약철회 기한은 배송완료 시각부터 계산됩니다. 배송완료로 넘겨야
+                구매자가 구매확정·반품을 진행할 수 있으니 실제 수령을 확인한 뒤 처리하세요.
+              </p>
+            </Panel>
           </aside>
         </div>
       )}
@@ -93,7 +104,13 @@ function DeliveryBoardView({ groupBuyId }: { groupBuyId: string }) {
 
 function DeliveryTable({ board, groupBuyId }: { board: DeliveryBoard; groupBuyId: string }) {
   const [editing, setEditing] = useState<string | null>(null)
+  const [selected, setSelected] = useState<readonly string[]>([])
+
   const editingDelivery = board.items.find((item) => item.id === editing)
+
+  /* 목록이 갱신되며 사라진 건은 선택에서 빼고 셉니다. */
+  const selectedIds = selected.filter((id) => board.items.some((item) => item.id === id))
+  const allSelected = board.items.length > 0 && selectedIds.length === board.items.length
 
   if (board.items.length === 0) {
     return <EmptyState>결제 완료된 참여자가 없습니다.</EmptyState>
@@ -101,16 +118,36 @@ function DeliveryTable({ board, groupBuyId }: { board: DeliveryBoard; groupBuyId
 
   return (
     <>
+      <BulkStatusBar
+        groupBuyId={groupBuyId}
+        items={board.items}
+        selectedIds={selectedIds}
+        onDone={() => {
+          setSelected([])
+        }}
+      />
+
       <table className="list fixed">
         <colgroup>
-          <col style={{ width: '18%' }} />
-          <col style={{ width: '30%' }} />
-          <col style={{ width: '14%' }} />
-          <col style={{ width: '24%' }} />
-          <col style={{ width: '14%' }} />
+          <col style={{ width: '5%' }} />
+          <col style={{ width: '16%' }} />
+          <col style={{ width: '25%' }} />
+          <col style={{ width: '12%' }} />
+          <col style={{ width: '20%' }} />
+          <col style={{ width: '22%' }} />
         </colgroup>
         <thead>
           <tr>
+            <th>
+              <input
+                type="checkbox"
+                aria-label="전체 선택"
+                checked={allSelected}
+                onChange={(event) => {
+                  setSelected(event.target.checked ? board.items.map((item) => item.id) : [])
+                }}
+              />
+            </th>
             <th>수령인</th>
             <th>주소</th>
             <th>상태</th>
@@ -123,6 +160,20 @@ function DeliveryTable({ board, groupBuyId }: { board: DeliveryBoard; groupBuyId
             const display = DELIVERY_STATUS_DISPLAY[delivery.status]
             return (
               <tr key={delivery.id}>
+                <td>
+                  <input
+                    type="checkbox"
+                    aria-label={`${maskName(delivery.recipientName)} 선택`}
+                    checked={selectedIds.includes(delivery.id)}
+                    onChange={() => {
+                      setSelected((current) =>
+                        current.includes(delivery.id)
+                          ? current.filter((id) => id !== delivery.id)
+                          : [...current, delivery.id],
+                      )
+                    }}
+                  />
+                </td>
                 <td>
                   <b>{maskName(delivery.recipientName)}</b>
                   <br />
@@ -148,13 +199,15 @@ function DeliveryTable({ board, groupBuyId }: { board: DeliveryBoard; groupBuyId
                   )}
                 </td>
                 <td className="num">
+                  <RowStatusSelect delivery={delivery} groupBuyId={groupBuyId} />
                   <Button
                     variant="ghost"
+                    className="mt8"
                     onClick={() => {
                       setEditing((current) => (current === delivery.id ? null : delivery.id))
                     }}
                   >
-                    {delivery.trackingNumber === null ? '송장 등록' : '수정'}
+                    {delivery.trackingNumber === null ? '송장 등록' : '송장 수정'}
                   </Button>
                 </td>
               </tr>
@@ -173,6 +226,131 @@ function DeliveryTable({ board, groupBuyId }: { board: DeliveryBoard; groupBuyId
         />
       )}
     </>
+  )
+}
+
+/** select 의 value 는 string 이라, 보내기 전에 정의된 상태값인지 확인합니다. */
+function toDeliveryStatus(value: string): DeliveryStatus | null {
+  return DELIVERY_STATUS.find((status) => status === value) ?? null
+}
+
+/**
+ * DLV-03 참여자 한 건의 배송 상태 변경.
+ *
+ * 어떤 값으로 넘어갈 수 있는지는 서버가 판단합니다(송장 없이 배송중 등).
+ * 화면에서 미리 막지 않고 거부 사유를 그대로 보여줍니다.
+ */
+function RowStatusSelect({ delivery, groupBuyId }: { delivery: Delivery; groupBuyId: string }) {
+  const queryClient = useQueryClient()
+
+  const update = useMutation({
+    mutationFn: (status: DeliveryStatus) => deliveryApi.updateStatus(delivery.id, status),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.sellerGroupBuys.deliveries(groupBuyId),
+      })
+    },
+  })
+
+  return (
+    <>
+      <select
+        className="input"
+        aria-label={`${maskName(delivery.recipientName)} 배송 상태 변경`}
+        value={delivery.status}
+        disabled={update.isPending}
+        onChange={(event) => {
+          const next = toDeliveryStatus(event.target.value)
+          if (next !== null && next !== delivery.status) update.mutate(next)
+        }}
+      >
+        {DELIVERY_STATUS.map((status) => (
+          <option key={status} value={status}>
+            {DELIVERY_STATUS_DISPLAY[status].label}
+          </option>
+        ))}
+      </select>
+      {update.isError && (
+        <p className="small ai-hint fail mt8" role="alert" style={{ marginBottom: 0 }}>
+          {toMessage(update.error)}
+        </p>
+      )}
+    </>
+  )
+}
+
+/**
+ * DLV-04 선택한 참여자의 배송 상태 일괄 변경.
+ *
+ * 참여자가 많은 공동구매에서 한 건씩 넘기면 빠뜨리기 쉬워, 발송·수령 확인은
+ * 묶어서 처리할 수 있게 둡니다.
+ */
+function BulkStatusBar({
+  groupBuyId,
+  items,
+  selectedIds,
+  onDone,
+}: {
+  groupBuyId: string
+  items: readonly Delivery[]
+  selectedIds: readonly string[]
+  onDone: () => void
+}) {
+  const queryClient = useQueryClient()
+
+  const bulk = useMutation({
+    mutationFn: (status: DeliveryStatus) =>
+      deliveryApi.updateStatusBulk(groupBuyId, status, [...selectedIds]),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.sellerGroupBuys.deliveries(groupBuyId),
+      })
+      onDone()
+    },
+  })
+
+  const withoutInvoice = items.filter(
+    (item) => selectedIds.includes(item.id) && item.trackingNumber === null,
+  ).length
+  const none = selectedIds.length === 0
+
+  return (
+    <div className="box" style={{ marginBottom: 16 }}>
+      <div className="order-actions" style={{ marginTop: 0, alignItems: 'center' }}>
+        <span className="small" style={{ flex: 1 }}>
+          {none ? '상태를 바꿀 주문을 선택하세요.' : `${String(selectedIds.length)}건 선택`}
+        </span>
+        <Button
+          variant="ghost"
+          disabled={none || bulk.isPending}
+          onClick={() => {
+            bulk.mutate('SHIPPING')
+          }}
+        >
+          배송중으로
+        </Button>
+        <Button
+          disabled={none || bulk.isPending}
+          onClick={() => {
+            bulk.mutate('DELIVERED')
+          }}
+        >
+          배송완료로
+        </Button>
+      </div>
+
+      {withoutInvoice > 0 && (
+        <p className="small muted mt8" style={{ marginBottom: 0 }}>
+          선택한 {withoutInvoice}건은 송장이 없습니다. 송장을 먼저 등록해야 배송중으로 넘어갑니다.
+        </p>
+      )}
+
+      {bulk.isError && (
+        <p className="small ai-hint fail mt8" role="alert" style={{ marginBottom: 0 }}>
+          {toMessage(bulk.error)}
+        </p>
+      )}
+    </div>
   )
 }
 

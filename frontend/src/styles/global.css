@@ -449,6 +449,10 @@ a.rowline.link:hover .go{color:var(--ink);}
 textarea.input{resize:vertical;min-height:88px;}
 .field-row{display:flex;gap:8px;}
 .field-row > *{flex:1;}
+/* 입력 + 오른쪽 버튼 (중복확인 등) */
+.input-action{display:flex;gap:8px;}
+.input-action .input{flex:1;min-width:0;}
+.input-action .btn,.input-action .btn-ghost{flex:none;white-space:nowrap;}
 .upload{
   border:1px dashed var(--line);background:var(--soft);
   height:170px;display:grid;place-items:center;place-content:center;gap:6px;text-align:center;

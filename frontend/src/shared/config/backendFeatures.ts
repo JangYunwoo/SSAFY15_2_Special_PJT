@@ -36,6 +36,9 @@ export interface BackendFeatureFlags {
 
   /** AUTH-04 로그아웃 · 컨트롤러 없음 (토큰은 클라이언트에서만 폐기) */
   logout: boolean
+
+  /** AUTH-05 이메일 중복확인 · `GET /auth/email/availability` (구현됨) */
+  emailAvailability: boolean
 }
 
 export const BACKEND_FEATURES: BackendFeatureFlags = {
@@ -45,4 +48,5 @@ export const BACKEND_FEATURES: BackendFeatureFlags = {
   participationCancel: false,
   groupBuyLifecycle: false,
   logout: false,
+  emailAvailability: true,
 }

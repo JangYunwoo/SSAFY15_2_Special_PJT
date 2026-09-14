@@ -41,22 +41,36 @@ function FieldShell({ label, required, hint, error, children }: FieldShellProps)
 
 type FieldBaseProps = Omit<FieldShellProps, 'children'>
 
-export type TextFieldProps = FieldBaseProps &
-  Omit<ComponentPropsWithoutRef<'input'>, 'id' | 'className'>
+export type TextFieldProps = FieldBaseProps & {
+  /**
+   * 입력 오른쪽에 붙는 버튼 (중복확인·주소검색 등).
+   * label·안내 문구와 같은 줄맞춤을 쓰려고 FieldShell 안에 넣습니다.
+   */
+  action?: ReactNode | undefined
+} & Omit<ComponentPropsWithoutRef<'input'>, 'id' | 'className'>
 
-export function TextField({ label, required, hint, error, ...rest }: TextFieldProps) {
+export function TextField({ label, required, hint, error, action, ...rest }: TextFieldProps) {
   return (
     <FieldShell label={label} required={required} hint={hint} error={error}>
-      {({ id, describedBy, invalid }) => (
-        <input
-          id={id}
-          className="input"
-          aria-describedby={describedBy}
-          aria-invalid={invalid || undefined}
-          required={required}
-          {...rest}
-        />
-      )}
+      {({ id, describedBy, invalid }) => {
+        const input = (
+          <input
+            id={id}
+            className="input"
+            aria-describedby={describedBy}
+            aria-invalid={invalid || undefined}
+            required={required}
+            {...rest}
+          />
+        )
+        if (action === undefined) return input
+        return (
+          <div className="input-action">
+            {input}
+            {action}
+          </div>
+        )
+      }}
     </FieldShell>
   )
 }

@@ -2,7 +2,13 @@ import { useId, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router'
 
-import { PARTICIPATION_STATUS_DISPLAY, type EscrowStatus } from '@/entities/model'
+import {
+  DELIVERY_STATUS_DISPLAY,
+  PARTICIPATION_STATUS_DISPLAY,
+  type EscrowStatus,
+  type ParticipationStatus,
+} from '@/entities/model'
+import { deliveryQueries } from '@/entities/delivery/queries'
 import { participationApi } from '@/entities/participation/api'
 import type { Escrow, ParticipationSummary } from '@/entities/participation/model'
 import { participationQueries } from '@/entities/participation/queries'
@@ -87,6 +93,8 @@ export function OrderAccordion({ item, defaultOpen = false }: OrderAccordionProp
             </>
           )}
 
+          {hasDelivery(item.status) && <DeliveryRow participationId={item.id} open={open} />}
+
           {item.deliveredAt !== null && (
             <DataRow label="배송 완료">{date(item.deliveredAt)}</DataRow>
           )}
@@ -107,7 +115,7 @@ export function OrderAccordion({ item, defaultOpen = false }: OrderAccordionProp
               <DataRow label="구매확정">
                 {date(item.confirmedAt)} · {item.autoConfirmed ? '자동 확정' : '직접 확정'}
               </DataRow>
-              <EscrowRow participationId={item.id} />
+              <EscrowRow participationId={item.id} open={open} />
             </>
           )}
         </div>
@@ -151,10 +159,77 @@ export function OrderAccordion({ item, defaultOpen = false }: OrderAccordionProp
               구매확정을 하면 판매자에게 정산이 개시되며 취소할 수 없습니다. 기한까지 확정하지
               않으면 자동으로 확정됩니다.
             </p>
+            <p className="small muted mt8" style={{ marginBottom: 0 }}>
+              상품을 받지 못했거나 주문과 다른 물건이 왔다면{' '}
+              <Link to={`/orders/${item.id}/dispute`}>이의를 제기</Link>하세요. 검토가 끝날 때까지
+              자동 구매확정이 보류됩니다.
+            </p>
           </>
         )}
       </div>
     </div>
+  )
+}
+
+/**
+ * 배송 레코드는 모집이 끝나야 생깁니다. 그 전에 DLV-05 를 부르면 404 이므로
+ * 배송이 잡힌 뒤의 상태에서만 조회합니다.
+ */
+const DELIVERY_TRACKED_STATUS: readonly ParticipationStatus[] = [
+  'FULFILLED',
+  'SHIPPING',
+  'DELIVERED',
+  'CONFIRMED',
+  'SETTLED',
+  'RETURNING',
+  'RETURNED',
+]
+
+function hasDelivery(status: ParticipationStatus): boolean {
+  return DELIVERY_TRACKED_STATUS.includes(status)
+}
+
+/**
+ * 배송 조회 (DLV-05).
+ *
+ * 목록 응답에는 배송완료 시각만 있어 택배사·송장번호는 이 응답에만 있습니다.
+ * 접힌 건까지 매번 부르지 않도록 펼쳤을 때만 조회합니다.
+ */
+function DeliveryRow({ participationId, open }: { participationId: string; open: boolean }) {
+  const delivery = useQuery({
+    ...deliveryQueries.forParticipation(participationId),
+    enabled: open,
+  })
+
+  if (!open) return null
+  if (delivery.isPending) return <DataRow label="배송">불러오는 중…</DataRow>
+  if (delivery.isError) return <DataRow label="배송">{toMessage(delivery.error)}</DataRow>
+
+  const { status, carrierName, trackingNumber, shippedAt } = delivery.data
+
+  return (
+    <DataRow label="배송">
+      {DELIVERY_STATUS_DISPLAY[status].label}
+      {trackingNumber === null ? (
+        <>
+          <br />
+          <span className="small muted">송장 등록 전입니다.</span>
+        </>
+      ) : (
+        <>
+          <br />
+          <span className="small muted">
+            {carrierName ?? '택배사 미상'} <span className="mono">{trackingNumber}</span>
+          </span>
+          {shippedAt !== null && (
+            <>
+              <br />
+              <span className="small muted">{date(shippedAt)} 발송</span>
+            </>
+          )}
+        </>
+      )}
+    </DataRow>
   )
 }
 
@@ -183,9 +258,10 @@ function escrowMoment(escrow: Escrow): { label: string; at: IsoDateTime } {
  * 펼친 참여 건만 조회합니다. 목록 응답의 escrowStatus 로도 상태는 알 수 있지만,
  * 보관 금액과 시각은 이 응답에만 있습니다.
  */
-function EscrowRow({ participationId }: { participationId: string }) {
-  const escrow = useQuery(participationQueries.escrow(participationId))
+function EscrowRow({ participationId, open }: { participationId: string; open: boolean }) {
+  const escrow = useQuery({ ...participationQueries.escrow(participationId), enabled: open })
 
+  if (!open) return null
   if (escrow.isPending) return <DataRow label="에스크로">불러오는 중…</DataRow>
   if (escrow.isError) {
     return <DataRow label="에스크로">{toMessage(escrow.error)}</DataRow>
