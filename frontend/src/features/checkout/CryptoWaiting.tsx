@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { CRYPTO_PHASE_LABEL } from '@/entities/payment/model'
 import { paymentQueries } from '@/entities/payment/queries'
 import { toMessage } from '@/shared/api/errors'
-import { dateTime, number } from '@/shared/lib/format'
+import { dateTime, number, won } from '@/shared/lib/format'
 import { Button } from '@/shared/ui/Button'
 import { DataRow } from '@/shared/ui/DataRow'
 import { Panel } from '@/shared/ui/Panel'
@@ -23,6 +23,11 @@ const PHASE_TONE: Record<string, StateTone> = {
 
 interface CryptoWaitingProps {
   paymentId: string
+  /**
+   * 이 결제의 원화 금액. CRYP-04 응답에는 없어 Quote 에서 받은 값을 넘깁니다.
+   * 코인 수량만 보면 얼마를 내는 중인지 알기 어렵습니다.
+   */
+  krwAmount: number
   /** 컨펌이 충족돼 결제가 확정되면 부릅니다. */
   onCompleted: () => void
   /** 실패했을 때 입력 화면으로 되돌립니다. */
@@ -35,7 +40,7 @@ interface CryptoWaitingProps {
  * 해시를 등록해도 결제 완료가 아닙니다. 필요 컨펌 수에 도달할 때까지
  * 서버에 물어보고(5초 주기), COMPLETED 나 FAILED 에서 멈춥니다.
  */
-export function CryptoWaiting({ paymentId, onCompleted, onRetry }: CryptoWaitingProps) {
+export function CryptoWaiting({ paymentId, krwAmount, onCompleted, onRetry }: CryptoWaitingProps) {
   const status = useQuery(paymentQueries.cryptoStatus(paymentId))
   const phase = status.data?.phase
 
@@ -94,6 +99,7 @@ export function CryptoWaiting({ paymentId, onCompleted, onRetry }: CryptoWaiting
       )}
       {blockNumber !== null && <DataRow label="블록">{number(blockNumber)}</DataRow>}
       {receiptStatus !== null && <DataRow label="영수증">{receiptStatus}</DataRow>}
+      <DataRow label="결제 금액">{won(krwAmount)}</DataRow>
       {assetAmount !== null && <DataRow label="입금 수량">{assetAmount}</DataRow>}
       {confirmedAt !== null && <DataRow label="확정 시각">{dateTime(confirmedAt)}</DataRow>}
 

@@ -157,6 +157,7 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
         <div>
           <CryptoWaiting
             paymentId={awaitingPaymentId}
+            krwAmount={quote?.krwAmount ?? total}
             onCompleted={() => {
               void navigate(`/checkout/complete/${awaitingPaymentId}`, { replace: true })
             }}
