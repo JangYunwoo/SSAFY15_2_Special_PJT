@@ -5,7 +5,7 @@
 ## PoC 범위
 
 - ERD `products.name`에 대응하는 상품명 추출
-- ERD `products.category_id`에 대응하는 카테고리 추정
+- DB 카테고리 카탈로그에서 ERD `products.category_id`에 대응하는 ID 선택
 - 상품명이 불명확하면 사용자가 선택할 수 있는 후보를 최대 3개 출력
 
 브랜드, 모델명, 색상, 가격은 별도 필드로 추출하지 않습니다. 상품정보 웹 검색, FastAPI, 백엔드 연동, DB 저장도 포함하지 않습니다.
@@ -80,6 +80,7 @@ ai/
 │   ├── qwen_analyze.py
 │   └── yolo_detect.py
 ├── analysis_schema.py
+├── category_catalog.py
 ├── prompt.py
 ├── gemini_analyze.py
 ├── .env.example
