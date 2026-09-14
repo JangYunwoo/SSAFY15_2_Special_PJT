@@ -1,0 +1,233 @@
+package com.gongguhan.domain.refund.service;
+
+import com.gongguhan.domain.refund.entity.Refund;
+import com.gongguhan.domain.refund.entity.RefundMethod;
+import com.gongguhan.domain.refund.entity.RefundReason;
+import com.gongguhan.domain.refund.entity.RefundStatus;
+import com.gongguhan.domain.refund.repository.RefundRepository;
+import com.gongguhan.global.error.BusinessException;
+import com.gongguhan.global.error.ErrorCode;
+import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.function.Supplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * 환불 원장의 경계 (FR-RFD-01~10).
+ *
+ * <p><b>환불을 일으키는 도메인이 여러 개라서 이 경계가 필요합니다.</b> 모집 실패는
+ * 공동구매, 참여 취소는 참여, 반품은 반품, 미매칭 입금은 코인 결제가 일으킵니다.
+ * 각자 {@code Refund} 엔티티와 저장소를 직접 다루면 상태 전이 규칙과 중복 처리
+ * 규칙이 네 곳으로 흩어지고, 그중 하나가 빠뜨립니다. 호출 측은 이 클래스만 봅니다.
+ *
+ * <p><b>이 클래스는 돈을 보내지 않습니다.</b> "돌려주기로 했다" 는 결정을 기록하고,
+ * 외부 송금·이체 결과를 받아 적기만 합니다. 실제 송금은 결제수단별 어댑터
+ * ({@code RefundPort} 구현체)가 합니다. 원장과 송금을 분리하는 이유는, 송금이
+ * 실패해도 결정은 남아 재처리할 수 있어야 하기 때문입니다.
+ *
+ * <p><b>트랜잭션은 짧게 유지합니다.</b> 외부 호출은 이 클래스 밖에서 하고, 여기서는
+ * DB 쓰기만 합니다. 체인 송금은 수십 초가 걸릴 수 있어 트랜잭션 안에서 부르면
+ * 커넥션과 잠금이 그만큼 묶입니다. 코인 결제 검증에서 쓴 것과 같은 구조입니다.
+ */
+@Service
+public class RefundLedgerService {
+
+    private static final Logger log = LoggerFactory.getLogger(RefundLedgerService.class);
+
+    private final RefundRepository refundRepository;
+    private final Clock clock;
+
+    public RefundLedgerService(RefundRepository refundRepository, Clock clock) {
+        this.refundRepository = refundRepository;
+        this.clock = clock;
+    }
+
+    /**
+     * 참여 건 환불을 개시합니다. 모집 실패·참여 취소·판매자 귀책이 이 경로입니다.
+     *
+     * <p>같은 참여 건에 이미 진행 중이거나 완료된 환불이 있으면 새로 만들지 않고
+     * <b>그 환불을 그대로 돌려줍니다.</b> 배치 재실행이나 버튼 중복 클릭으로 같은
+     * 요청이 두 번 와도 두 번 돈이 나가지 않아야 하고, 그렇다고 예외를 던지면
+     * 호출 측이 정상 재시도와 진짜 오류를 구분할 수 없습니다.
+     *
+     * @throws BusinessException {@code INVALID_STATE_TRANSITION} — 동시 요청이 DB
+     *         유일성 제약에 걸린 경우. 재시도하면 위의 멱등 경로를 타게 됩니다.
+     */
+    @Transactional
+    public Refund openForParticipation(Long participationId, long amount,
+                                       RefundReason reasonType, RefundMethod refundMethod) {
+        return refundRepository.findActiveByParticipationId(participationId)
+                .map(existing -> {
+                    log.info("이미 처리 중인 환불이 있어 새로 만들지 않습니다. refundId={} participationId={}",
+                            existing.getRefundId(), participationId);
+                    return existing;
+                })
+                .orElseGet(() -> insert(Refund.forParticipation(
+                        participationId, amount, reasonType, refundMethod, now())));
+    }
+
+    /** 반품 환불을 개시합니다 (FR-RTN-17). 반품 ID 를 남겨 환불액 근거를 되짚게 합니다. */
+    @Transactional
+    public Refund openForReturn(Long returnId, Long participationId, long amount,
+                                RefundMethod refundMethod) {
+        return refundRepository.findActiveByParticipationId(participationId)
+                .map(existing -> {
+                    log.info("이미 처리 중인 환불이 있어 새로 만들지 않습니다. refundId={} returnId={}",
+                            existing.getRefundId(), returnId);
+                    return existing;
+                })
+                .orElseGet(() -> insert(Refund.forReturn(
+                        returnId, participationId, amount, refundMethod, now())));
+    }
+
+    /**
+     * 결제에 붙이지 못한 입금 환불을 개시합니다 (FR-PAY-26).
+     *
+     * <p>참여 건이 없으므로 입금 단위로 중복을 막습니다. 같은 입금을 두 번
+     * 돌려보내면 우리 지갑에서 토큰이 두 번 나갑니다.
+     */
+    @Transactional
+    public Refund openForUnmatchedDeposit(Long depositId, long amount, String toAddress) {
+        return openForDeposit(depositId, () -> Refund.forUnmatchedDeposit(
+                depositId, amount, toAddress, now()));
+    }
+
+    /** 슬롯이 만료된 뒤 도착한 입금 환불을 개시합니다 (FR-SLT-10). */
+    @Transactional
+    public Refund openForExpiredSlot(Long depositId, long amount, String toAddress) {
+        return openForDeposit(depositId, () -> Refund.forExpiredSlot(
+                depositId, amount, toAddress, now()));
+    }
+
+    /** 카드 승인 취소 결과를 기록합니다. */
+    @Transactional
+    public Refund completeByCardCancel(Long refundId, Long ssafyTransactionNo) {
+        Refund refund = load(refundId);
+        refund.completeByCardCancel(ssafyTransactionNo, now());
+        return refund;
+    }
+
+    /** 계좌 이체 결과를 기록합니다. */
+    @Transactional
+    public Refund completeByAccountTransfer(Long refundId, String institutionTxNo,
+                                            Long ssafyTransactionNo) {
+        Refund refund = load(refundId);
+        refund.completeByAccountTransfer(institutionTxNo, ssafyTransactionNo, now());
+        return refund;
+    }
+
+    /** 카카오페이 취소 결과를 기록합니다. */
+    @Transactional
+    public Refund completeByKakaoPay(Long refundId, String cancelAid) {
+        Refund refund = load(refundId);
+        refund.completeByKakaoPay(cancelAid, now());
+        return refund;
+    }
+
+    /**
+     * 온체인 송금 결과를 기록합니다.
+     *
+     * <p>{@code txHash} 가 이미 다른 환불에 기록돼 있으면 거부합니다. 같은 송금을 두
+     * 건의 환불로 세면 장부상 두 번 돌려준 것이 되고, 실제로는 한 번만 나갔으므로
+     * 차액이 영구히 어긋납니다.
+     */
+    @Transactional
+    public Refund completeByCrypto(Long refundId, String txHash, BigDecimal assetAmount) {
+        refundRepository.findByTxHash(txHash)
+                .filter(other -> !other.getRefundId().equals(refundId))
+                .ifPresent(other -> {
+                    throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
+                            "이미 다른 환불에 기록된 트랜잭션입니다. txHash=" + txHash
+                                    + " refundId=" + other.getRefundId());
+                });
+
+        Refund refund = load(refundId);
+        refund.completeByCrypto(txHash, assetAmount, now());
+        return refund;
+    }
+
+    /**
+     * 환불 실패를 기록합니다 (FR-RFD-09).
+     *
+     * <p>이미 완료된 건은 실패로 되돌리지 않습니다. 돈이 나간 뒤에 실패로 표시하면
+     * 재처리 대상이 되어 이중 지급으로 이어집니다.
+     */
+    @Transactional
+    public Refund fail(Long refundId, String reason) {
+        Refund refund = load(refundId);
+        refund.markFailed(reason, now());
+        log.warn("환불 실패 refundId={} reason={}", refundId, reason);
+        return refund;
+    }
+
+    /**
+     * 실패한 환불을 재처리 대상으로 되돌립니다 (RFD-04, FR-ADM-08).
+     *
+     * <p>상태만 바꿉니다. 실제 재송금은 호출 측이 결제수단 어댑터로 다시 시도합니다.
+     */
+    @Transactional
+    public Refund retry(Long refundId) {
+        Refund refund = load(refundId);
+        try {
+            refund.retry();
+            refundRepository.flush();
+        } catch (DataIntegrityViolationException exception) {
+            // 실패한 사이에 같은 참여 건으로 다른 환불이 만들어진 경우다.
+            // 두 건을 동시에 진행시키는 대신 막고 사람이 보게 한다.
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
+                    "같은 대상에 다른 환불이 진행 중이라 재처리할 수 없습니다. refundId=" + refundId);
+        }
+        return refund;
+    }
+
+    /** 재처리 배치가 집어갈 실패 건을 오래된 순서로 가져옵니다. */
+    @Transactional(readOnly = true)
+    public List<Refund> findFailed(int limit) {
+        return refundRepository.findByStatusOrderByCreatedAtAsc(
+                RefundStatus.FAILED, PageRequest.of(0, limit));
+    }
+
+    private Refund openForDeposit(Long depositId, Supplier<Refund> factory) {
+        return refundRepository.findActiveByDepositId(depositId)
+                .map(existing -> {
+                    log.info("이미 처리 중인 입금 환불이 있어 새로 만들지 않습니다. refundId={} depositId={}",
+                            existing.getRefundId(), depositId);
+                    return existing;
+                })
+                .orElseGet(() -> insert(factory.get()));
+    }
+
+    /**
+     * 새 환불 행을 넣습니다.
+     *
+     * <p>{@code refund_id} 는 자동 생성이라 {@code save()} 가 {@code persist()} 를
+     * 호출하고, IDENTITY 키를 받아오기 위해 INSERT 가 즉시 나갑니다. 그래서 유일성
+     * 위반이 이 자리에서 드러납니다. 조회로 먼저 걸러도 두 요청이 동시에 통과할 수
+     * 있으므로, 경쟁의 최종 방어선은 DB 제약입니다.
+     */
+    private Refund insert(Refund refund) {
+        try {
+            return refundRepository.save(refund);
+        } catch (DataIntegrityViolationException exception) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
+                    "같은 대상에 이미 진행 중인 환불이 있습니다.");
+        }
+    }
+
+    private Refund load(Long refundId) {
+        return refundRepository.findById(refundId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND,
+                        "환불 건을 찾을 수 없습니다. refundId=" + refundId));
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(clock);
+    }
+}

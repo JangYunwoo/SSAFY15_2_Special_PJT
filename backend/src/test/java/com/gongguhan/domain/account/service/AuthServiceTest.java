@@ -15,9 +15,11 @@ import com.gongguhan.domain.account.repository.UserRepository;
 import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
 import com.gongguhan.global.security.JwtTokenProvider;
+import com.gongguhan.domain.account.service.SsafyMemberClient.SsafyMemberResponse;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -25,18 +27,25 @@ class AuthServiceTest {
 
     private UserRepository userRepository;
     private PasswordEncoder passwordEncoder;
+    private SsafyMemberClient ssafyMemberClient;
     private AuthService authService;
 
     @BeforeEach
+    @SuppressWarnings("unchecked")
     void setUp() {
         userRepository = mock(UserRepository.class);
         passwordEncoder = mock(PasswordEncoder.class);
+        ssafyMemberClient = mock(SsafyMemberClient.class);
+        ObjectProvider<AuthService> self = mock(ObjectProvider.class);
         authService = new AuthService(
                 userRepository,
                 mock(UserAddressRepository.class),
                 passwordEncoder,
                 mock(JwtTokenProvider.class),
-                mock(SsafyMemberClient.class));
+                ssafyMemberClient,
+                self);
+        // self.getObject()로 프록시를 거치는 대신 테스트에서는 같은 인스턴스를 돌려준다.
+        when(self.getObject()).thenReturn(authService);
     }
 
     @Test
@@ -58,6 +67,8 @@ class AuthServiceTest {
     void concurrentDuplicateEmailIsReportedAsConflict() {
         when(userRepository.existsByEmail("user@example.com")).thenReturn(false);
         when(passwordEncoder.encode("Password!234")).thenReturn("encoded-password");
+        when(ssafyMemberClient.createMember("user@example.com"))
+                .thenReturn(new SsafyMemberResponse("user-key", null, null));
         doThrow(new DataIntegrityViolationException("duplicate"))
                 .when(userRepository).saveAndFlush(any(User.class));
         SignupRequest request = new SignupRequest(

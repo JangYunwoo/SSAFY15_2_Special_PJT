@@ -32,6 +32,8 @@ public enum ErrorCode {
     EXTERNAL_PAYMENT_ERROR(HttpStatus.BAD_GATEWAY, "외부 결제기관 오류가 발생했습니다."),
     EXTERNAL_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AI·시세·체인·금융망 연동이 일시적으로 불가능합니다."),
     SSAFY_MEMBER_NOT_LINKED(HttpStatus.UNPROCESSABLE_CONTENT, "SSAFY 금융망 회원 연동이 완료되지 않았습니다."),
+    SSAFY_EMAIL_UNAVAILABLE(HttpStatus.CONFLICT,
+            "이 이메일은 금융망에 이미 등록되어 사용할 수 없습니다. 다른 이메일을 사용해주세요."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다.");
 
     private final HttpStatus status;
