@@ -53,8 +53,18 @@ export const RETURN_REASON_TYPE = [
 ] as const
 export type ReturnReasonType = (typeof RETURN_REASON_TYPE)[number]
 
-export const SETTLEMENT_STATUS = ['PENDING', 'PARTIAL', 'COMPLETED', 'HOLD', 'FAILED'] as const
+/**
+ * 정산 진행 상태 (백엔드 `Settlement.STATUS_*`).
+ *
+ * 예전에는 PARTIAL·FAILED 도 여기 있었지만 백엔드에는 세 가지뿐입니다.
+ * 이체 실패는 별도 축인 {@link TRANSFER_STATUS} 로 표현됩니다.
+ */
+export const SETTLEMENT_STATUS = ['PENDING', 'COMPLETED', 'HOLD'] as const
 export type SettlementStatus = (typeof SETTLEMENT_STATUS)[number]
+
+/** 정산금 이체 상태 (백엔드 `Settlement.TRANSFER_*`). 정산 상태와 별개로 움직입니다. */
+export const TRANSFER_STATUS = ['PENDING', 'COMPLETED', 'FAILED'] as const
+export type TransferStatus = (typeof TRANSFER_STATUS)[number]
 
 export const SHIPPING_FEE_BEARER = ['BUYER', 'SELLER'] as const
 export type ShippingFeeBearer = (typeof SHIPPING_FEE_BEARER)[number]
@@ -120,10 +130,14 @@ export const RETURN_STATUS_DISPLAY: Record<ReturnStatus, Display> = {
 
 export const SETTLEMENT_STATUS_DISPLAY: Record<SettlementStatus, Display> = {
   PENDING: { label: '정산대기', tone: 'hold' },
-  PARTIAL: { label: '부분정산', tone: 'hold' },
   COMPLETED: { label: '정산완료', tone: 'ok' },
   HOLD: { label: '정산보류', tone: 'alert' },
-  FAILED: { label: '정산실패', tone: 'alert' },
+}
+
+export const TRANSFER_STATUS_DISPLAY: Record<TransferStatus, Display> = {
+  PENDING: { label: '이체대기', tone: 'hold' },
+  COMPLETED: { label: '이체완료', tone: 'ok' },
+  FAILED: { label: '이체실패', tone: 'alert' },
 }
 
 export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
