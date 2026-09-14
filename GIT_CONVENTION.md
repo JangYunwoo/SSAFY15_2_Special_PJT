@@ -9,6 +9,7 @@
 S15P21B205/
 ├── backend/     # 백엔드 서버 코드 (Spring Boot)
 ├── frontend/    # 프론트엔드 코드 (React)
+├── ai/          # AI 상품 식별 및 추천 서비스
 ├── docs/        # 요구사항/API/DB/외부연동/팀 문서 (docs/README.md가 색인)
 ├── .claude/     # Claude Code 설정
 ├── docker-compose.yml   # 로컬 개발용 MySQL, Redis
