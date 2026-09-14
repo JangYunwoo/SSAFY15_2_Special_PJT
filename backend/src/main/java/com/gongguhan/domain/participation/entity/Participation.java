@@ -20,6 +20,7 @@ public class Participation {
     public static final String STATUS_SHIPPING = "SHIPPING";
     public static final String STATUS_DELIVERED = "DELIVERED";
     public static final String STATUS_CONFIRMED = "CONFIRMED";
+    public static final String STATUS_SETTLED = "SETTLED";
     public static final String STATUS_RETURNING = "RETURNING";
     public static final String STATUS_REFUNDING = "REFUNDING";
     public static final String STATUS_REFUNDED = "REFUNDED";
@@ -127,6 +128,21 @@ public class Participation {
     public void markFulfilled() {
         requireStatus(STATUS_PAID, "결제 완료(PAID) 참여만 모집 확정할 수 있습니다.");
         this.status = STATUS_FULFILLED;
+    }
+
+    /**
+     * 정산 완료 전환 (S15P21B205-81, FR-STL-01~05).
+     *
+     * <p>정산 배치가 이 참여 건을 지급 명세에 포함하고 판매자에게 보낼 금액을 확정한
+     * 뒤 호출합니다. 구매확정된 건만 정산 대상이므로 {@code CONFIRMED} 에서만 옵니다.
+     *
+     * <p>이중 정산의 최종 방어선은 이 검사가 아니라
+     * {@code settlement_items.UNIQUE(participation_id)} 입니다. 배치 두 개가 동시에
+     * 돌면 둘 다 이 검사를 통과할 수 있기 때문입니다.
+     */
+    public void markSettled() {
+        requireStatus(STATUS_CONFIRMED, "구매확정(CONFIRMED) 참여만 정산할 수 있습니다.");
+        this.status = STATUS_SETTLED;
     }
 
     public void markShipping() {
