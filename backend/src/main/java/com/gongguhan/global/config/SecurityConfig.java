@@ -55,6 +55,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST,
                                 "/auth/signup", "/auth/login", "/auth/admins/login", "/auth/refresh").permitAll()
                         .requestMatchers(HttpMethod.GET,
+                                "/auth/email/availability",
                                 "/categories", "/group-buys", "/group-buys/*", "/product-images/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/withdrawal-restriction-reasons").hasRole("SELLER")
                         .requestMatchers("/actuator/health").permitAll()

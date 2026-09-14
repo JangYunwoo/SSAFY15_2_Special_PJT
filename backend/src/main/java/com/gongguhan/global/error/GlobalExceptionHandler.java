@@ -4,6 +4,8 @@ import com.gongguhan.global.common.ApiError;
 import com.gongguhan.global.common.ApiResponse;
 import com.gongguhan.global.common.TraceIdUtils;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,6 +41,27 @@ public class GlobalExceptionHandler {
                 fieldErrors);
         return ResponseEntity.status(ErrorCode.VALIDATION_ERROR.getStatus())
                 .body(ApiResponse.error(error, TraceIdUtils.from(request)));
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleConstraintViolationException(
+            ConstraintViolationException e, HttpServletRequest request) {
+        List<ApiError.FieldError> fieldErrors = e.getConstraintViolations().stream()
+                .map(v -> new ApiError.FieldError(lastNode(v), v.getMessage()))
+                .toList();
+        ApiError error = new ApiError(
+                ErrorCode.VALIDATION_ERROR.name(),
+                ErrorCode.VALIDATION_ERROR.getDefaultMessage(),
+                fieldErrors);
+        return ResponseEntity.status(ErrorCode.VALIDATION_ERROR.getStatus())
+                .body(ApiResponse.error(error, TraceIdUtils.from(request)));
+    }
+
+    /** {@code method.param} 형태의 propertyPath에서 마지막 노드(파라미터명)만 뽑는다. */
+    private static String lastNode(ConstraintViolation<?> violation) {
+        String path = violation.getPropertyPath().toString();
+        int lastDot = path.lastIndexOf('.');
+        return lastDot >= 0 ? path.substring(lastDot + 1) : path;
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
