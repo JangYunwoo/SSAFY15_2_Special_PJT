@@ -33,9 +33,24 @@ public interface SettlementRepository extends JpaRepository<Settlement, Long> {
     /** STL-03 상태 필터. 보류 건이나 이체 실패 건만 추리는 것이 주된 쓰임이다. */
     Page<Settlement> findByStatusOrderByCreatedAtDesc(String status, Pageable pageable);
 
-    /** STL-07 재처리 대상. 이체가 실패한 채 남아 있는 건. */
-    List<Settlement> findByTransferStatusOrderByCreatedAtAsc(String transferStatus,
-                                                             Pageable pageable);
+    /**
+     * 자동 재시도 대상 (STL-07).
+     *
+     * <p><b>{@code transfer_status = 'FAILED'} 만 고릅니다.</b> 응답을 받지 못한
+     * {@code 'UNKNOWN'} 건은 이체가 이미 일어났을 수 있어 자동으로 다시 보내면
+     * 판매자에게 두 번 지급됩니다. 그 건은 사람이 금융망 거래내역을 확인한 뒤 수동으로
+     * 처리합니다.
+     *
+     * <p>보류({@code HOLD})·완료 건도 제외합니다 — 상태가 {@code PENDING} 인 것만
+     * 실행 대상입니다.
+     */
+    @Query("""
+           select s from Settlement s
+            where s.status = 'PENDING'
+              and s.transferStatus = 'FAILED'
+            order by s.createdAt asc
+           """)
+    List<Settlement> findAutoRetryTargets(Pageable pageable);
 
     /** 공동구매의 정산 이력. 회차별로 얼마가 나갔는지 확인할 때 쓴다. */
     List<Settlement> findByGroupBuyIdOrderByRoundNoAsc(Long groupBuyId);

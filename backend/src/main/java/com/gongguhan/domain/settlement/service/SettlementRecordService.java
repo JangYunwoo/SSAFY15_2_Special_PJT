@@ -5,6 +5,7 @@ import com.gongguhan.domain.participation.entity.Participation;
 import com.gongguhan.domain.participation.repository.ParticipationRepository;
 import com.gongguhan.domain.settlement.entity.Settlement;
 import com.gongguhan.domain.settlement.entity.SettlementItem;
+import com.gongguhan.domain.settlement.event.SettlementCompletedEvent;
 import com.gongguhan.domain.settlement.repository.SettlementItemRepository;
 import com.gongguhan.domain.settlement.repository.SettlementRepository;
 import com.gongguhan.domain.settlement.repository.SettlementTargetRepository.SettlementTarget;
@@ -14,6 +15,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,15 +38,18 @@ public class SettlementRecordService {
     private final SettlementItemRepository settlementItemRepository;
     private final ParticipationRepository participationRepository;
     private final EscrowService escrowService;
+    private final ApplicationEventPublisher events;
 
     public SettlementRecordService(SettlementRepository settlementRepository,
                                    SettlementItemRepository settlementItemRepository,
                                    ParticipationRepository participationRepository,
-                                   EscrowService escrowService) {
+                                   EscrowService escrowService,
+                                   ApplicationEventPublisher events) {
         this.settlementRepository = settlementRepository;
         this.settlementItemRepository = settlementItemRepository;
         this.participationRepository = participationRepository;
         this.escrowService = escrowService;
+        this.events = events;
     }
 
     /**
@@ -98,5 +103,101 @@ public class SettlementRecordService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND,
                         "참여 건을 찾을 수 없습니다. participationId=" + participationId));
         participation.markSettled();
+    }
+
+    /**
+     * 이체 성공을 기록하고 판매자 알림 이벤트를 발행합니다 (STL-04).
+     *
+     * <p>이벤트는 커밋 이후에 소비되므로(소비 측이 {@code AFTER_COMMIT}), 알림 저장이
+     * 실패해도 이체 기록은 남습니다. 돈은 나갔는데 기록이 사라지는 쪽이 훨씬 위험합니다.
+     */
+    @Transactional
+    public Settlement completeTransfer(Long settlementId, String institutionTxNo,
+                                       Long withdrawalTxNo, Long depositTxNo,
+                                       LocalDateTime now) {
+        Settlement settlement = load(settlementId);
+        settlement.completeTransfer(institutionTxNo, withdrawalTxNo, depositTxNo, now);
+
+        events.publishEvent(new SettlementCompletedEvent(
+                settlementId, settlement.getSellerId(), settlement.getGroupBuyId(),
+                settlement.getRoundNo(), settlement.getSettlementAmount(), depositTxNo, now));
+
+        log.info("정산 이체 완료 settlementId={} sellerId={} 금액={} 입금거래번호={}",
+                settlementId, settlement.getSellerId(), settlement.getSettlementAmount(),
+                depositTxNo);
+        return settlement;
+    }
+
+    /** 이체 실패를 기록합니다. 자동 재시도 대상으로 남습니다 (STL-07). */
+    @Transactional
+    public Settlement failTransfer(Long settlementId, String reason) {
+        Settlement settlement = load(settlementId);
+        settlement.failTransfer(truncate(reason));
+        log.warn("정산 이체 실패 settlementId={} reason={}", settlementId, reason);
+        return settlement;
+    }
+
+    /**
+     * 이체 결과를 알 수 없음으로 기록합니다.
+     *
+     * <p>자동 재시도에서 빠집니다. 사람이 금융망 거래내역을 확인한 뒤 수동으로
+     * 재처리해야 합니다.
+     */
+    @Transactional
+    public Settlement markTransferUnknown(Long settlementId, String reason) {
+        Settlement settlement = load(settlementId);
+        settlement.markTransferUnknown(truncate(reason));
+        log.error("정산 이체 결과 불명 settlementId={} reason={} - 금융망 거래내역 확인 필요",
+                settlementId, reason);
+        return settlement;
+    }
+
+    /** 분쟁 등으로 정산을 보류합니다 (STL-05, FR-STL-13). */
+    @Transactional
+    public Settlement hold(Long settlementId, String reason) {
+        Settlement settlement = load(settlementId);
+        settlement.hold(truncate(reason));
+        log.info("정산 보류 settlementId={} reason={}", settlementId, reason);
+        return settlement;
+    }
+
+    /** 보류를 해제합니다 (STL-06). */
+    @Transactional
+    public Settlement releaseHold(Long settlementId) {
+        Settlement settlement = load(settlementId);
+        settlement.releaseHold();
+        log.info("정산 보류 해제 settlementId={}", settlementId);
+        return settlement;
+    }
+
+    /** 이체 실행 전 상태를 다시 확인해 잠급니다. 조회 시점과 실행 시점 사이의 변화를 막습니다. */
+    @Transactional(readOnly = true)
+    public Settlement loadExecutable(Long settlementId) {
+        Settlement settlement = load(settlementId);
+        if (!settlement.isExecutable()) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
+                    "실행할 수 없는 정산입니다. settlementId=%d status=%s"
+                            .formatted(settlementId, settlement.getStatus()));
+        }
+        if (settlement.isTransferOutcomeUnknown()) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
+                    "이전 이체 결과를 알 수 없습니다. 금융망 거래내역을 확인한 뒤 처리하세요. settlementId="
+                            + settlementId);
+        }
+        return settlement;
+    }
+
+    private Settlement load(Long settlementId) {
+        return settlementRepository.findById(settlementId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND,
+                        "정산 내역을 찾을 수 없습니다. settlementId=" + settlementId));
+    }
+
+    /** {@code transfer_fail_reason} 이 VARCHAR(255) 라 넘치면 저장 시점에 깨진다. */
+    private String truncate(String reason) {
+        if (reason == null) {
+            return "사유가 기록되지 않았습니다.";
+        }
+        return reason.length() <= 255 ? reason : reason.substring(0, 255);
     }
 }

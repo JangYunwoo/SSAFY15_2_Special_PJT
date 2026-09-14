@@ -54,8 +54,16 @@ public class Settlement {
     public static final String TRANSFER_PENDING = "PENDING";
     /** 이체 성공. */
     public static final String TRANSFER_COMPLETED = "COMPLETED";
-    /** 이체 실패. 재처리 대상 (STL-07). */
+    /** 이체 실패. 자동 재시도 대상 (STL-07). */
     public static final String TRANSFER_FAILED = "FAILED";
+    /**
+     * 이체 결과를 알 수 없음.
+     *
+     * <p>요청은 보냈는데 응답을 받지 못한 상태입니다. 금융망에서 이체가 <b>일어났을
+     * 수도</b> 있으므로 자동 재시도하면 이중 지급이 됩니다. 사람이 금융망 거래내역을
+     * 확인한 뒤 수동으로 재처리해야 합니다.
+     */
+    public static final String TRANSFER_UNKNOWN = "UNKNOWN";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -226,9 +234,36 @@ public class Settlement {
         this.transferFailReason = reason;
     }
 
+    /**
+     * 이체 결과를 알 수 없는 상태로 둡니다.
+     *
+     * <p>응답을 받지 못했을 때입니다. 이체가 실제로 일어났는지 모르므로 자동 재시도
+     * 대상에서 빼고, 사람이 금융망 거래내역을 확인해야 합니다.
+     */
+    public void markTransferUnknown(String reason) {
+        requireStatus(STATUS_PENDING, "이체 결과 불명 처리");
+        this.transferStatus = TRANSFER_UNKNOWN;
+        this.transferFailReason = reason;
+    }
+
     /** 이체를 실행할 수 있는 상태인지. 보류·완료 건은 실행 대상이 아닙니다. */
     public boolean isExecutable() {
         return STATUS_PENDING.equals(status);
+    }
+
+    /**
+     * 자동 재시도 대상인지.
+     *
+     * <p>결과를 모르는 건({@link #TRANSFER_UNKNOWN})은 제외합니다 — 이미 이체됐을 수
+     * 있어 자동으로 다시 보내면 이중 지급입니다.
+     */
+    public boolean isAutoRetryable() {
+        return isExecutable() && TRANSFER_FAILED.equals(transferStatus);
+    }
+
+    /** 결과를 알 수 없어 사람 확인이 필요한 상태인지. */
+    public boolean isTransferOutcomeUnknown() {
+        return TRANSFER_UNKNOWN.equals(transferStatus);
     }
 
     public boolean isCompleted() {
