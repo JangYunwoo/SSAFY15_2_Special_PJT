@@ -202,4 +202,119 @@ class EscrowTest {
         assertEquals("REFUNDED", EscrowStatus.REFUNDED.name());
         assertEquals(3, EscrowStatus.values().length);
     }
+
+    // ------------------------------------------------------------------
+    // 부분 환불 (FR-ESC-05)
+    // ------------------------------------------------------------------
+
+    /**
+     * 이 테스트가 지키는 것이 부분 환불의 존재 이유입니다. 여기서 종료시키면 판매자가
+     * 받아야 할 12,000원이 정산 대상에서 조용히 사라집니다.
+     */
+    @Test
+    @DisplayName("일부만 환불하면 보관 상태를 유지하고 잔액이 남는다 - 남은 돈은 정산 대상이다")
+    void partialRefundKeepsRemainderHeld() {
+        Escrow escrow = held();
+
+        escrow.refundPartially(42_000L, LATER);
+
+        assertTrue(escrow.isHeld(), "잔액이 있으면 보관 상태를 유지해야 한다");
+        assertEquals(EscrowStatus.HELD, escrow.getStatus());
+        assertEquals(42_000L, escrow.getRefundedAmount());
+        assertEquals(12_000L, escrow.heldAmount());
+        assertNull(escrow.getRefundedAt(), "아직 환불로 끝난 것이 아니다");
+    }
+
+    /**
+     * 불변식 점검이 {@code escrows.amount} 와 {@code participations.total_amount} 를
+     * 비교하므로, 부분 환불로 amount 를 줄이면 모든 부분 환불 건이 오류로 잡힙니다.
+     */
+    @Test
+    @DisplayName("부분 환불해도 보관 시작 금액은 줄지 않는다 - 불변식 점검 기준이다")
+    void partialRefundDoesNotShrinkOriginalAmount() {
+        Escrow escrow = held();
+
+        escrow.refundPartially(42_000L, LATER);
+
+        assertEquals(AMOUNT, escrow.getAmount());
+    }
+
+    @Test
+    @DisplayName("나눠서 환불할 수 있고 누계가 쌓인다")
+    void partialRefundsAccumulate() {
+        Escrow escrow = held();
+
+        escrow.refundPartially(20_000L, LATER);
+        escrow.refundPartially(10_000L, LATER);
+
+        assertEquals(30_000L, escrow.getRefundedAmount());
+        assertEquals(24_000L, escrow.heldAmount());
+        assertTrue(escrow.isHeld());
+    }
+
+    @Test
+    @DisplayName("누계가 보관 금액에 도달하면 환불로 종료된다")
+    void refundsFullyWhenAccumulatedToTotal() {
+        Escrow escrow = held();
+
+        escrow.refundPartially(42_000L, LATER);
+        escrow.refundPartially(12_000L, LATER);
+
+        assertEquals(EscrowStatus.REFUNDED, escrow.getStatus());
+        assertEquals(0L, escrow.heldAmount());
+        assertEquals(LATER, escrow.getRefundedAt());
+    }
+
+    /** 넘으면 받은 적 없는 돈을 돌려주게 됩니다. */
+    @Test
+    @DisplayName("누계가 보관 금액을 넘는 환불은 거부한다")
+    void rejectsRefundBeyondHeldAmount() {
+        Escrow escrow = held();
+        escrow.refundPartially(42_000L, LATER);
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> escrow.refundPartially(13_000L, LATER));
+
+        assertEquals(ErrorCode.INVALID_STATE_TRANSITION, exception.getErrorCode());
+        assertEquals(42_000L, escrow.getRefundedAmount(), "실패한 요청이 누계를 바꾸면 안 된다");
+    }
+
+    @Test
+    @DisplayName("0원 이하 부분 환불은 거부한다")
+    void rejectsNonPositivePartialRefund() {
+        assertThrows(BusinessException.class, () -> held().refundPartially(0L, LATER));
+        assertThrows(BusinessException.class, () -> held().refundPartially(-1L, LATER));
+    }
+
+    @Test
+    @DisplayName("전액 환불은 누계도 전액으로 채운다 - 환불 총액 집계 기준이다")
+    void fullRefundFillsRefundedAmount() {
+        Escrow escrow = held();
+
+        escrow.refund(LATER);
+
+        assertEquals(AMOUNT, escrow.getRefundedAmount());
+        assertEquals(0L, escrow.heldAmount());
+    }
+
+    @Test
+    @DisplayName("부분 환불 후 남은 금액은 구매확정 시 해제된다")
+    void releasesRemainderAfterPartialRefund() {
+        Escrow escrow = held();
+        escrow.refundPartially(42_000L, LATER);
+
+        escrow.release(CONFIRMED, LATER);
+
+        assertEquals(EscrowStatus.RELEASED, escrow.getStatus());
+        assertEquals(12_000L, escrow.heldAmount(), "해제되는 금액은 잔액이다");
+    }
+
+    @Test
+    @DisplayName("이미 환불로 끝난 건은 부분 환불할 수 없다")
+    void rejectsPartialRefundAfterTermination() {
+        Escrow escrow = held();
+        escrow.refund(LATER);
+
+        assertThrows(BusinessException.class, () -> escrow.refundPartially(1_000L, LATER));
+    }
 }
