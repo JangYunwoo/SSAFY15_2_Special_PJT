@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router'
 
-import { useSessionStore } from '@/features/auth/sessionStore'
+import { useIsSeller, useSessionStore } from '@/features/auth/sessionStore'
 
 /**
  * 로그인만 확인하는 라우트 가드.
@@ -24,7 +24,7 @@ export function RequireAuth() {
  * 계정 자체는 통합이므로 역할이 아니라 `isSeller` 로 판단합니다.
  */
 export function RequireSeller() {
-  const isSeller = useSessionStore((state) => state.isSeller)
+  const isSeller = useIsSeller()
 
   if (!isSeller) return <Navigate to="/seller/verify" replace />
   return <Outlet />

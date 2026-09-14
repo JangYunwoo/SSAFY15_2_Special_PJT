@@ -1,21 +1,37 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
+import type { SellerProfile } from '@/entities/auth/model'
+import { authQueries } from '@/entities/auth/queries'
 import { SETTLEMENT_STATUS_DISPLAY } from '@/entities/model'
 import { settlementQueries } from '@/entities/settlement/queries'
+import { BACKEND_FEATURES } from '@/shared/config/backendFeatures'
 import { POLICY_DEFAULTS } from '@/shared/config/policy'
 import { date, groupBuyNo, number, percent, won } from '@/shared/lib/format'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
-import { Button } from '@/shared/ui/Button'
 import { DataRow, RowGroup, TotalRow } from '@/shared/ui/DataRow'
 import { Panel } from '@/shared/ui/Panel'
 import { StateChip } from '@/shared/ui/StateChip'
-import { EmptyState, QueryBoundary } from '@/shared/ui/states'
+import { EmptyState, PendingBackendState, QueryBoundary } from '@/shared/ui/states'
 
+/** 정산 목록·상세를 부를 수 있는지. 백엔드 컨트롤러가 생기면 플래그만 켜면 됩니다. */
+const SETTLEMENTS_READY = BACKEND_FEATURES.settlements
+
+/**
+ * 정산 관리.
+ *
+ * STL-01·02 는 백엔드에 아직 컨트롤러가 없습니다(`domain/settlement` 에
+ * package-info.java 뿐). 금액을 지어내면 판매자가 실제 지급액으로 오해하므로
+ * 조회 자체를 `enabled` 로 막고 준비 중임을 밝힙니다. 표를 그리는 코드는 그대로
+ * 두어 엔드포인트가 붙는 즉시 되살아납니다.
+ *
+ * 정산 계좌는 SEL-06(구현 완료)으로 실제 등록값을 불러옵니다.
+ */
 export default function SellerSettlementsPage() {
   useDocumentTitle('정산 관리')
 
-  const list = useQuery(settlementQueries.list({ size: 100 }))
+  // 훅을 조건부로 부르지 않고 enabled 로 요청만 막습니다 (TanStack Query 권장).
+  const list = useQuery({ ...settlementQueries.list({ size: 100 }), enabled: SETTLEMENTS_READY })
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const items = list.data?.items ?? []
@@ -56,77 +72,88 @@ export default function SellerSettlementsPage() {
               </ul>
             </div>
 
-            <QueryBoundary query={list}>
-              {(page) =>
-                page.items.length === 0 ? (
-                  <EmptyState>정산 내역이 없습니다.</EmptyState>
-                ) : (
-                  <table className="list fixed mt24">
-                    <colgroup>
-                      <col style={{ width: '28%' }} />
-                      <col style={{ width: '13%' }} />
-                      <col style={{ width: '19%' }} />
-                      <col style={{ width: '13%' }} />
-                      <col style={{ width: '27%' }} />
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th>공동구매</th>
-                        <th>참여</th>
-                        <th>정산 가능 시점</th>
-                        <th>상태</th>
-                        <th className="num">정산 금액</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {page.items.map((item) => {
-                        const display = SETTLEMENT_STATUS_DISPLAY[item.status]
-                        return (
-                          <tr key={item.settlementId}>
-                            <td>
-                              <button
-                                type="button"
-                                className="tlink"
-                                onClick={() => {
-                                  setSelectedId(item.settlementId)
-                                }}
-                              >
-                                <b>{item.productName}</b>
-                              </button>
-                              <br />
-                              <span className="small muted">{groupBuyNo(item.groupBuyId)}</span>
-                            </td>
-                            <td>
-                              {item.paidCount} / {item.targetCount}명
-                            </td>
-                            <td>
-                              {item.settlementEligibleAt === null
-                                ? '구매확정 후 확정'
-                                : date(item.settlementEligibleAt)}
-                            </td>
-                            <td>
-                              <StateChip tone={display.tone}>{display.label}</StateChip>
-                            </td>
-                            <td className="num">
-                              <b>{won(item.netAmount)}</b>
-                              <br />
-                              <span className="small muted">
-                                {item.confirmedCount > 0
-                                  ? `확정 ${String(item.confirmedCount)}건 기준`
-                                  : '전원 확정 기준'}
-                              </span>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                )
-              }
-            </QueryBoundary>
+            {SETTLEMENTS_READY ? (
+              <QueryBoundary query={list}>
+                {(page) =>
+                  page.items.length === 0 ? (
+                    <EmptyState>정산 내역이 없습니다.</EmptyState>
+                  ) : (
+                    <table className="list fixed mt24">
+                      <colgroup>
+                        <col style={{ width: '28%' }} />
+                        <col style={{ width: '13%' }} />
+                        <col style={{ width: '19%' }} />
+                        <col style={{ width: '13%' }} />
+                        <col style={{ width: '27%' }} />
+                      </colgroup>
+                      <thead>
+                        <tr>
+                          <th>공동구매</th>
+                          <th>참여</th>
+                          <th>정산 가능 시점</th>
+                          <th>상태</th>
+                          <th className="num">정산 금액</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {page.items.map((item) => {
+                          const display = SETTLEMENT_STATUS_DISPLAY[item.status]
+                          return (
+                            <tr key={item.settlementId}>
+                              <td>
+                                <button
+                                  type="button"
+                                  className="tlink"
+                                  onClick={() => {
+                                    setSelectedId(item.settlementId)
+                                  }}
+                                >
+                                  <b>{item.productName}</b>
+                                </button>
+                                <br />
+                                <span className="small muted">{groupBuyNo(item.groupBuyId)}</span>
+                              </td>
+                              <td>
+                                {item.paidCount} / {item.targetCount}명
+                              </td>
+                              <td>
+                                {item.settlementEligibleAt === null
+                                  ? '구매확정 후 확정'
+                                  : date(item.settlementEligibleAt)}
+                              </td>
+                              <td>
+                                <StateChip tone={display.tone}>{display.label}</StateChip>
+                              </td>
+                              <td className="num">
+                                <b>{won(item.netAmount)}</b>
+                                <br />
+                                <span className="small muted">
+                                  {item.confirmedCount > 0
+                                    ? `확정 ${String(item.confirmedCount)}건 기준`
+                                    : '전원 확정 기준'}
+                                </span>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  )
+                }
+              </QueryBoundary>
+            ) : (
+              <div className="mt24">
+                <PendingBackendState>
+                  정산 조회(STL-01·02) 엔드포인트가 아직 없습니다. 에스크로 보관 현황은 공동구매
+                  상세의 에스크로 패널(ESC-02)에서 실제 값으로 확인할 수 있습니다.
+                </PendingBackendState>
+              </div>
+            )}
           </Panel>
 
-          {activeId !== null && <SettlementDetailPanel settlementId={activeId} />}
+          {SETTLEMENTS_READY && activeId !== null && (
+            <SettlementDetailPanel settlementId={activeId} />
+          )}
 
           <Panel className="mt16" title="수수료 안내" description="공구한 정산 기준">
             <DataRow label="플랫폼 수수료">
@@ -142,37 +169,66 @@ export default function SellerSettlementsPage() {
         </div>
 
         <aside>
-          <Panel title="정산 요약" description="정산 예정 금액">
-            <div className="amount">
-              {won(pending.reduce((total, item) => total + item.netAmount, 0))}
-            </div>
+          {SETTLEMENTS_READY && (
+            <Panel title="정산 요약" description="정산 예정 금액">
+              <div className="amount">
+                {won(pending.reduce((total, item) => total + item.netAmount, 0))}
+              </div>
 
-            <RowGroup>현재</RowGroup>
-            <DataRow label="정산 예정" hint={pending[0]?.productName}>
-              {pending.reduce((total, item) => total + item.confirmedCount, 0)}건 ·{' '}
-              {won(pending.reduce((total, item) => total + item.netAmount, 0))}
-            </DataRow>
+              <RowGroup>현재</RowGroup>
+              <DataRow label="정산 예정" hint={pending[0]?.productName}>
+                {pending.reduce((total, item) => total + item.confirmedCount, 0)}건 ·{' '}
+                {won(pending.reduce((total, item) => total + item.netAmount, 0))}
+              </DataRow>
 
-            <RowGroup>누적</RowGroup>
-            <DataRow label="지급 완료" hint={completed[0]?.productName}>
-              {completed.reduce((total, item) => total + item.confirmedCount, 0)}건 ·{' '}
-              {won(completed.reduce((total, item) => total + item.netAmount, 0))}
-            </DataRow>
-          </Panel>
+              <RowGroup>누적</RowGroup>
+              <DataRow label="지급 완료" hint={completed[0]?.productName}>
+                {completed.reduce((total, item) => total + item.confirmedCount, 0)}건 ·{' '}
+                {won(completed.reduce((total, item) => total + item.netAmount, 0))}
+              </DataRow>
+            </Panel>
+          )}
 
-          <Panel className="mt16" title="정산 계좌" description="등록된 입금 계좌">
-            <p className="para">
-              OO은행 000-0000-0000
-              <br />
-              예금주 TECHSTORE
-            </p>
-            <Button variant="ghost" block>
-              계좌 변경하기
-            </Button>
-          </Panel>
+          <SettlementAccountPanel className={SETTLEMENTS_READY ? 'mt16' : undefined} />
         </aside>
       </div>
     </section>
+  )
+}
+
+/** SEL-06 으로 실제 등록된 정산 계좌를 보여줍니다. */
+function SettlementAccountPanel({ className }: { className?: string | undefined }) {
+  const profile = useQuery(authQueries.sellerMe())
+
+  return (
+    <Panel className={className} title="정산 계좌" description="등록된 입금 계좌">
+      <QueryBoundary query={profile} loadingLabel="정산 계좌를 불러오는 중입니다.">
+        {(seller) => <SettlementAccount seller={seller} />}
+      </QueryBoundary>
+    </Panel>
+  )
+}
+
+function SettlementAccount({ seller }: { seller: SellerProfile }) {
+  if (seller.ssafyAccountNo === null) {
+    return (
+      <p className="small muted" style={{ marginBottom: 0 }}>
+        등록된 정산 계좌가 없습니다. 계좌를 등록해야 정산금을 받을 수 있습니다.
+      </p>
+    )
+  }
+
+  return (
+    <>
+      <DataRow label="계좌번호">{seller.ssafyAccountNo}</DataRow>
+      <DataRow label="예금주">{seller.accountHolder ?? '-'}</DataRow>
+      <DataRow label="예금주 확인">{seller.accountVerified ? '완료' : '미확인'}</DataRow>
+      <DataRow label="상호">{seller.businessName}</DataRow>
+      <p className="small muted mt16" style={{ marginBottom: 0 }}>
+        SSAFY 금융망 계좌로 지급합니다. 계좌 변경(SEL-07)은 백엔드 연동 후 이 화면에서 할 수
+        있습니다.
+      </p>
+    </>
   )
 }
 

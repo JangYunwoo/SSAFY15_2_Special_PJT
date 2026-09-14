@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router'
 
@@ -22,8 +24,14 @@ export default function ConfirmPage() {
 
   const query = useQuery(participationQueries.detail(participationId))
 
+  /**
+   * 반품 제한 고지 동의 (FR-CFM).
+   * 백엔드가 noticeAgreed 없이는 확정을 거부하므로, 체크 없이 요청을 보내지 않습니다.
+   */
+  const [noticeAgreed, setNoticeAgreed] = useState(false)
+
   const confirm = useMutation({
-    mutationFn: () => participationApi.confirm(participationId),
+    mutationFn: () => participationApi.confirm(participationId, noticeAgreed),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.participations.all })
       await navigate('/orders', { replace: true })
@@ -87,10 +95,26 @@ export default function ConfirmPage() {
                 </p>
               )}
 
+              {/* .agree 안에 있어야 체크박스가 다른 동의 화면과 같은 모양이 됩니다. */}
+              <div className="agree mt16">
+                <label className="agree-row">
+                  <input
+                    type="checkbox"
+                    checked={noticeAgreed}
+                    onChange={(event) => {
+                      setNoticeAgreed(event.target.checked)
+                    }}
+                  />
+                  <span>
+                    구매확정 후에는 반품이 제한될 수 있다는 안내를 확인했습니다 <b>필수</b>
+                  </span>
+                </label>
+              </div>
+
               <Button
                 block
                 className="mt24"
-                disabled={confirm.isPending || !detail.canConfirm}
+                disabled={confirm.isPending || !detail.canConfirm || !noticeAgreed}
                 onClick={() => {
                   confirm.mutate()
                 }}

@@ -1,5 +1,5 @@
 import { api } from '@/shared/api/client'
-import { escrowSchema } from '@/shared/api/schemas'
+import { escrowSchema, participationSummarySchema } from '@/shared/api/schemas'
 import type { Id, NoContent } from '@/shared/api/types'
 
 import type {
@@ -8,26 +8,41 @@ import type {
   ParticipationDetail,
   ParticipationListParams,
   ParticipationSummary,
+  PurchaseConfirmResult,
 } from './model'
 
 /** 참여·구매확정·에스크로 API (PAR-01 ~ ESC-01) */
 export const participationApi = {
   /** PAR-01 */
   list: (params: ParticipationListParams = {}) =>
-    api.getPage<ParticipationSummary>('/users/me/participations', { query: { ...params } }),
+    api.getPage<ParticipationSummary>('/users/me/participations', {
+      query: { ...params },
+      schema: participationSummarySchema,
+    }),
 
   /** PAR-02 */
   detail: (participationId: Id) =>
     api.get<ParticipationDetail>(`/users/me/participations/${participationId}`),
 
-  /** PAR-03 모집 완료 전 참여 취소·환불 개시 */
+  /**
+   * PAR-03 모집 완료 전 참여 취소·환불 개시.
+   *
+   * 백엔드에 컨트롤러가 아직 없습니다. 화면에서는
+   * `BACKEND_FEATURES.participationCancel` 로 버튼을 감춰두었고, 컨트롤러가
+   * 생기면 플래그만 켜면 됩니다.
+   */
   cancel: (participationId: Id) =>
     api.post<NoContent>(`/users/me/participations/${participationId}/cancel`),
 
-  /** CFM-01 배송완료 건 수동 구매확정. 취소할 수 없습니다. */
-  confirm: (participationId: Id) =>
-    api.post<ParticipationDetail>(`/users/me/participations/${participationId}/confirm`, {
-      confirmed: true,
+  /**
+   * CFM-01 배송완료 건 수동 구매확정. 취소할 수 없습니다.
+   *
+   * 반품 제한 고지에 동의해야만 확정할 수 있어(FR-CFM) 동의 여부를 함께 보냅니다.
+   * 백엔드 PurchaseConfirmRequest 의 필드명이 `noticeAgreed` 입니다.
+   */
+  confirm: (participationId: Id, noticeAgreed: boolean) =>
+    api.post<PurchaseConfirmResult>(`/users/me/participations/${participationId}/confirm`, {
+      noticeAgreed,
     }),
 
   /** CFM-02 미배송·상품 불일치 이의제기 */

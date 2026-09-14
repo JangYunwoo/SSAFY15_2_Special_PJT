@@ -3,6 +3,8 @@ import type { ApiErrorBody, FieldError } from './types'
 /** 명세서 16장의 주요 오류 코드 */
 export const API_ERROR_CODES = [
   'VALIDATION_ERROR',
+  'EMAIL_ALREADY_EXISTS',
+  'SSAFY_EMAIL_UNAVAILABLE',
   'AUTHENTICATION_REQUIRED',
   'ROLE_ACCESS_DENIED',
   'RESOURCE_ACCESS_DENIED',
@@ -26,6 +28,9 @@ export type ApiErrorCode = (typeof API_ERROR_CODES)[number]
 
 /** 화면에 그대로 노출해도 되는 안내 문구 */
 const FALLBACK_MESSAGE: Record<string, string> = {
+  EMAIL_ALREADY_EXISTS: '이미 가입된 이메일입니다.',
+  SSAFY_EMAIL_UNAVAILABLE:
+    '이 이메일은 금융망에 이미 등록되어 사용할 수 없습니다. 다른 이메일을 사용해주세요.',
   AUTHENTICATION_REQUIRED: '로그인이 필요합니다. 다시 로그인해 주세요.',
   ROLE_ACCESS_DENIED: '접근 권한이 없는 메뉴입니다.',
   RESOURCE_ACCESS_DENIED: '다른 사용자의 자원에는 접근할 수 없습니다.',

@@ -13,7 +13,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    // 백엔드가 붙으면 VITE_API_MOCKING=false 로 두고 이 프록시를 사용합니다.
+    // 백엔드(context-path: /api/v1)로 그대로 넘깁니다.
     proxy: {
       '/api': {
         target: process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8080',

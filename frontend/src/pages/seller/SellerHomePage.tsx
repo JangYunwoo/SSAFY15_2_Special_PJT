@@ -5,7 +5,6 @@ import { GROUP_BUY_STATUS_DISPLAY } from '@/entities/model'
 import type { SellerGroupBuySummary } from '@/entities/groupBuy/model'
 import { groupBuyQueries } from '@/entities/groupBuy/queries'
 import { returnQueries } from '@/entities/returnRequest/queries'
-import { settlementQueries } from '@/entities/settlement/queries'
 import { POLICY_DEFAULTS } from '@/shared/config/policy'
 import { date, dday, groupBuyNo, number, percent, remaining, won } from '@/shared/lib/format'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
@@ -20,12 +19,14 @@ export default function SellerHomePage() {
   useDocumentTitle('공동구매 관리')
 
   const groupBuys = useQuery(groupBuyQueries.sellerList({ size: 100 }))
-  const settlements = useQuery(settlementQueries.list({ size: 100 }))
   const returns = useQuery(returnQueries.sellerList({ size: 100 }))
 
   const recruiting = groupBuys.data?.items.filter((item) => item.status === 'RECRUITING') ?? []
-  const pendingSettlement =
-    settlements.data?.items.filter((item) => item.status !== 'COMPLETED') ?? []
+  /*
+   * 에스크로 보관액 추정치입니다. 정산 조회(STL-01)가 백엔드에 없어 결제 건수로
+   * 계산합니다. 확정된 금액은 공동구매 상세의 에스크로 패널(ESC-02)이 서버에서
+   * 받아 보여줍니다.
+   */
   const escrowHeld = recruiting.reduce(
     (total, item) => total + (item.unitShareAmount + item.shippingFee) * item.paidCount,
     0,
@@ -128,9 +129,8 @@ export default function SellerHomePage() {
             <DataRow label="에스크로 보관중" hint="모집 중">
               {recruiting.reduce((total, item) => total + item.paidCount, 0)}건 · {won(escrowHeld)}
             </DataRow>
-            <DataRow label="정산 예정" hint={pendingSettlement[0]?.productName}>
-              {pendingSettlement.reduce((total, item) => total + item.confirmedCount, 0)}건 ·{' '}
-              {won(pendingSettlement.reduce((total, item) => total + item.netAmount, 0))}
+            <DataRow label="구매확정" hint="정산 대상">
+              {recruiting.reduce((total, item) => total + item.confirmedCount, 0)}건
             </DataRow>
             <DataRow label="반품 진행">{openReturns.length + pickupReturns.length}건</DataRow>
           </Panel>

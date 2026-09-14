@@ -59,14 +59,20 @@ export function useSignup() {
   })
 }
 
+/**
+ * AUTH-04 로그아웃.
+ *
+ * 백엔드에 폐기 엔드포인트가 아직 없어 서버 호출 없이 클라이언트 토큰만
+ * 버립니다. 컨트롤러가 생기면 여기서 authApi.logout() 을 먼저 부르고
+ * backendFeatures.logout 을 true 로 바꾸면 됩니다.
+ */
 export function useLogout() {
   const signOut = useSessionStore((state) => state.signOut)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: () => authApi.logout(),
-    // 서버 폐기가 실패해도 클라이언트 세션은 반드시 정리합니다.
+    mutationFn: () => Promise.resolve(),
     onSettled: async () => {
       signOut()
       queryClient.clear()
