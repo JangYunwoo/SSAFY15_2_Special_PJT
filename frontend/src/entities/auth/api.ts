@@ -16,6 +16,13 @@ import type {
 export const authApi = {
   /** AUTH-01 통합 회원가입 */
   signup: (body: SignupRequest) => api.post<SignupResult>('/auth/signup', body),
+  /**
+   * AUTH-05 이메일 중복확인. 가입 전 중복확인 버튼용.
+   * available=true 면 아직 가입되지 않은 이메일이라 사용 가능.
+   * (SSAFY 금융망 선점 충돌은 여기서 걸러지지 않고 가입 시점에만 판별됨)
+   */
+  checkEmailAvailability: (email: string) =>
+    api.get<{ available: boolean }>('/auth/email/availability', { query: { email } }),
   /** AUTH-02 통합 로그인 */
   login: (body: LoginRequest) =>
     api.post<AuthTokens>('/auth/login', body, { schema: authTokensSchema }),
