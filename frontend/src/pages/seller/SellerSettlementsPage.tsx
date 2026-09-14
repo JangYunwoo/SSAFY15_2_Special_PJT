@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import type { SellerProfile } from '@/entities/auth/model'
 import { authQueries } from '@/entities/auth/queries'
-import { SETTLEMENT_STATUS_DISPLAY } from '@/entities/model'
+import { SETTLEMENT_STATUS_DISPLAY, TRANSFER_STATUS_DISPLAY } from '@/entities/model'
 import { settlementQueries } from '@/entities/settlement/queries'
 import { BACKEND_FEATURES } from '@/shared/config/backendFeatures'
 import { POLICY_DEFAULTS } from '@/shared/config/policy'
@@ -20,10 +20,9 @@ const SETTLEMENTS_READY = BACKEND_FEATURES.settlements
 /**
  * 정산 관리.
  *
- * STL-01·02 는 백엔드에 아직 컨트롤러가 없습니다(`domain/settlement` 에
- * package-info.java 뿐). 금액을 지어내면 판매자가 실제 지급액으로 오해하므로
- * 조회 자체를 `enabled` 로 막고 준비 중임을 밝힙니다. 표를 그리는 코드는 그대로
- * 두어 엔드포인트가 붙는 즉시 되살아납니다.
+ * STL-01~03 컨트롤러가 2026-09-14 에 들어와(`SellerSettlementController`) 실제
+ * 값으로 그립니다. 플래그를 남겨둔 것은 새로 붙은 API 라 문제가 생기면 바로
+ * 되돌릴 수 있게 하기 위해서입니다.
  *
  * 정산 계좌는 SEL-06(구현 완료)으로 실제 등록값을 불러옵니다.
  */
@@ -41,7 +40,7 @@ export default function SellerSettlementsPage() {
     items[0]?.settlementId ??
     null
 
-  const pending = items.filter((item) => item.status === 'PENDING' || item.status === 'PARTIAL')
+  const pending = items.filter((item) => item.status === 'PENDING')
   const completed = items.filter((item) => item.status === 'COMPLETED')
 
   return (
@@ -80,24 +79,25 @@ export default function SellerSettlementsPage() {
                   ) : (
                     <table className="list fixed mt24">
                       <colgroup>
-                        <col style={{ width: '28%' }} />
-                        <col style={{ width: '13%' }} />
-                        <col style={{ width: '19%' }} />
-                        <col style={{ width: '13%' }} />
-                        <col style={{ width: '27%' }} />
+                        <col style={{ width: '26%' }} />
+                        <col style={{ width: '12%' }} />
+                        <col style={{ width: '14%' }} />
+                        <col style={{ width: '22%' }} />
+                        <col style={{ width: '26%' }} />
                       </colgroup>
                       <thead>
                         <tr>
                           <th>공동구매</th>
-                          <th>참여</th>
-                          <th>정산 가능 시점</th>
-                          <th>상태</th>
+                          <th>구매확정</th>
+                          <th>정산 상태</th>
+                          <th>이체</th>
                           <th className="num">정산 금액</th>
                         </tr>
                       </thead>
                       <tbody>
                         {page.items.map((item) => {
                           const display = SETTLEMENT_STATUS_DISPLAY[item.status]
+                          const transfer = TRANSFER_STATUS_DISPLAY[item.transferStatus]
                           return (
                             <tr key={item.settlementId}>
                               <td>
@@ -108,30 +108,27 @@ export default function SellerSettlementsPage() {
                                     setSelectedId(item.settlementId)
                                   }}
                                 >
-                                  <b>{item.productName}</b>
+                                  <b>{groupBuyNo(item.groupBuyId)}</b>
                                 </button>
                                 <br />
-                                <span className="small muted">{groupBuyNo(item.groupBuyId)}</span>
+                                {/* 상품명이 정산 응답에 없어 회차로 구분합니다. */}
+                                <span className="small muted">{item.roundNo}회차</span>
                               </td>
-                              <td>
-                                {item.paidCount} / {item.targetCount}명
-                              </td>
-                              <td>
-                                {item.settlementEligibleAt === null
-                                  ? '구매확정 후 확정'
-                                  : date(item.settlementEligibleAt)}
-                              </td>
+                              <td>{item.confirmedCount}건</td>
                               <td>
                                 <StateChip tone={display.tone}>{display.label}</StateChip>
+                              </td>
+                              <td>
+                                <StateChip tone={transfer.tone}>{transfer.label}</StateChip>
+                                <br />
+                                <span className="small muted">
+                                  {item.transferredAt === null ? '-' : date(item.transferredAt)}
+                                </span>
                               </td>
                               <td className="num">
                                 <b>{won(item.netAmount)}</b>
                                 <br />
-                                <span className="small muted">
-                                  {item.confirmedCount > 0
-                                    ? `확정 ${String(item.confirmedCount)}건 기준`
-                                    : '전원 확정 기준'}
-                                </span>
+                                <span className="small muted">수수료 {won(item.platformFee)} 차감</span>
                               </td>
                             </tr>
                           )
@@ -176,13 +173,13 @@ export default function SellerSettlementsPage() {
               </div>
 
               <RowGroup>현재</RowGroup>
-              <DataRow label="정산 예정" hint={pending[0]?.productName}>
+              <DataRow label="정산 예정" hint={pending[0] === undefined ? undefined : groupBuyNo(pending[0].groupBuyId)}>
                 {pending.reduce((total, item) => total + item.confirmedCount, 0)}건 ·{' '}
                 {won(pending.reduce((total, item) => total + item.netAmount, 0))}
               </DataRow>
 
               <RowGroup>누적</RowGroup>
-              <DataRow label="지급 완료" hint={completed[0]?.productName}>
+              <DataRow label="지급 완료" hint={completed[0] === undefined ? undefined : groupBuyNo(completed[0].groupBuyId)}>
                 {completed.reduce((total, item) => total + item.confirmedCount, 0)}건 ·{' '}
                 {won(completed.reduce((total, item) => total + item.netAmount, 0))}
               </DataRow>
@@ -237,17 +234,18 @@ function SettlementDetailPanel({ settlementId }: { settlementId: string }) {
 
   return (
     <QueryBoundary query={query}>
-      {(detail) => {
-        const excluded = detail.items.filter((item) => !item.included)
+      {/* STL-02 는 정산 레코드를 settlement 아래에 중첩해서 돌려줍니다. */}
+      {({ settlement, items }) => {
+        const excluded = items.filter((item) => !item.included)
+        const transfer = TRANSFER_STATUS_DISPLAY[settlement.transferStatus]
 
         return (
           <Panel
             className="mt16"
-            title={`정산 상세 · ${detail.productName}`}
-            description={`${groupBuyNo(detail.groupBuyId)} · 참여 ${String(detail.paidCount)}건 중 확정 ${String(detail.confirmedCount)}건`}
+            title={`정산 상세 · ${groupBuyNo(settlement.groupBuyId)}`}
+            description={`${String(settlement.roundNo)}회차 · 구매확정 ${String(settlement.confirmedCount)}건`}
           >
-            <DataRow label="참여 건수">{detail.paidCount}건</DataRow>
-            <DataRow label="구매확정 건수">{detail.confirmedCount}건</DataRow>
+            <DataRow label="구매확정 건수">{settlement.confirmedCount}건</DataRow>
             <DataRow
               label={
                 <>
@@ -266,9 +264,9 @@ function SettlementDetailPanel({ settlementId }: { settlementId: string }) {
                 </>
               }
             >
-              {won(detail.shareAmountTotal)}
+              {won(settlement.shareAmountTotal)}
             </DataRow>
-            <DataRow label="배송비 합계">{won(detail.shippingFeeTotal)}</DataRow>
+            <DataRow label="배송비 합계">{won(settlement.shippingFeeTotal)}</DataRow>
             <DataRow
               label={
                 <>
@@ -276,22 +274,30 @@ function SettlementDetailPanel({ settlementId }: { settlementId: string }) {
                 </>
               }
             >
-              {won(detail.roundingSurplus)}
+              {won(settlement.roundingSurplus)}
             </DataRow>
             <DataRow
               label={
                 <>
                   플랫폼 수수료{' '}
-                  <span className="small muted">분담금의 {percent(detail.platformFeeRate)}</span>
+                  <span className="small muted">분담금의 {percent(settlement.platformFeeRate)}</span>
                 </>
               }
             >
-              − {won(detail.platformFee)}
+              − {won(settlement.platformFee)}
             </DataRow>
-            <TotalRow label="정산금액">{won(detail.netAmount)}</TotalRow>
+            <TotalRow label="정산금액">{won(settlement.netAmount)}</TotalRow>
 
-            {detail.holdReason !== null && (
-              <p className="ai-hint fail">보류 사유 · {detail.holdReason}</p>
+            <DataRow className="mt16" label="이체 상태">
+              <StateChip tone={transfer.tone}>{transfer.label}</StateChip>
+              {settlement.transferredAt !== null && (
+                <span className="small muted"> · {date(settlement.transferredAt)}</span>
+              )}
+            </DataRow>
+
+            {/* 보류 사유 필드는 응답에 없습니다. 실패했을 때 이유를 알 수 있는 건 이체 쪽뿐입니다. */}
+            {settlement.transferFailReason !== null && (
+              <p className="ai-hint fail">이체 실패 · {settlement.transferFailReason}</p>
             )}
 
             <p className="small muted mt16" style={{ marginBottom: 0 }}>
