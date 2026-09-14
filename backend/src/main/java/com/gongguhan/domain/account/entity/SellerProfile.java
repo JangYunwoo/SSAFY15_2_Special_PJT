@@ -21,6 +21,11 @@ import org.hibernate.annotations.ColumnDefault;
 @Table(name = "seller_profiles")
 public class SellerProfile extends BaseTimeEntity {
 
+    /** 정상 판매 가능. */
+    public static final String STATUS_ACTIVE = "ACTIVE";
+    /** 위반 누적으로 신규 등록·공동구매 생성 차단. 기존 거래 처리는 계속 허용. */
+    public static final String STATUS_SUSPENDED = "SUSPENDED";
+
     @Id
     @Column(name = "seller_id")
     private Long sellerId;
@@ -59,6 +64,7 @@ public class SellerProfile extends BaseTimeEntity {
     @Column(name = "penalty_count", nullable = false)
     private int penaltyCount;
 
+    /** {@code ACTIVE} / {@code SUSPENDED}. 정지 판정은 제재 도메인이 내립니다. */
     @Column(nullable = false, length = 20)
     private String status;
 
@@ -91,6 +97,38 @@ public class SellerProfile extends BaseTimeEntity {
         }
         if (returnAddress2 != null) {
             this.returnAddress2 = returnAddress2;
+        }
+    }
+
+    /**
+     * 위반 확정을 반영합니다 (S15P21B205-83, FR-PEN-07~10).
+     *
+     * <p>누적이 임계에 도달하면 판매를 정지합니다. 정지된 판매자는 신규 상품 등록과
+     * 공동구매 생성이 막히지만({@code ProductService}·{@code GroupBuyService} 가
+     * {@code SELLER_SUSPENDED} 로 거부), <b>기존 거래의 배송·반품·정산은 계속
+     * 진행됩니다</b> — 이미 돈을 낸 구매자를 볼모로 잡지 않기 위해서입니다.
+     *
+     * @param limit 정지 임계 횟수. 정책값 {@code PENALTY_LIMIT} 입니다.
+     */
+    public void recordPenalty(int limit) {
+        this.penaltyCount++;
+        if (this.penaltyCount >= limit) {
+            this.status = STATUS_SUSPENDED;
+        }
+    }
+
+    /**
+     * 확정 취소로 누적을 되돌립니다 (S15P21B205-83, FR-PEN-13).
+     *
+     * <p>잘못 확정한 건을 취소했는데 정지가 그대로면, 관리자가 실수를 바로잡아도
+     * 판매자는 계속 막혀 있습니다. 임계 아래로 내려오면 정지를 풉니다.
+     */
+    public void revokePenalty(int limit) {
+        if (this.penaltyCount > 0) {
+            this.penaltyCount--;
+        }
+        if (this.penaltyCount < limit && STATUS_SUSPENDED.equals(this.status)) {
+            this.status = STATUS_ACTIVE;
         }
     }
 
