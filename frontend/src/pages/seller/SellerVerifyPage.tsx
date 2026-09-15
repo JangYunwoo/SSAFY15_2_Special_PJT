@@ -1,34 +1,94 @@
-import { Navigate } from 'react-router'
+import { useState, type ChangeEvent } from 'react'
+import { Navigate, useNavigate } from 'react-router'
+import { useMutation } from '@tanstack/react-query'
 
-import { useIsSeller } from '@/features/auth/sessionStore'
+import { authApi } from '@/entities/auth/api'
+import type { SellerAccountRequestResult, SellerPhoneRequestResult } from '@/entities/auth/model'
+import { useIsSeller, useSessionStore } from '@/features/auth/sessionStore'
 import { SiteFooter } from '@/app/layouts/SiteFooter'
-import { BACKEND_FEATURES } from '@/shared/config/backendFeatures'
+import { toMessage } from '@/shared/api/errors'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
-import { ButtonLink } from '@/shared/ui/Button'
-import { DataRow } from '@/shared/ui/DataRow'
+import { Button } from '@/shared/ui/Button'
+import { FieldRow, TextField } from '@/shared/ui/Field'
 import { Panel } from '@/shared/ui/Panel'
-import { PendingBackendState } from '@/shared/ui/states'
+
+type Step = 'phone' | 'account' | 'profile'
 
 /**
- * 판매자 전환 안내 (전자상거래법 제10조).
+ * 판매자 전환 (SEL-01~05).
  *
- * 예전에는 이 화면이 본인인증 폼을 그리고, 인증번호를 서버로 보내지 않은 채
- * 세션의 isSeller 만 켜서 판매자센터에 들여보냈습니다. 하지만 백엔드는 JWT 의
- * isSeller 클레임으로 ROLE_SELLER 를 주므로(JwtAuthenticationFilter), 그렇게
- * 들어가도 `/sellers/**` 요청은 전부 403 이었습니다. 통과한 것처럼 보이지만
- * 아무것도 되지 않는 화면이라, 실제 전환 API 가 생길 때까지는 상태를 그대로
- * 밝힙니다.
+ * 3단계로 진행합니다: 휴대폰 인증(목업) → 정산계좌 1원 인증(실제 SSAFY 금융망) →
+ * 판매자 정보 등록. 마지막 단계가 성공하면 백엔드가 isSeller=true 인 새 토큰을
+ * 내려주며, 그 토큰으로 세션을 갱신하고 판매자센터로 들어갑니다.
  *
- * 필요한 백엔드: SEL-01·02(휴대폰 인증), SEL-05(판매자 프로필 생성).
- * `SellerProfileController` 는 현재 조회·수정(GET/PATCH /sellers/me)만 있습니다.
+ * 데모 편의: 휴대폰 인증코드와 1원 인증코드를 서버가 응답으로 함께 내려주므로
+ * (문자 발송 사업자·실제 은행앱이 없으니) 화면에 표시하고 자동 채워 넣습니다.
  */
 export default function SellerVerifyPage() {
   useDocumentTitle('판매자 전환')
 
   const isSeller = useIsSeller()
+  const navigate = useNavigate()
+  const signIn = useSessionStore((state) => state.signIn)
+
+  const [step, setStep] = useState<Step>('phone')
+  const [phone, setPhone] = useState('')
+  const [phoneCode, setPhoneCode] = useState('')
+  const [phoneHint, setPhoneHint] = useState<SellerPhoneRequestResult | null>(null)
+
+  const [account, setAccount] = useState<SellerAccountRequestResult | null>(null)
+  const [authCode, setAuthCode] = useState('')
+
+  const [businessName, setBusinessName] = useState('')
+  const [businessPhone, setBusinessPhone] = useState('')
+  const [accountHolder, setAccountHolder] = useState('')
+  const [zipcode, setZipcode] = useState('')
+  const [address1, setAddress1] = useState('')
+  const [address2, setAddress2] = useState('')
+
+  const requestPhone = useMutation({
+    mutationFn: () => authApi.requestSellerPhone(phone.replace(/\D/g, '')),
+    onSuccess: (result) => {
+      setPhoneHint(result)
+      setPhoneCode(result.devCode)
+    },
+  })
+  const confirmPhone = useMutation({
+    mutationFn: () => authApi.confirmSellerPhone(phone.replace(/\D/g, ''), phoneCode),
+    onSuccess: () => setStep('account'),
+  })
+  const requestAccount = useMutation({
+    mutationFn: () => authApi.requestSellerAccount(),
+    onSuccess: (result) => {
+      setAccount(result)
+      setAuthCode(result.devAuthCode)
+    },
+  })
+  const confirmAccount = useMutation({
+    mutationFn: () => authApi.confirmSellerAccount(account?.accountNo ?? '', authCode),
+    onSuccess: () => setStep('profile'),
+  })
+  const createProfile = useMutation({
+    mutationFn: () =>
+      authApi.createSellerProfile({
+        businessName,
+        businessPhone: businessPhone.replace(/\D/g, ''),
+        accountHolder,
+        returnAddress: { zipcode, address1, address2 },
+      }),
+    onSuccess: async (tokens) => {
+      signIn(tokens)
+      await navigate('/seller', { replace: true })
+    },
+  })
 
   // 이미 전환된 계정이 주소로 들어오면 판매자센터로 보냅니다.
   if (isSeller) return <Navigate to="/seller" replace />
+
+  const on = (setter: (v: string) => void) => (e: ChangeEvent<HTMLInputElement>) =>
+    setter(e.target.value)
+  const errorOf = (m: { isError: boolean; error: unknown }) =>
+    m.isError ? toMessage(m.error) : undefined
 
   return (
     <>
@@ -44,49 +104,173 @@ export default function SellerVerifyPage() {
           <div className="sec-head">
             <div>
               <h2 className="sec-title">판매자 전환</h2>
-              <p className="sec-sub">판매자센터는 판매자로 전환한 계정만 이용할 수 있습니다.</p>
+              <p className="sec-sub">
+                휴대폰·정산계좌 인증 후 판매자 정보를 등록하면 판매자센터를 이용할 수 있습니다.
+              </p>
             </div>
           </div>
 
           <div className="split">
             <div>
-              <Panel title="전환 신청" description="본인인증 후 판매자 프로필을 등록합니다">
-                {BACKEND_FEATURES.sellerOnboarding ? null : (
-                  <PendingBackendState>
-                    휴대폰 본인인증(SEL-01·02)과 판매자 프로필 등록(SEL-05) 엔드포인트가 아직
-                    없습니다. 그때까지 판매자 계정은 DB에 직접 등록해야 하며, 로그인 응답의
-                    <code> actor.isSeller </code>가 true인 계정만 판매자센터에 들어갈 수 있습니다.
-                  </PendingBackendState>
+              {/* 1단계: 휴대폰 인증 (목업) */}
+              <Panel
+                title="1. 휴대폰 인증"
+                description={step === 'phone' ? '본인 명의 휴대폰으로 인증합니다' : '완료됨 ✓'}
+              >
+                {step === 'phone' ? (
+                  <>
+                    <TextField
+                      label="휴대폰 번호"
+                      inputMode="numeric"
+                      placeholder="010-0000-0000"
+                      value={phone}
+                      onChange={on(setPhone)}
+                      action={
+                        <Button
+                          variant="ghost"
+                          onClick={() => requestPhone.mutate()}
+                          disabled={requestPhone.isPending || phone.trim() === ''}
+                        >
+                          {requestPhone.isPending ? '요청 중…' : '인증요청'}
+                        </Button>
+                      }
+                      error={errorOf(requestPhone)}
+                      hint={phoneHint ? `${phoneHint.message} (코드: ${phoneHint.devCode})` : undefined}
+                    />
+                    {phoneHint && (
+                      <TextField
+                        label="인증코드"
+                        value={phoneCode}
+                        onChange={on(setPhoneCode)}
+                        error={errorOf(confirmPhone)}
+                        action={
+                          <Button
+                            onClick={() => confirmPhone.mutate()}
+                            disabled={confirmPhone.isPending || phoneCode.trim() === ''}
+                          >
+                            {confirmPhone.isPending ? '확인 중…' : '확인'}
+                          </Button>
+                        }
+                      />
+                    )}
+                  </>
+                ) : (
+                  <p className="small muted">휴대폰 인증을 완료했습니다.</p>
                 )}
-
-                <ButtonLink variant="ghost" block className="mt16" to="/">
-                  공동구매 둘러보기
-                </ButtonLink>
               </Panel>
+
+              {/* 2단계: 정산계좌 1원 인증 (실제 SSAFY) */}
+              {step !== 'phone' && (
+                <Panel
+                  className="mt16"
+                  title="2. 정산계좌 1원 인증"
+                  description={step === 'account' ? 'SSAFY 금융망으로 1원을 보내 확인합니다' : '완료됨 ✓'}
+                >
+                  {step === 'account' ? (
+                    <>
+                      {account === null ? (
+                        <Button
+                          block
+                          onClick={() => requestAccount.mutate()}
+                          disabled={requestAccount.isPending}
+                        >
+                          {requestAccount.isPending ? '계좌 확인·1원 송금 중…' : '정산계좌 만들고 1원 인증 받기'}
+                        </Button>
+                      ) : (
+                        <>
+                          <p className="small muted">
+                            정산계좌 <b>{account.accountNo}</b> 로 1원을 보냈습니다. {account.message}
+                          </p>
+                          <TextField
+                            label="1원 인증코드"
+                            value={authCode}
+                            onChange={on(setAuthCode)}
+                            error={errorOf(confirmAccount)}
+                            action={
+                              <Button
+                                onClick={() => confirmAccount.mutate()}
+                                disabled={confirmAccount.isPending || authCode.trim() === ''}
+                              >
+                                {confirmAccount.isPending ? '확인 중…' : '확인'}
+                              </Button>
+                            }
+                          />
+                        </>
+                      )}
+                      {requestAccount.isError && (
+                        <p className="ai-hint mt16" role="alert">
+                          {toMessage(requestAccount.error)}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="small muted">정산계좌 1원 인증을 완료했습니다.</p>
+                  )}
+                </Panel>
+              )}
+
+              {/* 3단계: 판매자 정보 */}
+              {step === 'profile' && (
+                <Panel className="mt16" title="3. 판매자 정보" description="상호와 반품 수취 주소를 등록합니다">
+                  <TextField label="상호명" required value={businessName} onChange={on(setBusinessName)} />
+                  <FieldRow className="mt8">
+                    <TextField
+                      label="대표 연락처"
+                      inputMode="numeric"
+                      placeholder="010-0000-0000"
+                      value={businessPhone}
+                      onChange={on(setBusinessPhone)}
+                    />
+                    <TextField label="예금주" required value={accountHolder} onChange={on(setAccountHolder)} />
+                  </FieldRow>
+                  <TextField
+                    label="반품 우편번호"
+                    required
+                    inputMode="numeric"
+                    maxLength={5}
+                    value={zipcode}
+                    onChange={on(setZipcode)}
+                  />
+                  <TextField label="반품 기본주소" required value={address1} onChange={on(setAddress1)} />
+                  <TextField label="반품 상세주소" value={address2} onChange={on(setAddress2)} />
+                  {createProfile.isError && (
+                    <p className="ai-hint mt16" role="alert">
+                      {toMessage(createProfile.error)}
+                    </p>
+                  )}
+                  <Button
+                    block
+                    className="mt16"
+                    onClick={() => createProfile.mutate()}
+                    disabled={
+                      createProfile.isPending ||
+                      businessName.trim() === '' ||
+                      accountHolder.trim() === '' ||
+                      zipcode.trim() === '' ||
+                      address1.trim() === ''
+                    }
+                  >
+                    {createProfile.isPending ? '전환 중…' : '판매자로 전환하기'}
+                  </Button>
+                </Panel>
+              )}
             </div>
 
             <aside>
-              <Panel title="본인인증이 필요한 이유" description="전자상거래법 제10조">
-                <div className="guide mt16">
-                  <div className="guide-head">확인하는 항목</div>
-                  <ul>
-                    <li>판매자의 실명과 연락처를 확인합니다.</li>
-                    <li>확인된 명의로만 정산 계좌를 등록할 수 있습니다.</li>
-                    <li>인증은 판매자센터 최초 진입 시 한 번만 진행합니다.</li>
-                    <li>입력한 정보는 본인확인기관에만 전달되며 공구한은 저장하지 않습니다.</li>
-                  </ul>
-                </div>
-                <p className="small muted mt16" style={{ marginBottom: 0 }}>
-                  만 19세 미만은 판매자로 등록할 수 없습니다. 법인 사업자는 인증 후 사업자등록번호를
-                  추가로 등록해야 합니다.
-                </p>
+              <Panel title="전환 후 이용할 수 있는 기능" description="판매자센터">
+                <ul className="mt16">
+                  <li>상품 관리 — 등록 · 수정 · 삭제</li>
+                  <li>공동구매 — 생성 · 참여자 현황</li>
+                  <li>배송 — 송장 등록 · 상태 변경</li>
+                  <li>반품 — 승인 · 거부 · 수거 확인</li>
+                  <li>정산 — 정산 내역 조회</li>
+                </ul>
               </Panel>
-
-              <Panel className="mt16" title="전환 후 이용할 수 있는 기능" description="판매자센터">
-                <DataRow label="상품 관리">등록 · 수정 · 삭제 (PRD-01~05)</DataRow>
-                <DataRow label="공동구매">생성 · 참여자 현황 (GRP-03~09)</DataRow>
-                <DataRow label="배송">송장 등록 · 상태 변경 (DLV-01~04)</DataRow>
-                <DataRow label="반품">승인 · 거부 · 수거 확인 (RTN-05~08)</DataRow>
+              <Panel className="mt16" title="안내" description="전자상거래법 제10조">
+                <p className="small muted" style={{ marginBottom: 0 }}>
+                  정산계좌 1원 인증은 SSAFY 금융망으로 실제 1원을 보내 예금주를 확인합니다.
+                  휴대폰 인증은 데모 환경이라 발송된 코드를 화면에 함께 표시합니다.
+                </p>
               </Panel>
             </aside>
           </div>

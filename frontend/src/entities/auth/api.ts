@@ -4,7 +4,10 @@ import { authTokensSchema, sellerProfileSchema, userProfileSchema } from '@/shar
 import type {
   AuthTokens,
   LoginRequest,
+  SellerAccountRequestResult,
+  SellerPhoneRequestResult,
   SellerProfile,
+  SellerProfileCreateRequest,
   SellerProfileUpdate,
   SignupRequest,
   SignupResult,
@@ -52,6 +55,26 @@ export const authApi = {
 
   /** USR-02 */
   updateMe: (body: Partial<UserProfileUpdate>) => api.patch<UserProfile>('/users/me', body),
+
+  /** SEL-01 판매자 전환 휴대폰 인증 요청(목업). */
+  requestSellerPhone: (phone: string) =>
+    api.post<SellerPhoneRequestResult>('/users/me/seller-verifications/phone/request', { phone }),
+
+  /** SEL-02 휴대폰 인증 확인. */
+  confirmSellerPhone: (phone: string, code: string) =>
+    api.post<void>('/users/me/seller-verifications/phone/confirm', { phone, code }),
+
+  /** SEL-03 정산계좌 1원 인증 요청(실제 SSAFY, 계좌 없으면 자동 개설). */
+  requestSellerAccount: () =>
+    api.post<SellerAccountRequestResult>('/users/me/seller-verifications/account/request'),
+
+  /** SEL-04 정산계좌 1원 인증 확인(실제 SSAFY). */
+  confirmSellerAccount: (accountNo: string, authCode: string) =>
+    api.post<void>('/users/me/seller-verifications/account/confirm', { accountNo, authCode }),
+
+  /** SEL-05 판매자 전환 확정. 성공 시 isSeller=true 인 새 토큰을 돌려줍니다. */
+  createSellerProfile: (body: SellerProfileCreateRequest) =>
+    api.post<AuthTokens>('/users/me/seller-profile', body),
 
   /** SEL-06 판매자 프로필. 판매자로 전환된 계정만 호출할 수 있습니다 (그 외 403). */
   sellerMe: () => api.get<SellerProfile>('/sellers/me', { schema: sellerProfileSchema }),

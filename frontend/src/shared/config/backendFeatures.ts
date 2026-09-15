@@ -30,9 +30,9 @@ export interface BackendFeatureFlags {
   settlements: boolean
 
   /**
-   * SEL-01·02·05 판매자 전환 (휴대폰 인증, 판매자 프로필 생성).
-   * `SellerProfileController` 는 조회·수정(GET/PATCH /sellers/me)만 있고
-   * 생성 API 가 없어 판매자 계정은 DB 시드로만 만들 수 있습니다.
+   * SEL-01~05 판매자 전환. `SellerOnboardingController`(/users/me/seller-verifications,
+   * /users/me/seller-profile) 구현됨 — 휴대폰 인증(목업) + 정산계좌 1원 인증(실제 SSAFY)
+   * + 프로필 생성. 전환 성공 시 isSeller=true 새 토큰을 발급한다.
    */
   sellerOnboarding: boolean
 
@@ -67,7 +67,7 @@ export interface BackendFeatureFlags {
 export const BACKEND_FEATURES: BackendFeatureFlags = {
   notifications: false,
   settlements: true,
-  sellerOnboarding: false,
+  sellerOnboarding: true,
   participationCancel: false,
   groupBuyWithdrawal: false,
   logout: false,

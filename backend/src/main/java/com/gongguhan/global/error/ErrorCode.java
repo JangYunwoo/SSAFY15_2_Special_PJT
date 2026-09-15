@@ -35,6 +35,9 @@ public enum ErrorCode {
     SSAFY_EMAIL_UNAVAILABLE(HttpStatus.CONFLICT,
             "이 이메일은 금융망에 이미 등록되어 사용할 수 없습니다. 다른 이메일을 사용해주세요."),
     TOO_MANY_REQUESTS(HttpStatus.TOO_MANY_REQUESTS, "요청이 너무 잦습니다. 잠시 후 다시 시도해주세요."),
+    ALREADY_SELLER(HttpStatus.CONFLICT, "이미 판매자로 전환된 계정입니다."),
+    SELLER_VERIFICATION_REQUIRED(HttpStatus.UNPROCESSABLE_CONTENT, "휴대폰·정산계좌 인증을 먼저 완료해야 합니다."),
+    VERIFICATION_CODE_MISMATCH(HttpStatus.BAD_REQUEST, "인증코드가 일치하지 않거나 만료되었습니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다.");
 
     private final HttpStatus status;
