@@ -33,6 +33,8 @@ interface OrderAccordionProps {
 
 export function OrderAccordion({ item, defaultOpen = false }: OrderAccordionProps) {
   const [open, setOpen] = useState(defaultOpen)
+  /** 참여 취소 확인 단계를 보여줄지 */
+  const [askingCancel, setAskingCancel] = useState(false)
   const panelId = useId()
   const queryClient = useQueryClient()
 
@@ -41,7 +43,13 @@ export function OrderAccordion({ item, defaultOpen = false }: OrderAccordionProp
   const cancel = useMutation({
     mutationFn: () => participationApi.cancel(item.id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.participations.all })
+      setAskingCancel(false)
+      // 취소하면 슬롯이 풀려 공동구매의 참여 인원이 줄고, 결제는 환불로 넘어갑니다.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.participations.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.groupBuys.all }),
+        queryClient.invalidateQueries({ queryKey: ['payments'] }),
+      ])
     },
   })
 
@@ -127,21 +135,45 @@ export function OrderAccordion({ item, defaultOpen = false }: OrderAccordionProp
         )}
 
         {/*
-          PAR-03(참여 취소)은 백엔드에 컨트롤러가 아직 없어 눌러도 404 입니다.
-          되지 않는 버튼을 보여주는 대신 감추고, 엔드포인트가 생기면
-          backendFeatures.participationCancel 만 켜면 됩니다.
+          PAR-03 참여 취소. 결제 완료(PAID) 이면서 모집이 끝나지 않은 건만
+          백엔드가 받아들입니다. 되돌릴 수 없고 바로 환불이 시작되므로 한 번 더
+          묻습니다.
         */}
         {item.status === 'PAID' && BACKEND_FEATURES.participationCancel && (
           <div className="order-actions">
-            <Button
-              variant="ghost"
-              disabled={cancel.isPending}
-              onClick={() => {
-                cancel.mutate()
-              }}
-            >
-              {cancel.isPending ? '취소 처리 중…' : '참여 취소하기'}
-            </Button>
+            {askingCancel ? (
+              <>
+                <span className="small" style={{ flex: 1 }}>
+                  참여를 취소하고 결제금을 환불받습니다. 되돌릴 수 없습니다.
+                </span>
+                <Button
+                  disabled={cancel.isPending}
+                  onClick={() => {
+                    cancel.mutate()
+                  }}
+                >
+                  {cancel.isPending ? '취소 처리 중…' : '취소 확정'}
+                </Button>
+                <Button
+                  variant="ghost"
+                  disabled={cancel.isPending}
+                  onClick={() => {
+                    setAskingCancel(false)
+                  }}
+                >
+                  그대로 두기
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setAskingCancel(true)
+                }}
+              >
+                참여 취소하기
+              </Button>
+            )}
           </div>
         )}
 

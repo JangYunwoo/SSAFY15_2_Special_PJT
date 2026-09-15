@@ -37,8 +37,11 @@ export interface BackendFeatureFlags {
   sellerOnboarding: boolean
 
   /**
-   * PAR-03 모집 완료 전 참여 취소.
-   * `ParticipationQueryController` 는 조회(GET) 두 개뿐이고 취소 매핑이 없습니다.
+   * PAR-03 모집 완료 전 참여 취소 · `ParticipationCancelController` 구현됨
+   * (2026-09-15 병합).
+   *
+   * 결제 완료(PAID) 이면서 모집이 끝나지 않은 건만 취소할 수 있습니다. 취소하면
+   * 참여가 REFUNDING 으로 바뀌고 환불이 시작됩니다.
    */
   participationCancel: boolean
 
@@ -68,7 +71,7 @@ export const BACKEND_FEATURES: BackendFeatureFlags = {
   notifications: false,
   settlements: true,
   sellerOnboarding: true,
-  participationCancel: false,
+  participationCancel: true,
   groupBuyWithdrawal: false,
   logout: false,
   emailAvailability: true,
