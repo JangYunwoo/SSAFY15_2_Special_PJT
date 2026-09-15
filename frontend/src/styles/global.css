@@ -424,19 +424,19 @@ button,input,select,textarea{font:inherit;color:inherit;}
  * 이상으로 벌어졌고, "공동구매 참여하기" 가 첫 화면 밖으로 밀렸습니다.
  * 글자 크기는 그대로 두고 위 여백만 명시해 리듬을 좁힙니다.
  */
-.detail-info .status{font-size:11px;color:var(--ink2);margin:0 0 6px;}
-.detail-info h1{margin:0 0 6px;font-size:23px;font-weight:500;letter-spacing:-.5px;}
+.detail-info .status{font-size:11px;color:var(--ink2);margin:0 0 8px;}
+.detail-info h1{margin:0 0 14px;font-size:23px;font-weight:500;letter-spacing:-.5px;}
 .detail-info .list-price{font-size:11px;color:var(--muted);margin:0 0 4px;}
 /*
  * 분담금 묶음(정상가 · 분담금 · 배송비 합계)은 한 덩어리로 읽혀야 합니다.
  * 줄 사이가 뜨면 서로 다른 항목처럼 보여 어느 값이 중요한지 흐려집니다.
  * 행간을 좁히고 위로 붙여 분담금이 묶음의 머리로 서게 합니다.
  */
-.detail-info .group-price{font-size:20px;font-weight:700;line-height:1.3;margin:2px 0 2px;}
-.detail-info .price-note{font-size:11px;color:var(--ink2);line-height:1.5;margin:0 0 8px;}
+.detail-info .group-price{font-size:20px;font-weight:700;line-height:1.3;margin:0 0 4px;}
+.detail-info .price-note{font-size:11px;color:var(--ink2);line-height:1.5;margin:0 0 14px;}
 .detail-info .price-note b{color:var(--ink);}
-.detail-info .join{font-size:12px;font-weight:700;margin:6px 0 6px;}
-.detail-info .note{font-size:11px;color:var(--ink2);line-height:1.7;margin:8px 0 10px;}
+.detail-info .join{font-size:12px;font-weight:700;margin:10px 0 8px;}
+.detail-info .note{font-size:11px;color:var(--ink2);line-height:1.7;margin:10px 0 12px;}
 /*
  * 참여 버튼을 열 바닥에 붙입니다. 갤러리도 같은 행 높이를 채우므로 버튼
  * 아래 선과 썸네일 아래 선이 정확히 맞습니다. 14px 는 최소 간격입니다.
@@ -451,7 +451,7 @@ button,input,select,textarea{font:inherit;color:inherit;}
  * 첫 화면 밖으로 밀립니다(1480x900 기준 55px 초과). 이 화면에서만 줄 간격을
  * 좁혀 버튼까지 한 눈에 들어오게 합니다.
  */
-.detail-info .rowline{padding:6px 0;font-size:12px;}
+.detail-info .rowline{padding:8px 0;font-size:12px;}
 
 /* ---------- 정보 박스 / 행 ---------- */
 .box{border:1px solid var(--line);padding:14px 16px;font-size:13px;color:var(--ink2);background:var(--surface);}
