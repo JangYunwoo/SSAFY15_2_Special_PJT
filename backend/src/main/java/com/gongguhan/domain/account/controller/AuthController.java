@@ -5,10 +5,12 @@ import com.gongguhan.domain.account.dto.EmailAvailabilityResponse;
 import com.gongguhan.domain.account.dto.EmailAvailabilityStatus;
 import com.gongguhan.domain.account.dto.LoginRequest;
 import com.gongguhan.domain.account.dto.LoginResponse;
+import com.gongguhan.domain.account.dto.RefreshTokenRequest;
 import com.gongguhan.domain.account.dto.SignupRequest;
 import com.gongguhan.domain.account.dto.SignupResponse;
 import com.gongguhan.domain.account.service.AuthService;
 import com.gongguhan.domain.account.service.EmailCheckRateLimiter;
+import com.gongguhan.domain.account.service.TokenService;
 import com.gongguhan.global.common.ApiResponse;
 import com.gongguhan.global.common.TraceIdUtils;
 import jakarta.servlet.http.HttpServletRequest;
@@ -28,10 +30,29 @@ public class AuthController {
 
     private final AuthService authService;
     private final EmailCheckRateLimiter emailCheckRateLimiter;
+    private final TokenService tokenService;
 
-    public AuthController(AuthService authService, EmailCheckRateLimiter emailCheckRateLimiter) {
+    public AuthController(AuthService authService, EmailCheckRateLimiter emailCheckRateLimiter,
+                          TokenService tokenService) {
         this.authService = authService;
         this.emailCheckRateLimiter = emailCheckRateLimiter;
+        this.tokenService = tokenService;
+    }
+
+    /** AUTH-03 Access Token 재발급(리프레시 토큰 로테이션). */
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<LoginResponse>> refresh(
+            @Valid @RequestBody RefreshTokenRequest request, HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(ApiResponse.success(
+                tokenService.refresh(request.refreshToken()), TraceIdUtils.from(httpRequest)));
+    }
+
+    /** AUTH-04 로그아웃(리프레시 토큰 폐기). */
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @Valid @RequestBody RefreshTokenRequest request, HttpServletRequest httpRequest) {
+        tokenService.logout(request.refreshToken());
+        return ResponseEntity.ok(ApiResponse.<Void>success(null, TraceIdUtils.from(httpRequest)));
     }
 
     @PostMapping("/signup")
