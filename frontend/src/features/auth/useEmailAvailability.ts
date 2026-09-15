@@ -6,13 +6,12 @@ import { toMessage } from '@/shared/api/errors'
 import { BACKEND_FEATURES } from '@/shared/config/backendFeatures'
 
 import {
-  AVAILABLE,
   CHECKING,
-  DUPLICATE,
   UNSUPPORTED,
   failed,
   normalizeEmail,
   outcomeFor,
+  outcomeForResult,
   validateEmail,
   type EmailCheckOutcome,
   type EmailCheckRecord,
@@ -42,7 +41,7 @@ export function useEmailAvailability(): EmailAvailabilityCheck {
     onSuccess: (result, email) => {
       setRecord({
         email: normalizeEmail(email),
-        outcome: result.available ? AVAILABLE : DUPLICATE,
+        outcome: outcomeForResult(result),
       })
     },
     onError: (error, email) => {

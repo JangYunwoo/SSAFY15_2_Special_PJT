@@ -34,6 +34,7 @@ public enum ErrorCode {
     SSAFY_MEMBER_NOT_LINKED(HttpStatus.UNPROCESSABLE_CONTENT, "SSAFY 금융망 회원 연동이 완료되지 않았습니다."),
     SSAFY_EMAIL_UNAVAILABLE(HttpStatus.CONFLICT,
             "이 이메일은 금융망에 이미 등록되어 사용할 수 없습니다. 다른 이메일을 사용해주세요."),
+    TOO_MANY_REQUESTS(HttpStatus.TOO_MANY_REQUESTS, "요청이 너무 잦습니다. 잠시 후 다시 시도해주세요."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다.");
 
     private final HttpStatus status;

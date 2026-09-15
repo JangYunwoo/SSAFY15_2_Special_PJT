@@ -43,6 +43,7 @@ class AuthServiceTest {
                 passwordEncoder,
                 mock(JwtTokenProvider.class),
                 ssafyMemberClient,
+                mock(SsafyMemberReservationStore.class),
                 self);
         // self.getObject()로 프록시를 거치는 대신 테스트에서는 같은 인스턴스를 돌려준다.
         when(self.getObject()).thenReturn(authService);

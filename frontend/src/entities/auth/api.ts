@@ -24,12 +24,14 @@ export const authApi = {
   /** AUTH-01 통합 회원가입 */
   signup: (body: SignupRequest) => api.post<SignupResult>('/auth/signup', body),
   /**
-   * AUTH-05 이메일 중복확인. 가입 전 중복확인 버튼용.
-   * available=true 면 아직 가입되지 않은 이메일이라 사용 가능.
-   * (SSAFY 금융망 선점 충돌은 여기서 걸러지지 않고 가입 시점에만 판별됨)
+   * 이메일 중복확인·예약. 가입 전 중복확인 버튼용(C안).
+   *
+   * DB 중복뿐 아니라 SSAFY 금융망 선점까지 가입 전에 판별한다. 확인이 SSAFY 회원
+   * 생성(쓰기)을 유발할 수 있어 조회가 아닌 POST 다. status: AVAILABLE / TAKEN /
+   * UNAVAILABLE_SSAFY / UNKNOWN. (available 은 "이 상태로 진행해도 되는지")
    */
   checkEmailAvailability: (email: string) =>
-    api.get<{ available: boolean }>('/auth/email/availability', { query: { email } }),
+    api.post<{ available: boolean; status: string }>('/auth/email/availability', { email }),
 
   /** AUTH-02 통합 로그인 */
   login: (body: LoginRequest) =>

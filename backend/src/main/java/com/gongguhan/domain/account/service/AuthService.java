@@ -1,6 +1,7 @@
 package com.gongguhan.domain.account.service;
 
 import com.gongguhan.domain.account.dto.ActorResponse;
+import com.gongguhan.domain.account.dto.EmailAvailabilityStatus;
 import com.gongguhan.domain.account.dto.LoginRequest;
 import com.gongguhan.domain.account.dto.LoginResponse;
 import com.gongguhan.domain.account.dto.SignupRequest;
@@ -34,6 +35,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final SsafyMemberClient ssafyMemberClient;
+    private final SsafyMemberReservationStore reservationStore;
     /** persistNewUser의 @Transactional을 프록시로 태우기 위한 self 참조. */
     private final ObjectProvider<AuthService> self;
 
@@ -42,12 +44,14 @@ public class AuthService {
                         PasswordEncoder passwordEncoder,
                         JwtTokenProvider jwtTokenProvider,
                         SsafyMemberClient ssafyMemberClient,
+                        SsafyMemberReservationStore reservationStore,
                         ObjectProvider<AuthService> self) {
         this.userRepository = userRepository;
         this.userAddressRepository = userAddressRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
         this.ssafyMemberClient = ssafyMemberClient;
+        this.reservationStore = reservationStore;
         this.self = self;
     }
 
@@ -73,7 +77,11 @@ public class AuthService {
             throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
 
-        SsafyLinkResult link = resolveSsafyMember(request.email());
+        // 중복확인(C안)에서 이미 회원키를 확보했으면 재사용해 SSAFY 재호출을 아낀다.
+        // 없거나 만료됐으면 여기서 다시 확보한다(캐시는 최적화일 뿐 정확성 요건이 아니다).
+        SsafyLinkResult link = reservationStore.consume(request.email())
+                .map(userKey -> new SsafyLinkResult(SsafyLinkOutcome.LINKED, userKey))
+                .orElseGet(() -> resolveSsafyMember(request.email()));
         if (link.outcome() == SsafyLinkOutcome.COLLISION) {
             throw new BusinessException(ErrorCode.SSAFY_EMAIL_UNAVAILABLE);
         }
@@ -111,17 +119,31 @@ public class AuthService {
     }
 
     /**
-     * 이메일 사용 가능 여부 조회(AUTH-05). 회원가입 전 중복확인 버튼용이다.
+     * 이메일 사용 가능 여부 확인·예약(C안). 회원가입 전 중복확인 버튼용이다.
      *
-     * <p>우리 서비스 DB의 유니크 제약({@code existsByEmail})만 확인하는 사이드이펙트 없는
-     * 조회다. SSAFY 금융망 연동은 {@code createMember}가 실제 회원을 생성하는 쓰기라
-     * 확인 단계에서 호출하지 않으며, 금융망 이메일 선점 충돌은 기존대로 가입 시점에만
-     * {@code SSAFY_EMAIL_UNAVAILABLE}로 판별된다.
+     * <p>우리 DB 중복뿐 아니라 <b>SSAFY 금융망 선점까지 가입 전에</b> 판별한다. 선점은
+     * SSAFY가 읽기로 알려주지 않아 {@code createMember}(쓰기)로만 드러나므로, 이 확인은
+     * 부작용(회원 생성) 있는 명시적 액션이다 - 그래서 조회가 아니라 POST로 노출하고 호출
+     * 빈도를 제한한다({@link EmailCheckRateLimiter}).
      *
-     * @return 아직 가입되지 않았으면 {@code true}
+     * <p>사용 가능(LINKED)하면 확보한 회원키를 {@link SsafyMemberReservationStore}에 담아
+     * 가입 시 재사용하게 한다. 외부 호출은 트랜잭션 밖에서 하도록 {@code NOT_SUPPORTED}로
+     * 실행한다({@code signup}과 같은 패턴).
      */
-    public boolean isEmailAvailable(String email) {
-        return !userRepository.existsByEmail(email);
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public EmailAvailabilityStatus checkEmailAvailability(String email) {
+        if (userRepository.existsByEmail(email)) {
+            return EmailAvailabilityStatus.TAKEN;
+        }
+        SsafyLinkResult link = resolveSsafyMember(email);
+        return switch (link.outcome()) {
+            case LINKED -> {
+                reservationStore.reserve(email, link.userKey());
+                yield EmailAvailabilityStatus.AVAILABLE;
+            }
+            case COLLISION -> EmailAvailabilityStatus.UNAVAILABLE_SSAFY;
+            case UNAVAILABLE -> EmailAvailabilityStatus.UNKNOWN;
+        };
     }
 
     public LoginResponse login(LoginRequest request) {

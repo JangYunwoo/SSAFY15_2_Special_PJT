@@ -44,7 +44,8 @@ class AuthServiceSsafyLinkTest {
         ObjectProvider<AuthService> self = mock(ObjectProvider.class);
         authService = new AuthService(
                 userRepository, userAddressRepository,
-                mock(PasswordEncoder.class), mock(JwtTokenProvider.class), ssafyMemberClient, self);
+                mock(PasswordEncoder.class), mock(JwtTokenProvider.class), ssafyMemberClient,
+                mock(SsafyMemberReservationStore.class), self);
         when(self.getObject()).thenReturn(authService);
     }
 
