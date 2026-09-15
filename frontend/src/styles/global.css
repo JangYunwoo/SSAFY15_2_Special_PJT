@@ -380,11 +380,6 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .bar > span{display:block;height:100%;background:var(--bar-fill);}
 
 /* ---------- 상품 상세 ---------- */
-.crumb{
-  display:flex;justify-content:flex-end;align-items:center;
-  padding:22px 0 0;font-size:13px;color:var(--ink2);
-}
-.crumb a:hover{color:var(--ink);}
 .detail{display:grid;grid-template-columns:1fr 1fr;gap:48px;padding:12px 0 40px;}
 
 /*
@@ -398,10 +393,18 @@ button,input,select,textarea{font:inherit;color:inherit;}
  */
 .gallery{display:flex;flex-direction:column;}
 .gallery .thumb{
-  flex:1;min-height:0;background:var(--fill);overflow:hidden;
+  position:relative;flex:1;min-height:0;background:var(--fill);overflow:hidden;
   display:grid;place-items:center;font-size:12px;color:var(--muted);
 }
-.gallery .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+/*
+ * 사진을 absolute 로 틀에 붙입니다. width/height 100% 만 주면 백분율 높이가
+ * 확정되지 않아 auto 로 떨어지고, 원본 비율이 틀 높이를 정하게 됩니다.
+ * 그러면 썸네일을 누를 때마다 사진 높이가 달라져(502·518·498·506) 아래 내용이
+ * 들썩였습니다.
+ */
+.gallery .thumb img{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;
+}
 .gallery .caps button img{width:100%;height:100%;object-fit:cover;display:block;}
 .gallery .caps{display:flex;gap:10px;margin-top:10px;}
 .gallery .caps button{
@@ -420,9 +423,14 @@ button,input,select,textarea{font:inherit;color:inherit;}
  */
 .detail-info .status{font-size:11px;color:var(--ink2);margin:0 0 6px;}
 .detail-info h1{margin:0 0 6px;font-size:23px;font-weight:500;letter-spacing:-.5px;}
-.detail-info .list-price{font-size:11px;color:var(--muted);margin:0 0 8px;}
-.detail-info .group-price{font-size:20px;font-weight:700;margin:10px 0 6px;}
-.detail-info .price-note{font-size:11px;color:var(--ink2);margin:0 0 8px;}
+.detail-info .list-price{font-size:11px;color:var(--muted);margin:0 0 4px;}
+/*
+ * 분담금 묶음(정상가 · 분담금 · 배송비 합계)은 한 덩어리로 읽혀야 합니다.
+ * 줄 사이가 뜨면 서로 다른 항목처럼 보여 어느 값이 중요한지 흐려집니다.
+ * 행간을 좁히고 위로 붙여 분담금이 묶음의 머리로 서게 합니다.
+ */
+.detail-info .group-price{font-size:20px;font-weight:700;line-height:1.3;margin:2px 0 2px;}
+.detail-info .price-note{font-size:11px;color:var(--ink2);line-height:1.5;margin:0 0 8px;}
 .detail-info .price-note b{color:var(--ink);}
 .detail-info .join{font-size:12px;font-weight:700;margin:6px 0 6px;}
 .detail-info .note{font-size:11px;color:var(--ink2);line-height:1.7;margin:8px 0 10px;}
@@ -431,7 +439,8 @@ button,input,select,textarea{font:inherit;color:inherit;}
  * 아래 선과 썸네일 아래 선이 정확히 맞습니다. 14px 는 최소 간격입니다.
  */
 .detail-info{display:flex;flex-direction:column;}
-.detail-info .btn{margin-top:auto;padding-top:0;}
+/* 화면에서 가장 중요한 동작이라 기본 버튼보다 높게 둡니다. */
+.detail-info .btn{margin-top:auto;padding:18px 24px;font-size:14px;}
 .detail-info .box:last-of-type{margin-bottom:14px;}
 
 /*
@@ -701,10 +710,6 @@ button.upload{width:100%;font:inherit;}
 
 /* 진행 중 공동구매 요약의 참여 인원 */
 .stat-box .stat-count{font-size:22px;font-weight:700;margin:4px 0 12px;letter-spacing:-.5px;}
-
-/* 상세 화면의 공유 버튼. 링크였던 자리를 버튼으로 바꿨습니다 */
-.crumb button{background:none;border:0;padding:0;cursor:pointer;color:inherit;font-size:13px;}
-.crumb button:hover{color:var(--ink);}
 
 /* 1인 분담금 옆 할인율 */
 .detail-info .group-price .off{font-size:13px;font-weight:700;color:var(--brand);}
