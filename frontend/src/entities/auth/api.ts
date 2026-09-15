@@ -1,5 +1,6 @@
 import { api } from '@/shared/api/client'
 import { authTokensSchema, sellerProfileSchema, userProfileSchema } from '@/shared/api/schemas'
+import type { NoContent } from '@/shared/api/types'
 
 import type {
   AuthTokens,
@@ -41,11 +42,14 @@ export const authApi = {
     api.post<AuthTokens>('/auth/login', body, { schema: authTokensSchema }),
 
   /**
-   * AUTH-03 액세스 토큰 재발급.
+   * AUTH-03 액세스 토큰 재발급 (2026-09-15 백엔드 연동 확인).
    *
-   * SecurityConfig 는 이 경로를 열어두었지만 컨트롤러가 아직 없습니다.
-   * 실패하면 sessionStore 가 조용히 세션을 정리하고, 컨트롤러가 생기는 즉시
-   * 그대로 동작합니다.
+   * 백엔드는 리프레시 토큰을 돌려 씁니다. 재발급에 성공하면 새 리프레시 토큰이
+   * 함께 오고 쓰던 토큰은 폐기되므로, 응답을 통째로 저장해야 다음 재발급이
+   * 됩니다(sessionStore 의 signIn). 같은 토큰으로 두 번 부르면 거절당합니다.
+   *
+   * skipRefresh 로 보내는 이유는 이 요청이 401 일 때 다시 재발급을 시도하면
+   * 무한히 되돌기 때문입니다.
    */
   refresh: (refreshToken: string) =>
     api.post<AuthTokens>('/auth/refresh', { refreshToken }, { skipRefresh: true }),
@@ -62,7 +66,7 @@ export const authApi = {
 
   /** SEL-02 휴대폰 인증 확인. */
   confirmSellerPhone: (phone: string, code: string) =>
-    api.post<void>('/users/me/seller-verifications/phone/confirm', { phone, code }),
+    api.post<NoContent>('/users/me/seller-verifications/phone/confirm', { phone, code }),
 
   /** SEL-03 정산계좌 1원 인증 요청(실제 SSAFY, 계좌 없으면 자동 개설). */
   requestSellerAccount: () =>
@@ -70,7 +74,7 @@ export const authApi = {
 
   /** SEL-04 정산계좌 1원 인증 확인(실제 SSAFY). */
   confirmSellerAccount: (accountNo: string, authCode: string) =>
-    api.post<void>('/users/me/seller-verifications/account/confirm', { accountNo, authCode }),
+    api.post<NoContent>('/users/me/seller-verifications/account/confirm', { accountNo, authCode }),
 
   /** SEL-05 판매자 전환 확정. 성공 시 isSeller=true 인 새 토큰을 돌려줍니다. */
   createSellerProfile: (body: SellerProfileCreateRequest) =>

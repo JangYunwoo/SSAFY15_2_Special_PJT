@@ -91,8 +91,11 @@ export const useSessionStore = create<SessionState>()(
  *
  * 액세스 토큰은 30분(expiresIn 1800)이면 만료됩니다. 재발급이 없으면
  * 그때마다 로그아웃되므로, 401 을 만나면 refresh 토큰으로 조용히 갱신합니다.
- * AUTH-03 컨트롤러가 아직 없어 지금은 실패하고 세션이 정리되지만, 백엔드가
- * 붙는 즉시 여기 손대지 않고 그대로 동작합니다.
+ *
+ * 2026-09-15 백엔드(AUTH-03)와 붙여 확인했습니다. 한 화면에서 401 이 세 건
+ * 동시에 나도 재발급은 한 번만 나가고(client.ts 의 ensureRefreshed), 세 요청이
+ * 모두 새 토큰으로 재시도돼 성공합니다. 재발급이 실패할 때만 세션을 정리하고
+ * 만료 안내와 함께 로그인 화면으로 보냅니다.
  */
 configureAuthBridge({
   getAccessToken: () => useSessionStore.getState().accessToken,
