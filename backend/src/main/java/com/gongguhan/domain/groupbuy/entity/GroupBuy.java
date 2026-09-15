@@ -272,6 +272,37 @@ public class GroupBuy extends BaseTimeEntity {
         currentParticipants++;
     }
 
+    /**
+     * 모집 중 확정 참여 한 건을 취소해 정원을 되돌린다(PAR-03 참여 취소, GRP-10 판매 철회).
+     *
+     * <p>결제 완료로 {@link #confirmParticipant()}가 올린 {@code currentParticipants}를 되돌린다.
+     * 모집이 끝난(FULFILLED/FAILED/CANCELED) 건은 되돌리지 않는다 - 확정 이후의 취소는
+     * 반품 경로이지 참여 취소가 아니다.
+     */
+    public void cancelConfirmedParticipant() {
+        if (!isRecruiting()) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
+                    "모집 중인 공동구매의 참여만 취소할 수 있습니다.");
+        }
+        if (currentParticipants <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "취소할 확정 참여가 없습니다.");
+        }
+        currentParticipants--;
+    }
+
+    /**
+     * 참여 발생 후 판매자 귀책 판매 철회(GRP-10). 모집 중이면 참여자가 있어도 취소로 전환한다.
+     * 전원 환불·위반 후보 생성은 호출자(서비스)가 별도로 오케스트레이션한다.
+     */
+    public void withdrawBySeller() {
+        if (!isRecruiting()) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
+                    "모집 중인 공동구매만 판매 철회할 수 있습니다.");
+        }
+        status = "CANCELED";
+        reservedSlots = 0;
+    }
+
     public RecruitmentJudgement judgeRecruitment(
             LocalDateTime judgedAt, LocalDateTime calculatedShippingDeadlineAt) {
         if (!isRecruiting()) {
