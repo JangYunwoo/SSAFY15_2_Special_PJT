@@ -47,18 +47,6 @@ function DetailView({ detail }: { detail: GroupBuyDetail }) {
 
   return (
     <>
-      <div className="crumb">
-        <button
-          type="button"
-          className="crumb-share"
-          onClick={() => {
-            void navigator.clipboard.writeText(window.location.href)
-          }}
-        >
-          공유
-        </button>
-      </div>
-
       <div className="detail">
         <GroupBuyGallery images={detail.images} alt={detail.productName} />
 
