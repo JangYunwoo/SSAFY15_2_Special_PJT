@@ -414,6 +414,13 @@ button,input,select,textarea{font:inherit;color:inherit;}
  * 이상으로 벌어졌고, "공동구매 참여하기" 가 첫 화면 밖으로 밀렸습니다.
  * 글자 크기는 그대로 두고 위 여백만 명시해 리듬을 좁힙니다.
  */
+/*
+ * 오른쪽 열은 라벨과 값을 양 끝으로 미는 줄이 많아, 칸이 넓으면 가운데가
+ * 텅 비어 보입니다. 이미지 크기는 그대로 두어야 하므로 열 비율(1fr 1fr)은
+ * 두고 글 영역만 좁혀 오른쪽 끝에 맞춥니다. 남는 자리는 이미지와의 간격이
+ * 됩니다.
+ */
+.detail-info{width:86%;margin-left:auto;}
 .detail-info .status{font-size:12px;color:var(--ink2);margin:0 0 8px;}
 .detail-info h1{margin:0 0 6px;font-size:27px;font-weight:500;letter-spacing:-.5px;}
 .detail-info .list-price{font-size:12px;color:var(--muted);margin:0 0 10px;}
@@ -631,6 +638,8 @@ footer.foot .inner .sp{margin-left:auto;}
   .detail,.split{grid-template-columns:1fr;gap:28px;}
   /* 한 열로 접히면 이미지가 화면 폭만큼 커지므로 정사각형 대신 높이를 묶습니다. */
   .gallery .thumb{aspect-ratio:auto;height:300px;}
+  /* 한 열에서는 글을 좁혀 오른쪽에 붙일 이유가 없습니다. */
+  .detail-info{width:auto;margin-left:0;}
   .sticky{position:static;}
   .how{grid-template-columns:1fr 1fr;}
   /* 2칸이 되면 왼쪽 칸(홀수)의 세로선은 컨테이너 테두리와 겹칩니다 */
