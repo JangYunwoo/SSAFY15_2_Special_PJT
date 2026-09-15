@@ -118,7 +118,7 @@ function NotificationRow({ item, onDone }: { item: Notification; onDone: () => v
   })
 
   const open = () => {
-    if (item.readAt === null) markRead.mutate()
+    if (!item.read) markRead.mutate()
     if (item.linkUrl !== null) {
       void navigate(item.linkUrl)
       onDone()
@@ -129,7 +129,7 @@ function NotificationRow({ item, onDone }: { item: Notification; onDone: () => v
     <li>
       <button
         type="button"
-        className={cx('bell-item', item.readAt === null && 'unread')}
+        className={cx('bell-item', !item.read && 'unread')}
         onClick={open}
         disabled={markRead.isPending}
       >

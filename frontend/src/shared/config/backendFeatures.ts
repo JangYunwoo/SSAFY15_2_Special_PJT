@@ -8,7 +8,7 @@
  * 바꾸는 것만으로 화면이 되살아나도록 한곳에 모았습니다.
  *
  * 확인 방법: `backend/**\/controller/*.java` 에 해당 경로의 매핑이 있는지 봅니다.
- * 마지막 대조: 2026-09-14 — 컨트롤러 34개의 매핑을 전부 훑었습니다.
+ * 마지막 대조: 2026-09-15 — 컨트롤러 41개의 매핑을 전부 훑었습니다.
  * 이 파일을 고친 직후 백엔드가 정산·제재·환불을 한꺼번에 병합했습니다. 날짜를
  * 적어두지 않으면 어느 시점 기준인지 알 수 없어 같은 실수를 반복하게 됩니다.
  *
@@ -18,7 +18,11 @@
  * 상수가 아니라 연동 진행 상황을 적어둔 설정입니다.
  */
 export interface BackendFeatureFlags {
-  /** NOTI-01~03 · `domain/notification` 에 package-info.java 뿐 */
+  /**
+   * NOTI-01~03 인앱 알림 · `NotificationController` 구현됨 (2026-09-15 병합).
+   *
+   * 새로 붙은 API 라 문제가 생기면 되돌릴 수 있도록 플래그를 남겨 둡니다.
+   */
   notifications: boolean
 
   /**
@@ -68,7 +72,7 @@ export interface BackendFeatureFlags {
 }
 
 export const BACKEND_FEATURES: BackendFeatureFlags = {
-  notifications: false,
+  notifications: true,
   settlements: true,
   sellerOnboarding: true,
   participationCancel: true,
