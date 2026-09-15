@@ -25,6 +25,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String HEADER = "Authorization";
     private static final String PREFIX = "Bearer ";
+    private static final String ADMIN_ROLE = "ADMIN";
 
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
@@ -41,14 +42,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = resolveToken(request);
         if (token != null && jwtTokenProvider.isValidAccessToken(token)) {
             Claims claims = jwtTokenProvider.parseClaims(token);
-            Long userId = Long.valueOf(claims.getSubject());
+            Long subjectId = Long.valueOf(claims.getSubject());
             String role = claims.get("role", String.class);
 
-            userRepository.findById(userId)
-                    .filter(user -> "ACTIVE".equals(user.getStatus()))
-                    .ifPresent(user -> authenticate(user, role));
+            if (ADMIN_ROLE.equals(role)) {
+                // 관리자는 users가 아니라 admins 테이블에 있다. users 조회를 요구하면 admin
+                // 토큰이 항상 인증에 실패하므로, ADMIN 역할은 별도 계정 조회 없이 인증한다
+                // (/auth/admins/login이 admins를 검증해 발급한 토큰만 여기 도달한다).
+                authenticateAdmin(subjectId);
+            } else {
+                userRepository.findById(subjectId)
+                        .filter(user -> "ACTIVE".equals(user.getStatus()))
+                        .ifPresent(user -> authenticate(user, role));
+            }
         }
         filterChain.doFilter(request, response);
+    }
+
+    private void authenticateAdmin(Long adminId) {
+        var authentication = new UsernamePasswordAuthenticationToken(
+                adminId, null, List.of(new SimpleGrantedAuthority("ROLE_" + ADMIN_ROLE)));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 
     private void authenticate(User user, String role) {
