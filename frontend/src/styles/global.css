@@ -419,14 +419,22 @@ button,input,select,textarea{font:inherit;color:inherit;}
  * 마우스가 있는 환경에서만 켭니다. 터치 화면에는 hover 가 없어 한 번 누르면
  * 확대가 켜진 채로 남습니다.
  */
-.gallery .thumb .zoom{display:none;}
+.gallery .thumb .lens{display:none;}
 @media(hover:hover) and (pointer:fine){
-  .gallery .thumb .zoom{
-    display:block;position:absolute;inset:0;z-index:1;
-    overflow:hidden;background:var(--fill);pointer-events:none;
+  .gallery .thumb .lens{
+    display:block;position:absolute;z-index:1;
+    width:180px;height:180px;overflow:hidden;
+    background:var(--fill);border:1px solid var(--line-strong);
+    box-shadow:0 2px 8px 2px rgba(60,64,67,.18);
+    /* 창이 커서를 가로채면 mousemove 가 끊겨 따라오지 못합니다. */
+    pointer-events:none;
   }
-  .gallery .thumb .zoom img{
-    position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;
+  /*
+   * 전역 img{max-width:100%} 가 확대한 사진을 틀 크기로 도로 줄입니다.
+   * 창 안에서는 배율대로 커져야 하므로 그 제한을 풉니다.
+   */
+  .gallery .thumb .lens img{
+    position:absolute;max-width:none;object-fit:cover;display:block;
   }
   /* 확대할 수 있다는 것을 커서로 알립니다. */
   .gallery .thumb:has(img){cursor:zoom-in;}

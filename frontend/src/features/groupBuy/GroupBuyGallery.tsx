@@ -13,34 +13,42 @@ const PLACEHOLDER_COUNT = 3
  */
 const ZOOM = 2.5
 
+/** 돋보기 창 한 변 (px). 사진 폭의 3분의 1쯤이라 주변 맥락이 남습니다. */
+const LENS = 180
+
 interface GroupBuyGalleryProps {
   images: readonly string[]
   alt: string
 }
 
-/** 마우스가 사진 위 어디에 있는지 (0~100%) */
-interface Spot {
+/** 돋보기 창의 중심과, 계산에 쓸 사진 틀 크기 (px) */
+interface Lens {
   x: number
   y: number
+  width: number
+  height: number
+}
+
+/** 돋보기 창이 사진 밖으로 나가지 않도록 중심을 안쪽으로 당깁니다. */
+function clamp(value: number, max: number): number {
+  const half = LENS / 2
+  if (max <= LENS) return max / 2
+  return Math.min(Math.max(value, half), max - half)
 }
 
 export function GroupBuyGallery({ images, alt }: GroupBuyGalleryProps) {
   const [selected, setSelected] = useState(0)
-  const [spot, setSpot] = useState<Spot | null>(null)
+  const [lens, setLens] = useState<Lens | null>(null)
   const count = images.length > 0 ? images.length : PLACEHOLDER_COUNT
   const current = images[selected]
 
-  /**
-   * 마우스 위치를 비율로 바꿔 확대 레이어의 배경 위치로 씁니다.
-   *
-   * 배경을 2.5배로 키운 뒤 background-position 에 같은 비율을 주면, 커서가
-   * 가리키는 지점이 그대로 가운데에 옵니다. 라이브러리 없이 CSS 로 됩니다.
-   */
   const track = (event: React.MouseEvent<HTMLDivElement>) => {
     const box = event.currentTarget.getBoundingClientRect()
-    setSpot({
-      x: ((event.clientX - box.left) / box.width) * 100,
-      y: ((event.clientY - box.top) / box.height) * 100,
+    setLens({
+      x: clamp(event.clientX - box.left, box.width),
+      y: clamp(event.clientY - box.top, box.height),
+      width: box.width,
+      height: box.height,
     })
   }
 
@@ -50,7 +58,7 @@ export function GroupBuyGallery({ images, alt }: GroupBuyGalleryProps) {
         className="thumb"
         onMouseMove={current === undefined ? undefined : track}
         onMouseLeave={() => {
-          setSpot(null)
+          setLens(null)
         }}
       >
         {current === undefined ? (
@@ -60,22 +68,29 @@ export function GroupBuyGallery({ images, alt }: GroupBuyGalleryProps) {
         )}
 
         {/*
-          확대는 사진 위에 같은 사진을 덮어 처리합니다.
-          아래 사진과 똑같이 object-fit:cover 로 깔고 transform-origin 을 커서에
-          두고 키우면, 커서가 가리키는 지점이 제자리에 남은 채 주변만 커집니다.
-          배경 이미지로 하면 cover 의 잘린 범위를 그대로 따라가지 못해 확대했을
-          때 커서 아래와 다른 곳이 보입니다.
+          돋보기 창. 커서를 따라다니는 정사각형 안에서만 확대해 보여줍니다.
+          사진 전체를 키우면 화면이 통째로 흔들려 어수선합니다.
+
+          창 안에는 같은 사진을 배율만큼 키워 깔고, 커서가 가리키는 지점이 창
+          한가운데 오도록 밀어 둡니다. 아래 사진과 같은 object-fit:cover 로
+          깔아야 잘린 범위가 같아, 확대했을 때 커서 아래와 같은 곳이 보입니다.
 
           aria-hidden 인 이유는 같은 사진을 한 번 더 읽어줄 이유가 없어서입니다.
         */}
-        {current !== undefined && spot !== null && (
-          <div className="zoom" aria-hidden="true">
+        {current !== undefined && lens !== null && (
+          <div
+            className="lens"
+            aria-hidden="true"
+            style={{ left: lens.x - LENS / 2, top: lens.y - LENS / 2 }}
+          >
             <img
               src={current}
               alt=""
               style={{
-                transform: `scale(${String(ZOOM)})`,
-                transformOrigin: `${String(spot.x)}% ${String(spot.y)}%`,
+                width: lens.width * ZOOM,
+                height: lens.height * ZOOM,
+                left: -(lens.x * ZOOM - LENS / 2),
+                top: -(lens.y * ZOOM - LENS / 2),
               }}
             />
           </div>
@@ -95,8 +110,8 @@ export function GroupBuyGallery({ images, alt }: GroupBuyGalleryProps) {
                 aria-current={index === selected}
                 onClick={() => {
                   setSelected(index)
-                  // 사진을 바꾸면 이전 사진의 확대 상태가 남지 않게 지웁니다.
-                  setSpot(null)
+                  // 사진을 바꾸면 이전 사진의 돋보기 상태가 남지 않게 지웁니다.
+                  setLens(null)
                 }}
               >
                 {source === undefined ? `이미지 ${String(index + 1)}` : <img src={source} alt="" />}
