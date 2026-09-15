@@ -1,6 +1,5 @@
 import { Link, NavLink, Outlet, ScrollRestoration } from 'react-router'
 
-import { useLogout } from '@/features/auth/useAuthMutations'
 import { cx } from '@/shared/lib/cx'
 
 import { SiteFooter } from './SiteFooter'
@@ -15,8 +14,6 @@ const TABS = [
 
 /** 판매자센터 골격. 헤더 + 5개 탭 */
 export function SellerLayout() {
-  const logout = useLogout()
-
   return (
     <>
       <header className="gnb">
@@ -34,15 +31,14 @@ export function SellerLayout() {
             <Link className="cta fill" to="/seller/products/new">
               상품 등록하기
             </Link>
-            <button
-              type="button"
-              className="cta"
-              onClick={() => {
-                logout.mutate()
-              }}
-            >
+            {/*
+              "센터 나가기" 는 구매자 화면으로 돌아가는 것이지 로그아웃이 아닙니다.
+              계정은 하나뿐이고 판매자도 구매자로 계속 쓸 수 있습니다. 예전에는
+              여기서 logout 을 불러 로그인 화면으로 튕겼습니다.
+            */}
+            <Link className="cta" to="/">
               센터 나가기
-            </button>
+            </Link>
           </div>
         </div>
       </header>

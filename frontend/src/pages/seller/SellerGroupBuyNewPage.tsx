@@ -78,6 +78,8 @@ interface FormProduct {
   color: string | null
   categoryName: string
   price: number
+  /** 등록한 이미지. 첫 장을 대표로 보여줍니다. */
+  images: readonly string[]
   withdrawalRestrictionReason: string | null
 }
 
@@ -198,7 +200,12 @@ function GroupBuyForm({
 
           {selected && (
             <div className="order-item mt16">
-              <div className="thumb" />
+              {/* 등록한 이미지를 보여줘야 어느 상품을 골랐는지 확인할 수 있습니다. */}
+              <div className="thumb">
+                {selected.images[0] !== undefined && (
+                  <img src={selected.images[0]} alt={`${selected.name} 대표 이미지`} />
+                )}
+              </div>
               <div className="body">
                 <div className="name">{selected.name}</div>
                 <div className="small muted">
