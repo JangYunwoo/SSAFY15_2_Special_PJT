@@ -53,9 +53,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers(HttpMethod.POST,
-                                "/auth/signup", "/auth/login", "/auth/admins/login", "/auth/refresh").permitAll()
+                                "/auth/signup", "/auth/login", "/auth/admins/login", "/auth/refresh",
+                                "/auth/email/availability").permitAll()
                         .requestMatchers(HttpMethod.GET,
-                                "/auth/email/availability",
                                 "/categories", "/group-buys", "/group-buys/*", "/product-images/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/withdrawal-restriction-reasons").hasRole("SELLER")
                         .requestMatchers("/actuator/health").permitAll()

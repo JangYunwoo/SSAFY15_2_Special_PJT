@@ -14,3 +14,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# 로컬 전용 docker override (포트 3307 등)
+docker-compose.override.yml

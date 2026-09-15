@@ -21,6 +21,10 @@ export type EmailCheckStatus =
   | 'invalid'
   | 'available'
   | 'duplicate'
+  /** SSAFY 금융망을 다른 곳이 선점해 이 이메일로는 연동이 불가 (가입 불가) */
+  | 'unavailable'
+  /** SSAFY 장애 등으로 이번엔 확인하지 못함 (가입은 진행 가능) */
+  | 'unknown'
   /** 백엔드에 확인 API 가 아직 없음 (BACKEND_FEATURES.emailAvailability) */
   | 'unsupported'
   /** 네트워크·서버 오류로 확인하지 못함 */
@@ -56,6 +60,48 @@ export const INVALID = outcome('invalid', '이메일 형식이 올바르지 않�
 export const EMPTY = outcome('invalid', '이메일을 입력한 뒤 눌러주세요.')
 export const AVAILABLE = outcome('available', '사용할 수 있는 이메일입니다.', true)
 export const DUPLICATE = outcome('duplicate', '이미 가입된 이메일입니다.')
+
+/**
+ * SSAFY 금융망 선점. 다른 apiKey 가 이미 가져간 이메일이라 우리로는 연동이 영영
+ * 불가능해 가입해도 결제가 막힌다. 그래서 가입 전에 잡아 진행을 막는다.
+ */
+export const UNAVAILABLE = outcome(
+  'unavailable',
+  '이 이메일은 금융망에 이미 등록되어 사용할 수 없습니다. 다른 이메일을 사용해주세요.',
+)
+
+/**
+ * 금융망 장애 등으로 확인하지 못한 경우. 막지 않는다 - 가입 시점에 서버가 다시
+ * 확인하며, 여기서 붙잡으면 장애 동안 아무도 가입하지 못하게 된다.
+ */
+export const UNKNOWN = outcome(
+  'unknown',
+  '지금은 사용 가능 여부를 확인하지 못했습니다. 가입은 계속 진행할 수 있어요.',
+  true,
+)
+
+/** 서버 응답. `available` 은 "이 상태로 진행해도 되는지", `status` 가 구체 사유. */
+export interface EmailAvailabilityResult {
+  available: boolean
+  status: string
+}
+
+/** 서버 판정({@link EmailAvailabilityResult})을 화면용 결과로 옮긴다. */
+export function outcomeForResult(result: EmailAvailabilityResult): EmailCheckOutcome {
+  switch (result.status) {
+    case 'AVAILABLE':
+      return AVAILABLE
+    case 'TAKEN':
+      return DUPLICATE
+    case 'UNAVAILABLE_SSAFY':
+      return UNAVAILABLE
+    case 'UNKNOWN':
+      return UNKNOWN
+    // 모르는 status 는 available 플래그로 안전하게 갈라 처리한다.
+    default:
+      return result.available ? AVAILABLE : DUPLICATE
+  }
+}
 
 /**
  * 확인 API 가 없을 때. 가입을 막지 않습니다 - 서버가 가입 시점에
@@ -130,5 +176,10 @@ export function blocksSignup(outcome: EmailCheckOutcome, checkEnabled: boolean):
 
 /** 오류 문구로 보여줄 상태인지 (아니면 안내 문구) */
 export function isErrorOutcome({ status }: EmailCheckOutcome): boolean {
-  return status === 'invalid' || status === 'duplicate' || status === 'failed'
+  return (
+    status === 'invalid' ||
+    status === 'duplicate' ||
+    status === 'unavailable' ||
+    status === 'failed'
+  )
 }
