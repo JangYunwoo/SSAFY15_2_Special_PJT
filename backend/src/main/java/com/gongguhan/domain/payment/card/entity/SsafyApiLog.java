@@ -100,4 +100,20 @@ public class SsafyApiLog {
     public String getResponseMessage() {
         return responseMessage;
     }
+
+    public String getTransmissionDate() {
+        return transmissionDate;
+    }
+
+    public String getTargetType() {
+        return targetType;
+    }
+
+    public Long getTargetId() {
+        return targetId;
+    }
+
+    public LocalDateTime getCalledAt() {
+        return calledAt;
+    }
 }
