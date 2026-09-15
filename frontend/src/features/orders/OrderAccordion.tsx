@@ -8,6 +8,7 @@ import {
   type EscrowStatus,
   type ParticipationStatus,
 } from '@/entities/model'
+import { displayFor } from '@/entities/statusDisplay'
 import { deliveryQueries } from '@/entities/delivery/queries'
 import { participationApi } from '@/entities/participation/api'
 import type { Escrow, ParticipationSummary } from '@/entities/participation/model'
@@ -38,7 +39,7 @@ export function OrderAccordion({ item, defaultOpen = false }: OrderAccordionProp
   const panelId = useId()
   const queryClient = useQueryClient()
 
-  const display = PARTICIPATION_STATUS_DISPLAY[item.status]
+  const display = displayFor(PARTICIPATION_STATUS_DISPLAY, item.status, '참여 상태')
 
   const cancel = useMutation({
     mutationFn: () => participationApi.cancel(item.id),
@@ -241,7 +242,7 @@ function DeliveryRow({ participationId, open }: { participationId: string; open:
 
   return (
     <DataRow label="배송">
-      {DELIVERY_STATUS_DISPLAY[status].label}
+      {displayFor(DELIVERY_STATUS_DISPLAY, status, '배송 상태').label}
       {trackingNumber === null ? (
         <>
           <br />

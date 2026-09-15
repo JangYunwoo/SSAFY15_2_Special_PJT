@@ -74,12 +74,7 @@ export type RestrictionReviewStatus = (typeof RESTRICTION_REVIEW_STATUS)[number]
 
 /* ---------- 화면 표기 ---------- */
 
-import type { StateTone } from '@/shared/ui/StateChip'
-
-interface Display {
-  label: string
-  tone: StateTone
-}
+import type { Display } from '@/entities/statusDisplay'
 
 export const GROUP_BUY_STATUS_DISPLAY: Record<GroupBuyStatus, Display> = {
   RECRUITING: { label: '모집중', tone: 'live' },

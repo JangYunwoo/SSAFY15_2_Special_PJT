@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { PAYMENT_METHOD_LABEL, PAYMENT_STATUS_DISPLAY } from '@/entities/model'
+import { displayFor } from '@/entities/statusDisplay'
 import type { PaymentHistoryItem } from '@/entities/payment/model'
 import { paymentQueries } from '@/entities/payment/queries'
 import { OrdersTabs } from '@/features/orders/OrdersTabs'
@@ -74,7 +75,7 @@ function PaymentTable({ items }: { items: readonly PaymentHistoryItem[] }) {
       </thead>
       <tbody>
         {items.map((item) => {
-          const display = PAYMENT_STATUS_DISPLAY[item.status]
+          const display = displayFor(PAYMENT_STATUS_DISPLAY, item.status, '결제 상태')
           const processing = item.status === 'PROCESSING'
 
           return (

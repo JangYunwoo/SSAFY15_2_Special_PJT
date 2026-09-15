@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { RETURN_REASON_LABEL, RETURN_STATUS_DISPLAY } from '@/entities/model'
+import { displayFor } from '@/entities/statusDisplay'
 import { returnApi } from '@/entities/returnRequest/api'
 import type { ReturnRequestSummary } from '@/entities/returnRequest/model'
 import { returnQueries } from '@/entities/returnRequest/queries'
@@ -102,7 +103,7 @@ function ReturnCard({
   className?: string | undefined
 }) {
   const [open, setOpen] = useState(false)
-  const display = RETURN_STATUS_DISPLAY[item.status]
+  const display = displayFor(RETURN_STATUS_DISPLAY, item.status, '반품 상태')
 
   return (
     <Panel
@@ -177,7 +178,7 @@ function ReturnDetail({ returnId }: { returnId: string }) {
                 {detail.history.map((entry) => (
                   <DataRow
                     key={`${entry.status}-${entry.occurredAt}`}
-                    label={RETURN_STATUS_DISPLAY[entry.status].label}
+                    label={displayFor(RETURN_STATUS_DISPLAY, entry.status, '반품 이력 상태').label}
                     hint={entry.note ?? undefined}
                   >
                     <span className="small muted">{dateTime(entry.occurredAt)}</span>

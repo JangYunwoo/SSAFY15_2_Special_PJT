@@ -9,6 +9,7 @@ import {
   TRANSFER_STATUS_DISPLAY,
   type SettlementStatus,
 } from '@/entities/model'
+import { displayFor } from '@/entities/statusDisplay'
 import type { Settlement } from '@/entities/settlement/model'
 import { toMessage } from '@/shared/api/errors'
 import { queryKeys } from '@/shared/api/queryKeys'
@@ -139,8 +140,8 @@ function SettlementRow({
   selected: boolean
   onSelect: () => void
 }) {
-  const status = SETTLEMENT_STATUS_DISPLAY[item.status]
-  const transfer = TRANSFER_STATUS_DISPLAY[item.transferStatus]
+  const status = displayFor(SETTLEMENT_STATUS_DISPLAY, item.status, '정산 상태')
+  const transfer = displayFor(TRANSFER_STATUS_DISPLAY, item.transferStatus, '이체 상태')
 
   return (
     <tr style={selected ? { background: 'var(--soft)' } : undefined}>
@@ -213,8 +214,8 @@ function SettlementDetailPanel({ settlementId }: { settlementId: string }) {
     <QueryBoundary query={query} loadingLabel="정산 상세를 불러오는 중입니다.">
       {({ settlement, items }) => {
         const excluded = items.filter((item) => !item.included)
-        const status = SETTLEMENT_STATUS_DISPLAY[settlement.status]
-        const transfer = TRANSFER_STATUS_DISPLAY[settlement.transferStatus]
+        const status = displayFor(SETTLEMENT_STATUS_DISPLAY, settlement.status, '정산 상태')
+        const transfer = displayFor(TRANSFER_STATUS_DISPLAY, settlement.transferStatus, '이체 상태')
 
         const canExecute =
           settlement.status === 'PENDING' && settlement.transferStatus === 'PENDING'
