@@ -408,6 +408,30 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .gallery .thumb img{
   position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;
 }
+
+/*
+ * 돋보기 확대.
+ *
+ * 사진 위에 같은 사진을 덮고 커서 지점을 기준으로 키웁니다. 확대한 사진이
+ * 틀 밖으로 나가지 않도록 레이어에서 잘라내므로 레이아웃은 흔들리지 않습니다.
+ * 배율과 기준점은 마우스 좌표를 비율로 바꿔 JS 가 넣어 줍니다.
+ *
+ * 마우스가 있는 환경에서만 켭니다. 터치 화면에는 hover 가 없어 한 번 누르면
+ * 확대가 켜진 채로 남습니다.
+ */
+.gallery .thumb .zoom{display:none;}
+@media(hover:hover) and (pointer:fine){
+  .gallery .thumb .zoom{
+    display:block;position:absolute;inset:0;z-index:1;
+    overflow:hidden;background:var(--fill);pointer-events:none;
+  }
+  .gallery .thumb .zoom img{
+    position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;
+  }
+  /* 확대할 수 있다는 것을 커서로 알립니다. */
+  .gallery .thumb:has(img){cursor:zoom-in;}
+}
+
 .gallery .caps button img{width:100%;height:100%;object-fit:cover;display:block;}
 .gallery .caps{display:flex;gap:10px;margin-top:10px;}
 .gallery .caps button{
