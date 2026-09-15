@@ -66,6 +66,22 @@ public class User extends BaseTimeEntity {
         this.ssafyUserKey = ssafyUserKey;
     }
 
+    /** 휴대폰 본인인증 통과 표시(SEL-02). */
+    public void markPhoneVerified() {
+        this.phoneVerified = true;
+    }
+
+    /**
+     * 판매자 전환 확정(SEL-05). {@code is_seller}를 켜고 정산 수취 계좌를 함께 기록한다.
+     * 이후 발급되는 JWT의 isSeller 클레임이 true가 되어 {@code /sellers/**}에 접근할 수 있다.
+     */
+    public void promoteToSeller(String ssafyAccountNo) {
+        this.seller = true;
+        if (ssafyAccountNo != null && !ssafyAccountNo.isBlank()) {
+            this.ssafyAccountNo = ssafyAccountNo;
+        }
+    }
+
     /** USR-02 부분 수정. null 필드는 유지한다. */
     public void updateProfile(String nickname, String phone, String ssafyAccountNo) {
         if (nickname != null) {

@@ -75,6 +75,29 @@ public class SellerProfile extends BaseTimeEntity {
     protected SellerProfile() {
     }
 
+    /**
+     * SEL-05 판매자 전환 확정. {@code sellerId}는 {@code users.user_id}와 같은 값을 쓴다.
+     * 1원 인증을 통과한 계좌로만 만들어지므로 {@code accountVerified=true}로 확정한다.
+     */
+    public static SellerProfile create(Long sellerId, String businessName, String businessPhone,
+                                       String ssafyAccountNo, String accountHolder,
+                                       String returnZipcode, String returnAddress1, String returnAddress2) {
+        SellerProfile profile = new SellerProfile();
+        profile.sellerId = sellerId;
+        profile.businessName = businessName;
+        profile.businessPhone = businessPhone;
+        profile.ssafyAccountNo = ssafyAccountNo;
+        profile.accountHolder = accountHolder;
+        profile.accountVerified = true;
+        profile.returnZipcode = returnZipcode;
+        profile.returnAddress1 = returnAddress1;
+        profile.returnAddress2 = returnAddress2;
+        profile.penaltyCount = 0;
+        profile.status = STATUS_ACTIVE;
+        profile.verifiedAt = LocalDateTime.now();
+        return profile;
+    }
+
     /** SEL-07 부분 수정. null 필드는 유지된다. */
     public void update(String businessPhone, String ssafyAccountNo, String accountHolder,
                         String returnZipcode, String returnAddress1, String returnAddress2) {
