@@ -104,13 +104,8 @@ function DeliveryBoardView({ groupBuyId }: { groupBuyId: string }) {
 
 function DeliveryTable({ board, groupBuyId }: { board: DeliveryBoard; groupBuyId: string }) {
   const [editing, setEditing] = useState<string | null>(null)
-  const [selected, setSelected] = useState<readonly string[]>([])
 
   const editingDelivery = board.items.find((item) => item.id === editing)
-
-  /* 목록이 갱신되며 사라진 건은 선택에서 빼고 셉니다. */
-  const selectedIds = selected.filter((id) => board.items.some((item) => item.id === id))
-  const allSelected = board.items.length > 0 && selectedIds.length === board.items.length
 
   if (board.items.length === 0) {
     return <EmptyState>결제 완료된 참여자가 없습니다.</EmptyState>
@@ -121,33 +116,21 @@ function DeliveryTable({ board, groupBuyId }: { board: DeliveryBoard; groupBuyId
       <BulkStatusBar
         groupBuyId={groupBuyId}
         items={board.items}
-        selectedIds={selectedIds}
         onDone={() => {
-          setSelected([])
+          setEditing(null)
         }}
       />
 
       <table className="list fixed">
         <colgroup>
-          <col style={{ width: '5%' }} />
-          <col style={{ width: '16%' }} />
-          <col style={{ width: '25%' }} />
+          <col style={{ width: '18%' }} />
+          <col style={{ width: '26%' }} />
           <col style={{ width: '12%' }} />
-          <col style={{ width: '20%' }} />
-          <col style={{ width: '22%' }} />
+          <col style={{ width: '21%' }} />
+          <col style={{ width: '23%' }} />
         </colgroup>
         <thead>
           <tr>
-            <th>
-              <input
-                type="checkbox"
-                aria-label="전체 선택"
-                checked={allSelected}
-                onChange={(event) => {
-                  setSelected(event.target.checked ? board.items.map((item) => item.id) : [])
-                }}
-              />
-            </th>
             <th>수령인</th>
             <th>주소</th>
             <th>상태</th>
@@ -160,20 +143,6 @@ function DeliveryTable({ board, groupBuyId }: { board: DeliveryBoard; groupBuyId
             const display = DELIVERY_STATUS_DISPLAY[delivery.status]
             return (
               <tr key={delivery.id}>
-                <td>
-                  <input
-                    type="checkbox"
-                    aria-label={`${maskName(delivery.recipientName)} 선택`}
-                    checked={selectedIds.includes(delivery.id)}
-                    onChange={() => {
-                      setSelected((current) =>
-                        current.includes(delivery.id)
-                          ? current.filter((id) => id !== delivery.id)
-                          : [...current, delivery.id],
-                      )
-                    }}
-                  />
-                </td>
                 <td>
                   <b>{maskName(delivery.recipientName)}</b>
                   <br />
@@ -280,28 +249,31 @@ function RowStatusSelect({ delivery, groupBuyId }: { delivery: Delivery; groupBu
 }
 
 /**
- * DLV-04 선택한 참여자의 배송 상태 일괄 변경.
+ * DLV-04 배송 상태 일괄 변경.
  *
- * 참여자가 많은 공동구매에서 한 건씩 넘기면 빠뜨리기 쉬워, 발송·수령 확인은
- * 묶어서 처리할 수 있게 둡니다.
+ * 이 공동구매의 배송 건 "전체" 가 대상입니다. 명세서와 백엔드 모두 상태만 받고
+ * 대상을 고르지 않습니다(DeliveryStatusUpdateRequest). 예전에는 표에 체크박스를
+ * 두고 고른 건만 바꾸는 것처럼 보였지만, 서버는 그 목록을 읽지 않아 실제로는
+ * 전부 바뀌었습니다. 몇 건이 바뀌는지 먼저 밝히고 확인을 받습니다.
+ *
+ * 한 건만 바꾸려면 표 안의 상태 선택(DLV-03)을 쓰면 됩니다.
  */
 function BulkStatusBar({
   groupBuyId,
   items,
-  selectedIds,
   onDone,
 }: {
   groupBuyId: string
   items: readonly Delivery[]
-  selectedIds: readonly string[]
   onDone: () => void
 }) {
   const queryClient = useQueryClient()
+  const [asking, setAsking] = useState<DeliveryStatus | null>(null)
 
   const bulk = useMutation({
-    mutationFn: (status: DeliveryStatus) =>
-      deliveryApi.updateStatusBulk(groupBuyId, status, [...selectedIds]),
+    mutationFn: (status: DeliveryStatus) => deliveryApi.updateStatusBulk(groupBuyId, status),
     onSuccess: async () => {
+      setAsking(null)
       await queryClient.invalidateQueries({
         queryKey: queryKeys.sellerGroupBuys.deliveries(groupBuyId),
       })
@@ -309,39 +281,65 @@ function BulkStatusBar({
     },
   })
 
-  const withoutInvoice = items.filter(
-    (item) => selectedIds.includes(item.id) && item.trackingNumber === null,
-  ).length
-  const none = selectedIds.length === 0
+  const withoutInvoice = items.filter((item) => item.trackingNumber === null).length
+  const empty = items.length === 0
 
   return (
     <div className="box" style={{ marginBottom: 16 }}>
       <div className="order-actions" style={{ marginTop: 0, alignItems: 'center' }}>
         <span className="small" style={{ flex: 1 }}>
-          {none ? '상태를 바꿀 주문을 선택하세요.' : `${String(selectedIds.length)}건 선택`}
+          전체 {items.length}건의 배송 상태를 한 번에 바꿉니다.
         </span>
         <Button
           variant="ghost"
-          disabled={none || bulk.isPending}
+          disabled={empty || bulk.isPending}
           onClick={() => {
-            bulk.mutate('SHIPPING')
+            setAsking('SHIPPING')
           }}
         >
-          배송중으로
+          전체 배송중으로
         </Button>
         <Button
-          disabled={none || bulk.isPending}
+          disabled={empty || bulk.isPending}
           onClick={() => {
-            bulk.mutate('DELIVERED')
+            setAsking('DELIVERED')
           }}
         >
-          배송완료로
+          전체 배송완료로
         </Button>
       </div>
 
+      {asking !== null && (
+        <div className="mt8">
+          <p className="small" style={{ marginBottom: 8 }}>
+            {items.length}건 전부를 <b>{DELIVERY_STATUS_DISPLAY[asking].label}</b> 로 바꿉니다.
+            일부만 바꾸려면 표에서 건별로 상태를 고르세요.
+          </p>
+          <div className="order-actions" style={{ marginTop: 0 }}>
+            <Button
+              disabled={bulk.isPending}
+              onClick={() => {
+                bulk.mutate(asking)
+              }}
+            >
+              {bulk.isPending ? '바꾸는 중…' : '전체 변경'}
+            </Button>
+            <Button
+              variant="ghost"
+              disabled={bulk.isPending}
+              onClick={() => {
+                setAsking(null)
+              }}
+            >
+              그만두기
+            </Button>
+          </div>
+        </div>
+      )}
+
       {withoutInvoice > 0 && (
         <p className="small muted mt8" style={{ marginBottom: 0 }}>
-          선택한 {withoutInvoice}건은 송장이 없습니다. 송장을 먼저 등록해야 배송중으로 넘어갑니다.
+          송장이 없는 건이 {withoutInvoice}건 있습니다. 송장을 먼저 등록해야 배송중으로 넘어갑니다.
         </p>
       )}
 
@@ -353,7 +351,6 @@ function BulkStatusBar({
     </div>
   )
 }
-
 function InvoiceForm({
   delivery,
   groupBuyId,
