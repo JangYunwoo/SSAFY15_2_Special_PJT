@@ -27,9 +27,9 @@ export const participationApi = {
   /**
    * PAR-03 모집 완료 전 참여 취소·환불 개시.
    *
-   * 백엔드에 컨트롤러가 아직 없습니다. 화면에서는
-   * `BACKEND_FEATURES.participationCancel` 로 버튼을 감춰두었고, 컨트롤러가
-   * 생기면 플래그만 켜면 됩니다.
+   * 본문 없이 보냅니다(백엔드 ParticipationCancelController 가 경로 변수만 받습니다).
+   * 결제 완료(PAID) 이면서 모집이 끝나지 않은 건만 받아들이고, 그 외에는
+   * INVALID_STATE_TRANSITION 으로 거절합니다.
    */
   cancel: (participationId: Id) =>
     api.post<NoContent>(`/users/me/participations/${participationId}/cancel`),
