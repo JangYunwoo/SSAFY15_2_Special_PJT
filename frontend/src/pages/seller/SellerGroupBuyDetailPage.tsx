@@ -1,14 +1,20 @@
-import { useQuery } from '@tanstack/react-query'
-import { useParams } from 'react-router'
+import { useState } from 'react'
+
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate, useParams } from 'react-router'
 
 import { GROUP_BUY_STATUS_DISPLAY } from '@/entities/model'
+import { groupBuyApi } from '@/entities/groupBuy/api'
 import type { Participant, SellerGroupBuyDetail } from '@/entities/groupBuy/model'
 import { groupBuyQueries } from '@/entities/groupBuy/queries'
+import { toMessage } from '@/shared/api/errors'
+import { queryKeys } from '@/shared/api/queryKeys'
 import { date, dateTime, groupBuyNo, maskName, won } from '@/shared/lib/format'
 import { usePageParam } from '@/shared/lib/hooks/usePageParam'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
-import { ButtonLink } from '@/shared/ui/Button'
+import { Button, ButtonLink } from '@/shared/ui/Button'
 import { DataRow } from '@/shared/ui/DataRow'
+import { TextField } from '@/shared/ui/Field'
 import { Pagination } from '@/shared/ui/Pagination'
 import { Panel } from '@/shared/ui/Panel'
 import { ProgressBar } from '@/shared/ui/ProgressBar'
@@ -108,7 +114,92 @@ function SummaryPanel({ item }: { item: SellerGroupBuyDetail }) {
       <ButtonLink variant="ghost" block className="mt16" to="/seller/orders">
         주문 관리로 이동
       </ButtonLink>
+
+      {/* canEdit·canCancel 은 서버가 판단해 내려줍니다(SellerGroupBuyDetailResponse).
+          참여자나 진행 중인 결제가 있으면 둘 다 거짓이 되므로 버튼을 감춥니다. */}
+      {item.canEdit && (
+        <ButtonLink variant="ghost" block className="mt8" to={`/seller/group-buys/${item.id}/edit`}>
+          모집 조건 수정
+        </ButtonLink>
+      )}
+      {item.canCancel && <CancelGroupBuy item={item} />}
     </Panel>
+  )
+}
+
+/**
+ * GRP-08 공동구매 취소.
+ *
+ * 되돌릴 수 없어서 사유를 적게 한 뒤에야 버튼이 열립니다. 백엔드도 빈 사유를
+ * 거절합니다(GroupBuyTerminationRequest 의 @NotBlank).
+ */
+function CancelGroupBuy({ item }: { item: SellerGroupBuyDetail }) {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const [asking, setAsking] = useState(false)
+  const [reason, setReason] = useState('')
+
+  const cancel = useMutation({
+    mutationFn: () => groupBuyApi.cancel(item.id, reason.trim()),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.sellerGroupBuys.all })
+      await navigate('/seller', { replace: true })
+    },
+  })
+
+  if (!asking) {
+    return (
+      <Button
+        variant="ghost"
+        block
+        className="mt8"
+        onClick={() => {
+          setAsking(true)
+        }}
+      >
+        공동구매 취소
+      </Button>
+    )
+  }
+
+  return (
+    <div className="mt16">
+      <TextField
+        label="취소 사유"
+        required
+        value={reason}
+        maxLength={500}
+        onChange={(event) => {
+          setReason(event.target.value)
+        }}
+        hint="판매자에게만 보이는 기록입니다. 취소한 공동구매는 되돌릴 수 없습니다."
+      />
+
+      {cancel.isError && <p className="ai-hint fail">{toMessage(cancel.error)}</p>}
+
+      <Button
+        block
+        className="mt8"
+        disabled={reason.trim() === '' || cancel.isPending}
+        onClick={() => {
+          cancel.mutate()
+        }}
+      >
+        {cancel.isPending ? '취소하는 중…' : '취소 확정'}
+      </Button>
+      <Button
+        variant="ghost"
+        block
+        className="mt8"
+        disabled={cancel.isPending}
+        onClick={() => {
+          setAsking(false)
+          setReason('')
+        }}
+      >
+        그대로 두기
+      </Button>
+    </div>
   )
 }
 

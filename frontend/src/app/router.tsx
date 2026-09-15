@@ -38,6 +38,7 @@ const SellerProductNewPage = lazy(() => import('@/pages/seller/SellerProductNewP
 const SellerProductEditPage = lazy(() => import('@/pages/seller/SellerProductEditPage'))
 const SellerGroupBuyNewPage = lazy(() => import('@/pages/seller/SellerGroupBuyNewPage'))
 const SellerGroupBuyDetailPage = lazy(() => import('@/pages/seller/SellerGroupBuyDetailPage'))
+const SellerGroupBuyEditPage = lazy(() => import('@/pages/seller/SellerGroupBuyEditPage'))
 const SellerOrdersPage = lazy(() => import('@/pages/seller/SellerOrdersPage'))
 const SellerReturnsPage = lazy(() => import('@/pages/seller/SellerReturnsPage'))
 const SellerSettlementsPage = lazy(() => import('@/pages/seller/SellerSettlementsPage'))
@@ -115,6 +116,7 @@ export const router = createBrowserRouter([
               { path: 'products/:productId/edit', element: <SellerProductEditPage /> },
               { path: 'group-buys/new', element: <SellerGroupBuyNewPage /> },
               { path: 'group-buys/:groupBuyId', element: <SellerGroupBuyDetailPage /> },
+              { path: 'group-buys/:groupBuyId/edit', element: <SellerGroupBuyEditPage /> },
               { path: 'orders', element: <SellerOrdersPage /> },
               { path: 'returns', element: <SellerReturnsPage /> },
               { path: 'settlements', element: <SellerSettlementsPage /> },
