@@ -1,15 +1,18 @@
 import { Link } from 'react-router'
 
 import type { GroupBuySummary } from '@/entities/groupBuy/model'
-import { discountRate } from '@/shared/config/policy'
 import { won } from '@/shared/lib/format'
 
 import { statusTag } from './statusTag'
 
-/** 목록의 카드 한 장 (.card) */
+/**
+ * 목록의 카드 한 장 (.card).
+ *
+ * 할인율과 정상가는 걷어냈습니다. 백엔드가 listPrice 를 products.price 로
+ * 채우는데 그 값은 "공동구매 1회분 총액"이라, 1인 분담금을 목표 인원 전체의
+ * 금액과 비교하게 됩니다. 목표 인원이 늘수록 할인율이 올라가는 수치였습니다.
+ */
 export function GroupBuyCard({ item }: { item: GroupBuySummary }) {
-  const discount = discountRate(item.listPrice, item.unitShareAmount)
-
   return (
     <Link className="card" to={`/group-buys/${item.id}`}>
       <div className="thumb">
@@ -19,12 +22,9 @@ export function GroupBuyCard({ item }: { item: GroupBuySummary }) {
       <div className="body">
         <h3>{item.productName}</h3>
         <div className="cost">
-          {discount > 0 && <span className="off">{discount}%</span>}
           <b>{won(item.unitShareAmount)}</b>
         </div>
         <div className="meta">
-          <s>{won(item.listPrice)}</s>
-          <i>·</i>
           {item.paidCount} / {item.targetCount}명
         </div>
       </div>

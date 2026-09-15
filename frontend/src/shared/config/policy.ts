@@ -100,12 +100,6 @@ export function calculateAmounts(
   }
 }
 
-/** 정상가 대비 할인율 (카드·상세 화면 표시용) */
-export function discountRate(listPrice: number, share: number): number {
-  if (listPrice <= 0) return 0
-  return Math.round((1 - share / listPrice) * 100)
-}
-
 /** 모집 진행률 0~100 */
 export function progressRate(paidCount: number, targetCount: number): number {
   if (targetCount <= 0) return 0
