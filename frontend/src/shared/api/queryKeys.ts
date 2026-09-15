@@ -40,6 +40,8 @@ export const queryKeys = {
     escrow: (id: string) => ['participations', id, 'escrow'] as const,
   },
   payments: {
+    /** 결제와 얽힌 캐시를 한꺼번에 버릴 때 씁니다 (결제 완료·참여 취소 뒤). */
+    all: ['payments'] as const,
     detail: (id: string) => ['payments', 'detail', id] as const,
     history: (params: unknown) => ['payments', 'history', params] as const,
     cryptoStatus: (id: string) => ['payments', id, 'crypto-status'] as const,
