@@ -380,7 +380,11 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .bar > span{display:block;height:100%;background:var(--bar-fill);}
 
 /* ---------- 상품 상세 ---------- */
-.detail{display:grid;grid-template-columns:1fr 1fr;gap:48px;padding:12px 0 40px;}
+/*
+ * 위 여백 54px = 예전 .crumb(공유 버튼) 자리 42px + 원래 여백 12px.
+ * 공유 버튼을 지우면서 본문이 헤더에 붙어버려, 그 자리만큼 여백으로 남깁니다.
+ */
+.detail{display:grid;grid-template-columns:1fr 1fr;gap:48px;padding:54px 0 40px;}
 
 /*
  * 갤러리 아래 끝을 오른쪽 열의 "공동구매 참여하기" 버튼과 맞춥니다.
