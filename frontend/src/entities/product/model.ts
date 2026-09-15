@@ -35,9 +35,14 @@ export interface ProductListParams extends PageParams {
  */
 export interface ProductInput {
   name: string
-  brand: string
-  modelName: string
-  color: string
+  /**
+   * 선택 항목 셋. 백엔드는 @Size 만 걸고 컬럼도 nullable 이라 비워서 보낼 수
+   * 있습니다. 빈 문자열로 보내면 "값이 없음" 과 "빈 값" 이 구분되지 않아
+   * (IS NULL 조회에 걸리지 않고 화면에도 빈 줄이 남습니다) null 로 보냅니다.
+   */
+  brand: string | null
+  modelName: string | null
+  color: string | null
   categoryId: Id
   price: Krw
   description: string
