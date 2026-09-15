@@ -9,6 +9,7 @@ import { ProductFields } from '@/features/product/ProductFields'
 import {
   EMPTY_PRODUCT_FORM,
   isProductFormReady,
+  optionalText,
   type ProductFormState,
 } from '@/features/product/productForm'
 import { useAiExtraction, type AiExtractionResult } from '@/features/product/useAiExtraction'
@@ -57,9 +58,9 @@ export default function SellerProductNewPage() {
       productApi.create(
         {
           name: form.name,
-          brand: form.brand,
-          modelName: form.modelName,
-          color: form.color,
+          brand: optionalText(form.brand),
+          modelName: optionalText(form.modelName),
+          color: optionalText(form.color),
           categoryId: form.categoryId,
           price: Number(form.price),
           description: form.description,

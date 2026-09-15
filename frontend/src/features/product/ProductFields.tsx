@@ -53,14 +53,20 @@ export function ProductFields({ form, onChange, ai = null }: ProductFieldsProps)
             }}
             hint={aiHintText(ai?.hints.brand)}
           />
+          {/*
+            모델명은 선택 항목입니다(백엔드도 @Size 만 걸려 있고 컬럼이 nullable).
+            그런데 예시가 노트북 품번 하나뿐이라 전자제품이 아니면 무엇을 적어야
+            할지 알기 어려웠습니다. 식품·생활용품까지 아우르도록 예시를 넓히고,
+            비워도 된다는 점을 밝힙니다.
+          */}
           <TextField
-            label="모델명"
-            placeholder="예) MGN63KH/A"
+            label="모델명 · 규격"
+            placeholder="예) MGN63KH/A · 500ml · 2kg"
             value={form.modelName}
             onChange={(event) => {
               onChange({ modelName: event.target.value })
             }}
-            hint={aiHintText(ai?.hints.modelName)}
+            hint={aiHintText(ai?.hints.modelName) ?? '품번이 없으면 용량·규격을 적거나 비워 둡니다.'}
           />
         </FieldRow>
 

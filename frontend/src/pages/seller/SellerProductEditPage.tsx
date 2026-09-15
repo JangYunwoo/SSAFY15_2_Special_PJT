@@ -8,7 +8,7 @@ import type { Product } from '@/entities/product/model'
 import { productQueries } from '@/entities/product/queries'
 import { ImageUploader, type PickedImage } from '@/features/product/ImageUploader'
 import { ProductFields } from '@/features/product/ProductFields'
-import { isProductFormReady, type ProductFormState } from '@/features/product/productForm'
+import { isProductFormReady, type ProductFormState, optionalText } from '@/features/product/productForm'
 import { toMessage } from '@/shared/api/errors'
 import { queryKeys } from '@/shared/api/queryKeys'
 import type { SubmitHandlerEvent } from '@/shared/lib/dom'
@@ -77,9 +77,9 @@ function EditForm({ product }: { product: Product }) {
         product.id,
         {
           name: form.name,
-          brand: form.brand,
-          modelName: form.modelName,
-          color: form.color,
+          brand: optionalText(form.brand),
+          modelName: optionalText(form.modelName),
+          color: optionalText(form.color),
           categoryId: form.categoryId,
           price: Number(form.price),
           description: form.description,
