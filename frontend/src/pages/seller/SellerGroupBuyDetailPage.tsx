@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router'
 
 import { GROUP_BUY_STATUS_DISPLAY } from '@/entities/model'
+import { displayFor } from '@/entities/statusDisplay'
 import { groupBuyApi } from '@/entities/groupBuy/api'
 import type { Participant, SellerGroupBuyDetail } from '@/entities/groupBuy/model'
 import { groupBuyQueries } from '@/entities/groupBuy/queries'
@@ -84,7 +85,7 @@ export default function SellerGroupBuyDetailPage() {
 }
 
 function SummaryPanel({ item }: { item: SellerGroupBuyDetail }) {
-  const display = GROUP_BUY_STATUS_DISPLAY[item.status]
+  const display = displayFor(GROUP_BUY_STATUS_DISPLAY, item.status, '공동구매 상태')
 
   return (
     <Panel title="모집 현황" description={item.productName}>

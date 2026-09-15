@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router'
 
 import { GROUP_BUY_STATUS_DISPLAY } from '@/entities/model'
+import { displayFor } from '@/entities/statusDisplay'
 import type { GroupBuyDetail } from '@/entities/groupBuy/model'
 import { groupBuyQueries } from '@/entities/groupBuy/queries'
 import { useIsSignedIn } from '@/features/auth/sessionStore'
@@ -31,7 +32,7 @@ function DetailView({ detail }: { detail: GroupBuyDetail }) {
   const navigate = useNavigate()
   const isSignedIn = useIsSignedIn()
 
-  const status = GROUP_BUY_STATUS_DISPLAY[detail.status]
+  const status = displayFor(GROUP_BUY_STATUS_DISPLAY, detail.status, '공동구매 상태')
   // 서버가 확정한 1인 결제금액을 그대로 씁니다 (GRP-02 personalPaymentAmount).
   const totalAmount = detail.personalPaymentAmount
   const isJoinable = detail.status === 'RECRUITING' && detail.paidCount < detail.targetCount

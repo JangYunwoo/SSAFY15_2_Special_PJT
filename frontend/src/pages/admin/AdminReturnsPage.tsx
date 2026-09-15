@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { adminApi } from '@/entities/admin/api'
 import { adminQueries } from '@/entities/admin/queries'
 import { RETURN_REASON_LABEL, RETURN_STATUS_DISPLAY, type ReturnStatus } from '@/entities/model'
+import { displayFor } from '@/entities/statusDisplay'
 import type { ReturnRequestSummary } from '@/entities/returnRequest/model'
 import { toMessage } from '@/shared/api/errors'
 import { queryKeys } from '@/shared/api/queryKeys'
@@ -136,7 +137,7 @@ function ReviewCard({
   const [mode, setMode] = useState<'approve' | 'reject' | null>(null)
   const [reason, setReason] = useState('')
 
-  const display = RETURN_STATUS_DISPLAY[item.status]
+  const display = displayFor(RETURN_STATUS_DISPLAY, item.status, '반품 상태')
   // 백엔드는 검토 대상이면서 REQUESTED·DISPUTED 인 건만 처리를 허용합니다.
   const resolvable =
     item.adminReviewRequired && (item.status === 'REQUESTED' || item.status === 'DISPUTED')
