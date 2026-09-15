@@ -107,15 +107,6 @@ function DetailView({ detail }: { detail: GroupBuyDetail }) {
             <DataRow label="개인 결제금액">{won(totalAmount)}</DataRow>
           </div>
 
-          {/*
-            모집 마감·청약철회 같은 참고 정보는 참여를 정하고 나서 읽는 내용입니다.
-            버튼 위에 두면 "공동구매 참여하기" 가 첫 화면 밖으로 밀려, 참여하려는
-            사람이 스크롤을 해야 버튼을 찾습니다. 버튼을 먼저 두고 그 아래에 둡니다.
-          */}
-          <Button block className="mt16" onClick={join} disabled={!isJoinable}>
-            {isJoinable ? '공동구매 참여하기' : '참여할 수 없는 공동구매입니다'}
-          </Button>
-
           <div className="box rows mt16">
             <DataRow label="모집 마감">{date(detail.recruitEndAt)}</DataRow>
             <DataRow label="판매자 정보">{detail.sellerName}</DataRow>
@@ -134,6 +125,10 @@ function DetailView({ detail }: { detail: GroupBuyDetail }) {
               <DataRow label="청약철회 제한">{detail.withdrawalRestrictionReason}</DataRow>
             )}
           </div>
+
+          <Button block className="mt24" onClick={join} disabled={!isJoinable}>
+            {isJoinable ? '공동구매 참여하기' : '참여할 수 없는 공동구매입니다'}
+          </Button>
         </div>
       </div>
 
