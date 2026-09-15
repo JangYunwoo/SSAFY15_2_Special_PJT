@@ -369,7 +369,6 @@ button,input,select,textarea{font:inherit;color:inherit;}
 }
 /* 가격을 카드의 주인공으로 */
 .card .cost{display:flex;align-items:baseline;gap:7px;margin-bottom:5px;}
-.card .cost .off{font-size:14px;font-weight:700;color:var(--brand);}
 .card .cost b{font-size:19px;font-weight:700;letter-spacing:-.6px;}
 .card .meta{font-size:12px;color:var(--muted);}
 .card .meta s{color:var(--muted);}
@@ -714,9 +713,6 @@ button.upload{width:100%;font:inherit;}
 
 /* 진행 중 공동구매 요약의 참여 인원 */
 .stat-box .stat-count{font-size:22px;font-weight:700;margin:4px 0 12px;letter-spacing:-.5px;}
-
-/* 1인 분담금 옆 할인율 */
-.detail-info .group-price .off{font-size:13px;font-weight:700;color:var(--brand);}
 
 /* fieldset 기본 테두리·여백을 제거해 .choice-row 를 접근성 있게 감쌉니다 */
 fieldset{border:0;margin:0;padding:0;min-inline-size:0;}

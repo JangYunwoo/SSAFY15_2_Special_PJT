@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import {
   calculateAmounts,
-  discountRate,
   payableAmount,
   POLICY_DEFAULTS,
   progressRate,
@@ -65,16 +64,6 @@ describe('calculateAmounts', () => {
     expect(result.estimatedSettlementAmount).toBe(66_668 + 6_000 - 3_333)
     // 절상 차액은 목표 인원 기준이라 확정 인원과 무관합니다.
     expect(result.roundingSurplus).toBe(2)
-  })
-})
-
-describe('discountRate', () => {
-  it('정상가 대비 할인율을 반올림해 돌려줍니다', () => {
-    expect(discountRate(50_000, 40_000)).toBe(20)
-  })
-
-  it('정상가가 없으면 0 입니다', () => {
-    expect(discountRate(0, 40_000)).toBe(0)
   })
 })
 

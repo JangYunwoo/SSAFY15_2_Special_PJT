@@ -6,7 +6,7 @@ import type { GroupBuyDetail } from '@/entities/groupBuy/model'
 import { groupBuyQueries } from '@/entities/groupBuy/queries'
 import { useIsSignedIn } from '@/features/auth/sessionStore'
 import { GroupBuyGallery } from '@/features/groupBuy/GroupBuyGallery'
-import { discountRate, POLICY_DEFAULTS } from '@/shared/config/policy'
+import { POLICY_DEFAULTS } from '@/shared/config/policy'
 import { date, number, percent, remaining, won } from '@/shared/lib/format'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
 import { Button } from '@/shared/ui/Button'
@@ -32,7 +32,6 @@ function DetailView({ detail }: { detail: GroupBuyDetail }) {
   const isSignedIn = useIsSignedIn()
 
   const status = GROUP_BUY_STATUS_DISPLAY[detail.status]
-  const discount = discountRate(detail.listPrice, detail.unitShareAmount)
   // 서버가 확정한 1인 결제금액을 그대로 씁니다 (GRP-02 personalPaymentAmount).
   const totalAmount = detail.personalPaymentAmount
   const isJoinable = detail.status === 'RECRUITING' && detail.paidCount < detail.targetCount
@@ -55,13 +54,15 @@ function DetailView({ detail }: { detail: GroupBuyDetail }) {
             {status.label} · {remaining(detail.recruitEndAt)}
           </p>
           <h1>{detail.productName}</h1>
-          <p className="list-price">
-            1인 기준 정상가 <s>{won(detail.listPrice)}</s>
-          </p>
 
+          {/*
+            정상가와 할인율은 걷어냈습니다. 백엔드가 listPrice 를 products.price
+            로 채우는데 그 값은 "공동구매 1회분 총액"이라, 1인 분담금을 목표
+            인원 전체의 금액과 비교하게 됩니다(18,000원 대 720원 = 96% 저렴).
+            목표 인원이 늘수록 할인율이 올라가는 수치였습니다.
+          */}
           <p className="group-price">
             1인 분담금 <b>{won(detail.unitShareAmount)}</b>
-            {discount > 0 && <span className="off"> {discount}% 저렴</span>}
           </p>
           <p className="price-note">
             + 배송비 {won(detail.shippingFee)} · 총 <b>{won(totalAmount)}</b>
