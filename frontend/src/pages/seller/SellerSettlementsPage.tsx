@@ -75,7 +75,7 @@ export default function SellerSettlementsPage() {
               <QueryBoundary query={list}>
                 {(page) =>
                   page.items.length === 0 ? (
-                    <EmptyState>정산 내역이 없습니다.</EmptyState>
+                    <EmptyState className="mt24">정산 내역이 없습니다.</EmptyState>
                   ) : (
                     <table className="list fixed mt24">
                       <colgroup>

@@ -1,12 +1,20 @@
 import type { ReactNode } from 'react'
 
 import { toMessage } from '@/shared/api/errors'
+import { cx } from '@/shared/lib/cx'
 
 import { Button } from './Button'
 
 /** 검색·필터 결과가 없을 때 (.empty) */
-export function EmptyState({ children }: { children: ReactNode }) {
-  return <div className="empty">{children}</div>
+export function EmptyState({
+  children,
+  className,
+}: {
+  children: ReactNode
+  /** 앞 요소와 붙어 보일 때 여백을 주기 위해 (예: mt24) */
+  className?: string | undefined
+}) {
+  return <div className={cx('empty', className)}>{children}</div>
 }
 
 /** 데이터를 불러오는 중 */

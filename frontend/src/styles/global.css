@@ -385,9 +385,16 @@ button,input,select,textarea{font:inherit;color:inherit;}
   padding:22px 0 0;font-size:13px;color:var(--ink2);
 }
 .crumb a:hover{color:var(--ink);}
-.detail{display:grid;grid-template-columns:1fr 1fr;gap:48px;padding:32px 0 56px;}
+.detail{display:grid;grid-template-columns:1fr 1fr;gap:48px;padding:20px 0 48px;}
+
+/*
+ * 메인 이미지는 아래 썸네일(.caps button)과 같은 정사각형입니다.
+ * 예전에는 높이가 400px 로 고정돼 가로로 긴 틀이었고, object-fit:cover 로
+ * 잘리는 범위가 썸네일과 달라 같은 사진이 다르게 보였습니다.
+ * 오른쪽 정보 열이 더 길어서 정사각형으로 바꿔도 화면이 길어지지 않습니다.
+ */
 .gallery .thumb{
-  height:400px;background:var(--fill);overflow:hidden;
+  aspect-ratio:1/1;background:var(--fill);overflow:hidden;
   display:grid;place-items:center;font-size:12px;color:var(--muted);
 }
 .gallery .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
@@ -407,7 +414,14 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .detail-info .price-note{font-size:12px;color:var(--ink2);margin-bottom:14px;}
 .detail-info .price-note b{color:var(--ink);}
 .detail-info .join{font-size:13px;font-weight:700;margin-bottom:10px;}
-.detail-info .note{font-size:12px;color:var(--ink2);line-height:1.8;margin:14px 0 20px;}
+.detail-info .note{font-size:12px;color:var(--ink2);line-height:1.8;margin:12px 0 16px;}
+
+/*
+ * 상세의 정보 상자는 줄이 8개라 기본 여백(13px)이면 "공동구매 참여하기" 가
+ * 첫 화면 밖으로 밀립니다(1480x900 기준 55px 초과). 이 화면에서만 줄 간격을
+ * 좁혀 버튼까지 한 눈에 들어오게 합니다.
+ */
+.detail-info .rowline{padding:10px 0;}
 
 /* ---------- 정보 박스 / 행 ---------- */
 .box{border:1px solid var(--line);padding:14px 16px;font-size:13px;color:var(--ink2);background:var(--surface);}
@@ -606,7 +620,8 @@ footer.foot .inner .sp{margin-left:auto;}
   .slides{min-height:0;}
   .cards{grid-template-columns:1fr 1fr;}
   .detail,.split{grid-template-columns:1fr;gap:28px;}
-  .gallery .thumb{height:300px;}
+  /* 한 열로 접히면 이미지가 화면 폭만큼 커지므로 정사각형 대신 높이를 묶습니다. */
+  .gallery .thumb{aspect-ratio:auto;height:300px;}
   .sticky{position:static;}
   .how{grid-template-columns:1fr 1fr;}
   /* 2칸이 되면 왼쪽 칸(홀수)의 세로선은 컨테이너 테두리와 겹칩니다 */
