@@ -49,7 +49,7 @@ export function OrderAccordion({ item, defaultOpen = false }: OrderAccordionProp
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.participations.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.groupBuys.all }),
-        queryClient.invalidateQueries({ queryKey: ['payments'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.payments.all }),
       ])
     },
   })
