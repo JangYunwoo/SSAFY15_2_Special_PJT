@@ -3,8 +3,9 @@
 import { lazy } from 'react'
 import { createBrowserRouter } from 'react-router'
 
+import { AdminLayout } from './layouts/AdminLayout'
 import { CheckoutLayout } from './layouts/CheckoutLayout'
-import { RequireAuth, RequireSeller } from './layouts/guards'
+import { RequireAdmin, RequireAuth, RequireSeller } from './layouts/guards'
 import { RootLayout } from './layouts/RootLayout'
 import { SellerLayout } from './layouts/SellerLayout'
 
@@ -42,6 +43,16 @@ const SellerGroupBuyEditPage = lazy(() => import('@/pages/seller/SellerGroupBuyE
 const SellerOrdersPage = lazy(() => import('@/pages/seller/SellerOrdersPage'))
 const SellerReturnsPage = lazy(() => import('@/pages/seller/SellerReturnsPage'))
 const SellerSettlementsPage = lazy(() => import('@/pages/seller/SellerSettlementsPage'))
+
+const AdminLoginPage = lazy(() => import('@/pages/admin/AdminLoginPage'))
+const AdminHomePage = lazy(() => import('@/pages/admin/AdminHomePage'))
+const AdminSettlementsPage = lazy(() => import('@/pages/admin/AdminSettlementsPage'))
+const AdminRefundsPage = lazy(() => import('@/pages/admin/AdminRefundsPage'))
+const AdminReturnsPage = lazy(() => import('@/pages/admin/AdminReturnsPage'))
+const AdminPenaltiesPage = lazy(() => import('@/pages/admin/AdminPenaltiesPage'))
+const AdminProductsPage = lazy(() => import('@/pages/admin/AdminProductsPage'))
+const AdminPoliciesPage = lazy(() => import('@/pages/admin/AdminPoliciesPage'))
+const AdminLogsPage = lazy(() => import('@/pages/admin/AdminLogsPage'))
 
 export const router = createBrowserRouter([
   {
@@ -120,6 +131,38 @@ export const router = createBrowserRouter([
               { path: 'orders', element: <SellerOrdersPage /> },
               { path: 'returns', element: <SellerReturnsPage /> },
               { path: 'settlements', element: <SellerSettlementsPage /> },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+
+  /*
+   * 관리자 콘솔.
+   *
+   * RequireAuth 를 겹치지 않습니다. 관리자는 `admins` 의 별도 계정이라
+   * 구매자 로그인 화면으로 보내면 거기서 로그인해도 다시 막힙니다.
+   * RequireAdmin 하나가 로그인 여부와 권한을 함께 판단합니다.
+   */
+  {
+    path: 'admin',
+    children: [
+      { path: 'login', element: <AdminLoginPage /> },
+      {
+        element: <RequireAdmin />,
+        children: [
+          {
+            element: <AdminLayout />,
+            children: [
+              { index: true, element: <AdminHomePage /> },
+              { path: 'settlements', element: <AdminSettlementsPage /> },
+              { path: 'refunds', element: <AdminRefundsPage /> },
+              { path: 'returns', element: <AdminReturnsPage /> },
+              { path: 'penalties', element: <AdminPenaltiesPage /> },
+              { path: 'products', element: <AdminProductsPage /> },
+              { path: 'policies', element: <AdminPoliciesPage /> },
+              { path: 'logs', element: <AdminLogsPage /> },
             ],
           },
         ],

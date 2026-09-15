@@ -75,4 +75,24 @@ export const queryKeys = {
   withdrawalReasons: {
     active: () => ['withdrawal-restriction-reasons'] as const,
   },
+  /**
+   * 관리자 화면(`/admin/**`). 구매자·판매자 키와 앞자리를 분리해 둡니다 —
+   * 같은 정산·환불을 보지만 범위가 달라(플랫폼 전체) 캐시를 섞으면
+   * 판매자 화면에 남의 건이 그려집니다.
+   */
+  admin: {
+    all: ['admin'] as const,
+    escrowSummary: () => ['admin', 'escrow-summary'] as const,
+    settlements: (params: unknown) => ['admin', 'settlements', 'list', params] as const,
+    settlement: (id: string) => ['admin', 'settlements', 'detail', id] as const,
+    refunds: (params: unknown) => ['admin', 'refunds', 'list', params] as const,
+    refund: (id: string) => ['admin', 'refunds', 'detail', id] as const,
+    returnReviews: (params: unknown) => ['admin', 'returns', 'reviews', params] as const,
+    penalties: (params: unknown) => ['admin', 'penalties', 'list', params] as const,
+    penalty: (id: string) => ['admin', 'penalties', 'detail', id] as const,
+    restrictionReviews: () => ['admin', 'restriction-reviews'] as const,
+    policies: () => ['admin', 'policies'] as const,
+    externalApiLogs: (params: unknown) => ['admin', 'logs', 'external-api', params] as const,
+    auditLogs: (params: unknown) => ['admin', 'logs', 'audit', params] as const,
+  },
 } as const
