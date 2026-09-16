@@ -64,8 +64,8 @@ export default function AboutPage() {
         ))}
       </ul>
 
-      <section className="section">
-        <div className="sec-head">
+      <section className="section about-sec">
+        <div className="sec-head center">
           <div>
             <h2 className="sec-title">이렇게 진행됩니다</h2>
             <p className="sec-sub">
@@ -85,8 +85,8 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="section" style={{ paddingTop: 0 }}>
-        <div className="sec-head">
+      <section className="section about-sec">
+        <div className="sec-head center">
           <div>
             <h2 className="sec-title">자세한 기준</h2>
             <p className="sec-sub">기한과 부담 주체</p>
@@ -129,6 +129,7 @@ export default function AboutPage() {
       </section>
 
       <section className="about-end">
+        <h2>지금 참여할 수 있는 공동구매가 있습니다</h2>
         <p>
           목표 인원이 모이면 공동구매가 성사되고,
           <br />
