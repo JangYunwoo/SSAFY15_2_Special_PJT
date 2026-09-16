@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query'
 
 import { productApi } from '@/entities/product/api'
-import { AI_CONFIDENCE_THRESHOLD, type AiExtraction } from '@/entities/product/model'
+import { AI_CONFIDENCE_THRESHOLD, type AiExtraction, type AiField } from '@/entities/product/model'
 
 /** AI 가 채운 값과 그 신뢰도를 화면에 함께 보여주기 위한 형태 */
 export interface AiHint {
@@ -22,6 +22,8 @@ export interface AiExtractionResult {
     price?: string
     description?: string
   }
+  /** AI가 상품명을 확정하지 못했을 때의 후보. 화면에서 하나를 고르게 합니다. */
+  nameCandidates: string[]
   hints: AiHints
   warnings: string[]
 }
@@ -46,9 +48,11 @@ function toResult(extraction: AiExtraction): AiExtractionResult {
   const hints: AiHints = {}
 
   for (const [key, field] of Object.entries(fields)) {
+    // nameCandidates 는 AiField 가 아니라 문자열 배열이라 confidence 가 없다. 신뢰도 힌트 대상에서 제외한다.
+    if (key === 'nameCandidates' || field === undefined) continue
     hints[key as keyof AiExtraction['fields']] = {
-      confidence: field.confidence,
-      needsReview: field.confidence < AI_CONFIDENCE_THRESHOLD,
+      confidence: (field as AiField<unknown>).confidence,
+      needsReview: (field as AiField<unknown>).confidence < AI_CONFIDENCE_THRESHOLD,
     }
   }
 
@@ -62,6 +66,7 @@ function toResult(extraction: AiExtraction): AiExtractionResult {
       ...(fields.price && { price: String(fields.price.value) }),
       ...(fields.description && { description: fields.description.value }),
     },
+    nameCandidates: fields.nameCandidates ?? [],
     hints,
     warnings: extraction.warnings,
   }
