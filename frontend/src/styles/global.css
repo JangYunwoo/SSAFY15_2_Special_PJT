@@ -807,14 +807,53 @@ table.list td.more{text-align:center;padding:24px 12px;}
 .narrow > p{font-size:13px;color:var(--ink2);margin:0 0 24px;}
 
 /* ---------- 푸터 ---------- */
-footer.foot{
-  border-top:1px solid var(--line2);background:var(--surface);margin-top:40px;
+/*
+ * 기본 푸터는 연회색 라운드 카드입니다. 윗선으로 자르지 않고 카드가
+ * 본문과 떨어져 앉는 형태라, 테두리를 걷어낸 소개 화면과 결이 같습니다.
+ */
+footer.foot{margin-top:72px;padding:0 var(--gutter) 40px;}
+.foot-card{
+  max-width:var(--max);margin:0 auto;
+  background:var(--soft);border-radius:20px;
+  padding:44px 44px 28px;
 }
-footer.foot .inner{
+.foot-top{
+  display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:32px;
+  padding-bottom:32px;
+}
+.foot-brand .brand{display:block;margin-bottom:10px;}
+.foot-brand p{
+  margin:0;font-size:12px;color:var(--muted);
+  line-height:1.8;word-break:keep-all;max-width:280px;
+}
+/* 링크 열. span 과 a 가 섞여 있어 display 를 함께 지정합니다. */
+.foot-col{display:flex;flex-direction:column;gap:9px;font-size:12px;}
+.foot-col-title{font-size:12px;font-weight:700;color:var(--ink);margin-bottom:3px;}
+.foot-col a,
+.foot-col > span:not(.foot-col-title){color:var(--muted);}
+.foot-col a:hover{color:var(--ink);}
+/*
+ * 아래 줄은 카드 안에서 한 번 더 나눕니다. 여기서는 선을 씁니다.
+ * 링크 열과 저작권은 성격이 달라 간격만으로는 덜 구분됩니다.
+ */
+.foot-bottom{
+  display:flex;gap:16px;flex-wrap:wrap;
+  border-top:1px solid var(--line2);padding-top:20px;
+  font-size:11px;color:var(--muted);
+}
+.foot-bottom > span:last-child{margin-left:auto;}
+/* 배경이 이미 회색인 화면에서는 카드가 묻히므로 흰색으로 올립니다. */
+body.tone-soft .foot-card{background:var(--surface);}
+
+/* 결제·판매자센터·관리자용 한 줄 푸터 */
+footer.foot-min{
+  border-top:1px solid var(--line2);background:var(--surface);
+  margin-top:40px;padding:0;
+}
+footer.foot-min .inner{
   max-width:var(--max);margin:0 auto;padding:28px var(--gutter) 40px;
   font-size:12px;color:var(--muted);display:flex;gap:24px;flex-wrap:wrap;
 }
-footer.foot .inner .sp{margin-left:auto;}
 
 /* ---------- 반응형 ---------- */
 @media(max-width:1100px){
@@ -855,6 +894,8 @@ footer.foot .inner .sp{margin-left:auto;}
   .steps > *{flex:1 0 33%;}
   .timeline{font-size:10px;}
   .sec-head{flex-direction:column;align-items:flex-start;gap:8px;}
+  .foot-card{padding:32px 24px 22px;border-radius:16px;}
+  .foot-top{grid-template-columns:1fr;gap:26px;}
 }
 
 /* =========================================================
