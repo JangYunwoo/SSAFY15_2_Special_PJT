@@ -674,6 +674,49 @@ select.input{
 .how .t{font-size:13px;font-weight:700;margin-bottom:4px;}
 .how .d{font-size:12px;color:var(--ink2);line-height:1.6;}
 
+/* ---------- 서비스 소개 ---------- */
+/*
+ * 첫 화면에서 "무엇을 하는 서비스인가" 에 먼저 답합니다.
+ * 절차(.how)와 기준(표)은 그 다음입니다.
+ * 글줄이 길면 읽기 어려워 lead 만 폭을 묶습니다.
+ */
+.about-lead{padding:60px 0 36px;max-width:720px;}
+.about-lead h1{
+  margin:0 0 14px;font-size:32px;font-weight:600;
+  line-height:1.4;letter-spacing:-1px;word-break:keep-all;
+}
+.about-lead h1 b{color:var(--brand);font-weight:600;}
+.about-lead p{
+  margin:0;font-size:14px;color:var(--ink2);
+  line-height:1.9;word-break:keep-all;
+}
+
+/* 핵심 약속 3가지. 표 안에 묻히면 안 보여서 위로 끌어올립니다. */
+.points{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:16px;
+  margin:0 0 56px;padding:0;list-style:none;
+}
+.points li{border:1px solid var(--line);background:var(--surface);padding:24px 22px;}
+.points .k{
+  display:block;font-size:11px;font-weight:700;color:var(--brand);
+  letter-spacing:.3px;margin-bottom:10px;
+}
+.points .v{
+  display:block;font-size:18px;font-weight:700;letter-spacing:-.5px;
+  margin-bottom:10px;word-break:keep-all;
+}
+.points .d{
+  display:block;font-size:12px;color:var(--ink2);
+  line-height:1.75;word-break:keep-all;
+}
+
+/* 두 패널의 무게가 비슷할 때 (.split 은 1.4 : .6 이라 한쪽이 눌립니다) */
+.split.even{grid-template-columns:1fr 1fr;}
+
+/* 닫는 CTA */
+.about-end{text-align:center;padding:8px 0 80px;}
+.about-end p{margin:0 0 20px;font-size:13px;color:var(--ink2);line-height:1.9;}
+
 /* ---------- 표 ---------- */
 table.list{width:100%;border-collapse:collapse;font-size:13px;}
 table.list th,table.list td{
@@ -737,7 +780,8 @@ footer.foot .inner .sp{margin-left:auto;}
 @media(max-width:900px){
   .slides{min-height:0;}
   .cards{grid-template-columns:1fr 1fr;}
-  .detail,.split{grid-template-columns:1fr;gap:28px;}
+  .detail,.split,.split.even{grid-template-columns:1fr;gap:28px;}
+  .points{grid-template-columns:1fr 1fr;}
   /*
    * 한 열에서는 갤러리 아래 끝을 맞출 상대가 없고, 늘어나게 두면 이미지가
    * 화면 폭만큼 커집니다. flex 를 끄고 높이를 묶습니다.
@@ -755,7 +799,7 @@ footer.foot .inner .sp{margin-left:auto;}
   .gnb nav{gap:14px;font-size:12px;}
 }
 @media(max-width:620px){
-  .cards,.how{grid-template-columns:1fr;}
+  .cards,.how,.points{grid-template-columns:1fr;}
   .how > div{border-left:0;}
   .how > div + div{border-top:1px solid var(--line2);}
   .gnb .inner{height:60px;}
