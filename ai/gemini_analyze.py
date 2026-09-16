@@ -26,6 +26,7 @@ MIME_TYPES = {
     ".png": "image/png",
     ".webp": "image/webp",
 }
+SUPPORTED_MIME_TYPES = frozenset(MIME_TYPES.values())
 
 
 def parse_args() -> argparse.Namespace:
@@ -36,9 +37,14 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def analyze_image(image_path: Path) -> ProductAnalysis:
+def analyze_image_data(image_data: bytes, mime_type: str) -> ProductAnalysis:
     if not GEMINI_PROJECT:
         raise ValueError(".env에 GEMINI_PROJECT를 설정하세요.")
+    if not image_data:
+        raise ValueError("이미지 데이터가 비어 있습니다.")
+    if mime_type not in SUPPORTED_MIME_TYPES:
+        supported = ", ".join(sorted(SUPPORTED_MIME_TYPES))
+        raise ValueError(f"지원하지 않는 이미지 형식입니다. 지원 형식: {supported}")
 
     client = genai.Client(
         enterprise=True,
@@ -46,8 +52,8 @@ def analyze_image(image_path: Path) -> ProductAnalysis:
         location=GEMINI_LOCATION,
     )
     image_part = types.Part.from_bytes(
-        data=image_path.read_bytes(),
-        mime_type=MIME_TYPES[image_path.suffix.lower()],
+        data=image_data,
+        mime_type=mime_type,
     )
     response = client.models.generate_content(
         model=GEMINI_MODEL,
@@ -61,6 +67,14 @@ def analyze_image(image_path: Path) -> ProductAnalysis:
     if not response.text:
         raise ValueError("Gemini가 빈 응답을 반환했습니다.")
     return ProductAnalysis.model_validate_json(response.text)
+
+
+def analyze_image(image_path: Path) -> ProductAnalysis:
+    """로컬 CLI 테스트를 위해 파일 경로를 이미지 데이터로 변환합니다."""
+    return analyze_image_data(
+        image_path.read_bytes(),
+        MIME_TYPES[image_path.suffix.lower()],
+    )
 
 
 def main() -> int:

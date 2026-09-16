@@ -81,6 +81,19 @@ python .\experiments\yolo_detect.py C:\path\to\product.jpg
 
 지원 이미지 형식은 JPG, JPEG, PNG, WEBP입니다. 결과는 터미널에 JSON으로 출력됩니다.
 
+백엔드 연동용 FastAPI 서버는 `ai/` 디렉터리에서 실행합니다.
+
+```powershell
+uvicorn app:app --reload --port 8000
+```
+
+현재 엔드포인트는 `images` 필드로 이미지 한 장을 받습니다.
+
+```powershell
+curl.exe -X POST http://localhost:8000/api/v1/products/extract `
+  -F "images=@C:\path\to\product.jpg"
+```
+
 ## 현재 구조
 
 ```text
@@ -93,6 +106,7 @@ ai/
 ├── category_catalog.py
 ├── prompt.py
 ├── gemini_analyze.py
+├── app.py
 ├── .env.example
 ├── .gitignore
 ├── requirements.txt
