@@ -818,19 +818,24 @@ footer.foot{margin-top:72px;padding:0 var(--gutter);}
   background:var(--soft);
   /* 바닥에 붙으므로 아래 모서리는 깎지 않습니다 */
   border-radius:20px 20px 0 0;
-  padding:44px 44px 28px;
+  padding:32px 44px 20px;
 }
+/*
+ * 3등분 그리드였는데 링크가 서너 개뿐이라 넓은 칸에 억지로 벌어졌습니다.
+ * flex 로 왼쪽에 모으면 각 열이 내용만큼만 차지합니다.
+ */
 .foot-top{
-  display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:32px;
-  padding-bottom:32px;
+  display:flex;gap:56px;align-items:flex-start;
+  padding-bottom:24px;
 }
+.foot-brand{flex:0 1 280px;}
 .foot-brand .brand{display:block;margin-bottom:10px;}
 .foot-brand p{
   margin:0;font-size:12px;color:var(--muted);
   line-height:1.8;word-break:keep-all;max-width:280px;
 }
 /* 링크 열. span 과 a 가 섞여 있어 display 를 함께 지정합니다. */
-.foot-col{display:flex;flex-direction:column;gap:9px;font-size:12px;}
+.foot-col{display:flex;flex-direction:column;gap:8px;font-size:12px;}
 .foot-col-title{font-size:12px;font-weight:700;color:var(--ink);margin-bottom:3px;}
 .foot-col a,
 .foot-col > span:not(.foot-col-title){color:var(--muted);}
@@ -840,11 +845,10 @@ footer.foot{margin-top:72px;padding:0 var(--gutter);}
  * 링크 열과 저작권은 성격이 달라 간격만으로는 덜 구분됩니다.
  */
 .foot-bottom{
-  display:flex;gap:16px;flex-wrap:wrap;
-  border-top:1px solid var(--line2);padding-top:20px;
+  display:flex;gap:16px;flex-wrap:wrap;justify-content:flex-end;
+  border-top:1px solid var(--line2);padding-top:16px;
   font-size:11px;color:var(--muted);
 }
-.foot-bottom > span:last-child{margin-left:auto;}
 /* 배경이 이미 회색인 화면에서는 카드가 묻히므로 흰색으로 올립니다. */
 body.tone-soft .foot-card{background:var(--surface);}
 
@@ -898,7 +902,10 @@ footer.foot-min .inner{
   .timeline{font-size:10px;}
   .sec-head{flex-direction:column;align-items:flex-start;gap:8px;}
   .foot-card{padding:32px 24px 22px;border-radius:16px 16px 0 0;}
-  .foot-top{grid-template-columns:1fr;gap:26px;}
+  .foot-top{flex-direction:column;gap:24px;}
+  .foot-brand{flex:none;}
+  /* 좁은 화면에서 오른쪽 정렬은 줄바꿈이 지저분해 보여 왼쪽으로 둡니다 */
+  .foot-bottom{justify-content:flex-start;}
 }
 
 /* =========================================================
