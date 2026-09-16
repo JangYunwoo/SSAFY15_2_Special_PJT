@@ -113,7 +113,7 @@ export default function LoginPage() {
             <Button
               type="submit"
               block
-              className="btn-brand mt24"
+              className="mt24"
               disabled={login.isPending}
             >
               {login.isPending ? '로그인 중…' : '로그인'}

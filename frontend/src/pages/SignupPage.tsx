@@ -1,5 +1,7 @@
 import { useState, type ChangeEvent } from 'react'
 
+import { Link } from 'react-router'
+
 import {
   blocksSignup,
   isEmailRejection,
@@ -11,6 +13,7 @@ import { useEmailAvailability } from '@/features/auth/useEmailAvailability'
 import { isApiError, toMessage } from '@/shared/api/errors'
 import { BACKEND_FEATURES } from '@/shared/config/backendFeatures'
 import type { SubmitHandlerEvent } from '@/shared/lib/dom'
+import { useBodyClass } from '@/shared/lib/hooks/useBodyClass'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
 import { Button } from '@/shared/ui/Button'
 import { FieldRow, TextField } from '@/shared/ui/Field'
@@ -42,6 +45,8 @@ const INITIAL: FormState = {
 
 export default function SignupPage() {
   useDocumentTitle('회원가입')
+  // 로그인과 같은 껍데기를 씁니다.
+  useBodyClass('tone-soft')
 
   const [form, setForm] = useState<FormState>(INITIAL)
   const signup = useSignup()
@@ -98,11 +103,17 @@ export default function SignupPage() {
 
   return (
     <main className="wrap">
-      <section className="narrow">
-        <h2>회원가입</h2>
-        <p>공동구매에 참여하려면 계정과 기본 배송지가 필요합니다.</p>
+      <section className="auth auth-wide">
+        {/* 로고가 나오면 이 자리를 <img> 로 바꾸면 됩니다 */}
+        <span className="auth-mark">
+          <span className="brand">공구한</span>
+        </span>
 
-        <form onSubmit={submit} noValidate>
+        <div className="auth-card">
+          <h2>계정을 만들어 주세요</h2>
+          <p>공동구매에 참여하려면 계정과 기본 배송지가 필요합니다.</p>
+
+          <form onSubmit={submit} noValidate>
           <Panel title="계정 정보" description="로그인에 사용할 정보입니다">
             <TextField
               label="이메일"
@@ -206,10 +217,16 @@ export default function SignupPage() {
             </p>
           )}
 
-          <Button type="submit" block className="mt24" disabled={signup.isPending}>
-            {signup.isPending ? '가입 중…' : '가입하기'}
-          </Button>
-        </form>
+            <Button type="submit" block className="mt24" disabled={signup.isPending}>
+              {signup.isPending ? '가입 중…' : '가입하기'}
+            </Button>
+          </form>
+        </div>
+
+        <p className="auth-foot">
+          이미 계정이 있으신가요?
+          <Link to="/login">로그인</Link>
+        </p>
       </section>
     </main>
   )

@@ -58,6 +58,7 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .gnb .cta{
   border:1px solid var(--brand);padding:9px 16px;
   font-size:12px;font-weight:700;color:var(--brand-text);white-space:nowrap;
+  border-radius:var(--btn-radius);transition:var(--t-color);
 }
 .gnb .cta:hover{background:var(--brand-soft);}
 .gnb .cta.fill{background:var(--brand);border-color:var(--brand);color:var(--on-dark);}
@@ -175,6 +176,7 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .empty{
   border:1px dashed var(--line);background:var(--soft);
   padding:56px 24px;text-align:center;font-size:13px;color:var(--muted);
+  border-radius:var(--radius-box);
 }
 
 /* ---------- 결제 단계 헤더 (로고만) ---------- */
@@ -258,7 +260,10 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .quote .rowline{font-size:12px;}
 
 /* 안내 박스 (지급 일정 등) */
-.guide{background:var(--soft);border:1px solid var(--line2);padding:18px 20px;}
+.guide{
+  background:var(--soft);border:1px solid var(--line2);padding:18px 20px;
+  border-radius:var(--radius-box);
+}
 .guide-head{font-size:13px;font-weight:700;margin-bottom:8px;}
 .guide ul{margin:0;padding-left:16px;}
 .guide li{font-size:12px;color:var(--ink2);line-height:1.9;}
@@ -306,12 +311,17 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .hero p{margin:0 0 32px;font-size:15px;color:var(--ink2);}
 
 /* ---------- 버튼 ---------- */
+/*
+ * 평소에는 무채색이고 마우스를 올렸을 때만 브랜드색이 됩니다.
+ * 파랑을 계속 띄워두면 화면마다 파란 덩어리가 생겨 정작 강조가 묻힙니다.
+ */
 .btn{
   display:inline-block;background:var(--btn);color:var(--on-dark);
   font-size:13px;font-weight:700;padding:13px 24px;border:0;cursor:pointer;
   text-align:center;border-radius:var(--btn-radius);
+  transition:var(--t-color);
 }
-.btn:hover{background:var(--btn-hover);}
+.btn:hover{background:var(--brand);}
 /*
  * 파란 배너 위에 얹는 버튼. .btn 과 함께 씁니다 (class="btn btn-on-brand").
  * 색만 덮어쓰므로 .btn 뒤에 와야 합니다 (명시도가 같아 순서로 이깁니다).
@@ -319,22 +329,19 @@ button,input,select,textarea{font:inherit;color:inherit;}
  */
 .btn-on-brand{
   background:var(--btn-on-brand);color:var(--btn-on-brand-ink);
-  font-weight:600;padding:12px 18px;
+  font-weight:600;padding:12px 18px;transition:var(--t-color);
 }
 /* 화살표는 currentColor 라 글자색을 따라 같이 반전됩니다 */
 .btn-on-brand:hover{background:var(--btn-on-brand-hover);color:var(--btn-on-brand-hover-ink);}
-/*
- * 브랜드색으로 채운 버튼. 기본 .btn 은 무채색이라 화면에 할 일이 하나뿐인
- * 곳(로그인 등)에서 무게가 부족합니다.
- */
-.btn-brand{background:var(--brand);color:var(--on-dark);}
-.btn-brand:hover{background:var(--brand-dark);}
+
 .btn-block{display:block;width:100%;padding:16px;font-size:14px;}
 .btn-ghost{
   display:inline-block;background:var(--surface);color:var(--ink2);
   border:1px solid var(--line);font-size:13px;padding:12px 18px;cursor:pointer;text-align:center;
+  border-radius:var(--btn-radius);transition:var(--t-color);
 }
-.btn-ghost:hover{background:var(--soft);}
+/* 채우지 않고 테두리와 글자만 브랜드색으로 바뀝니다 */
+.btn-ghost:hover{border-color:var(--brand);color:var(--brand);}
 .btn[disabled]{background:var(--fill);color:var(--muted);cursor:not-allowed;}
 /*
  * 화살표를 CSS mask 로 넣습니다. png 를 쓰지 않는 이유:
@@ -377,6 +384,7 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .pager-btn{
   min-width:40px;background:var(--surface);color:var(--ink2);
   border:1px solid var(--line);font-size:13px;padding:11px 12px;cursor:pointer;text-align:center;
+  border-radius:var(--btn-radius);transition:var(--t-color);
 }
 .pager-btn:hover:not([disabled]):not(.on){background:var(--soft);}
 .pager-btn.on{
@@ -414,7 +422,12 @@ button,input,select,textarea{font:inherit;color:inherit;}
 
 /* ---------- 상품 카드 ---------- */
 .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;}
-.card{border:1px solid var(--line);display:block;background:var(--surface);}
+/* 모서리를 깎으면 안쪽 사진도 같이 잘리도록 overflow 가 필요합니다 */
+.card{
+  border:1px solid var(--line);display:block;background:var(--surface);
+  border-radius:var(--radius-box);overflow:hidden;
+  transition:border-color .18s ease;
+}
 .card:hover{border-color:var(--line-strong);}
 /* 이미지는 카드 안쪽을 꽉 채웁니다 (여백 없음) */
 .card .thumb{
@@ -552,11 +565,14 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .detail-info .rowline{padding:8px 0;font-size:12px;}
 
 /* ---------- 정보 박스 / 행 ---------- */
-.box{border:1px solid var(--line);padding:14px 16px;font-size:13px;color:var(--ink2);background:var(--surface);}
+.box{
+  border:1px solid var(--line);padding:14px 16px;font-size:13px;color:var(--ink2);
+  background:var(--surface);border-radius:var(--radius-box);
+}
 .box.rows{padding:2px 16px;}
 .box + .box{margin-top:10px;}
 .box b{color:var(--ink);}
-.panel{padding:24px;background:var(--soft);}
+.panel{padding:24px;background:var(--soft);border-radius:var(--radius-box);}
 .panel h3{margin:0 0 4px;font-size:15px;font-weight:500;}
 .panel .sub{font-size:12px;color:var(--muted);margin:0 0 22px;}
 .rowline{
@@ -590,7 +606,12 @@ a.rowline.link:hover .go{color:var(--ink);}
 .form-label{display:block;font-size:12px;color:var(--muted);margin:16px 0 6px;}
 .input,select.input,textarea.input{
   width:100%;border:1px solid var(--line);background:var(--surface);
-  padding:13px 14px;font-size:13px;outline:none;border-radius:0;
+  padding:13px 14px;font-size:13px;outline:none;
+  /*
+   * 값을 꼭 적어야 합니다. 비워두면 사파리가 입력칸을 제멋대로 둥글게
+   * 그려서 버튼과 어긋납니다.
+   */
+  border-radius:var(--btn-radius);transition:border-color .18s ease;
 }
 .input::placeholder{color:var(--placeholder);}
 .input:focus{border-color:var(--brand);}
@@ -701,7 +722,6 @@ body.tone-soft{background:var(--soft);}
  */
 body.tone-soft .panel,
 body.tone-soft .how > div{background:var(--surface);}
-body.tone-soft .panel{border-radius:var(--radius-box);}
 
 /* ---------- 스크롤 등장 ---------- */
 /*
@@ -867,6 +887,18 @@ table.list td.more{text-align:center;padding:24px 12px;}
  */
 .auth-card .input{border-radius:var(--btn-radius);}
 .auth-card .form-label{font-size:12px;}
+/* 회원가입처럼 항목이 많으면 폭을 한 단계 넓힙니다 */
+.auth-wide{max-width:520px;}
+/*
+ * 카드 안의 .panel 은 껍데기를 벗깁니다. 회색 상자 안에 회색 상자가 겹치면
+ * 어디까지가 한 묶음인지 흐려집니다. 묶음 구분은 선 하나로 충분합니다.
+ */
+.auth-card .panel{background:none;padding:0;border-radius:0;}
+.auth-card .panel + .panel{
+  margin-top:26px;padding-top:24px;border-top:1px solid var(--line2);
+}
+.auth-card .panel h3{font-size:14px;font-weight:700;}
+.auth-card .panel .sub{margin-bottom:16px;}
 /* 카드 밖 아래 줄 (회원가입 안내 등) */
 .auth-foot{
   margin:20px 0 0;text-align:center;
