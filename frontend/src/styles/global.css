@@ -60,7 +60,8 @@ button,input,select,textarea{font:inherit;color:inherit;}
   font-size:12px;font-weight:700;color:var(--brand-text);white-space:nowrap;
   border-radius:var(--btn-radius);transition:var(--t-color);
 }
-.gnb .cta:hover{background:var(--brand-soft);}
+/* 배너 버튼과 같은 방식으로 반전됩니다 (테두리만 → 브랜드색 채움) */
+.gnb .cta:hover{background:var(--brand);color:var(--on-dark);}
 .gnb .cta.fill{background:var(--brand);border-color:var(--brand);color:var(--on-dark);}
 .gnb .cta.fill:hover{background:var(--brand-dark);border-color:var(--brand-dark);}
 
@@ -82,6 +83,11 @@ button,input,select,textarea{font:inherit;color:inherit;}
   position:absolute;top:calc(100% + 14px);right:0;z-index:30;
   width:340px;max-height:420px;overflow-y:auto;
   background:var(--surface);border:1px solid var(--line);
+  /*
+   * overflow-y 가 있어도 모서리에 맞춰 안쪽 내용이 잘립니다.
+   * 첫 줄 제목과 마지막 알림의 각진 모서리가 밖으로 비어져 나오지 않습니다.
+   */
+  border-radius:var(--radius-box);
   box-shadow:0 2px 8px 2px rgba(60,64,67,.12);
 }
 .bell-head{
