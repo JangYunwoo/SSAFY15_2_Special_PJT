@@ -24,6 +24,7 @@ export function ProductFields({ form, onChange, ai = null }: ProductFieldsProps)
   const categories = useQuery(categoryQueries.tree())
   const withdrawalReasons = useQuery(productQueries.withdrawalReasons())
   const selectedReason = withdrawalReasons.data?.find((reason) => reason.id === form.reasonId)
+  const candidates = ai?.nameCandidates ?? []
 
   return (
     <>
@@ -40,8 +41,31 @@ export function ProductFields({ form, onChange, ai = null }: ProductFieldsProps)
           onChange={(event) => {
             onChange({ name: event.target.value })
           }}
-          hint={aiHintText(ai?.hints.name)}
+          hint={
+            aiHintText(ai?.hints.name) ??
+            (candidates.length > 0 && form.name === ''
+              ? 'AI가 상품명을 확정하지 못했습니다. 후보 중 하나를 고르거나 직접 입력해 주세요.'
+              : undefined)
+          }
         />
+
+        {/* AI가 상품명을 확정하지 못하면(name 없음) 후보를 칩으로 보여주고, 누르면 채웁니다. */}
+        {candidates.length > 0 && form.name === '' && (
+          <div className="chips mt8" role="group" aria-label="AI 상품명 후보">
+            {candidates.map((candidate) => (
+              <button
+                key={candidate}
+                type="button"
+                className="chip"
+                onClick={() => {
+                  onChange({ name: candidate })
+                }}
+              >
+                {candidate}
+              </button>
+            ))}
+          </div>
+        )}
 
         <FieldRow className="mt8">
           <TextField

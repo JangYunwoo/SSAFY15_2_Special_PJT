@@ -60,12 +60,33 @@ public class AiExtractionService {
         if (result.errorMessage() != null && !result.errorMessage().isBlank()) {
             warnings.add(result.errorMessage());
         }
-        AiField<String> categoryId = mapCategory(source.category(), warnings);
+        // 카테고리: AI가 category_id를 직접 주면 그것을 우선 쓰고(존재 확인), 없으면 category_name 매칭.
+        AiField<String> categoryId = resolveCategory(result, source.category(), warnings);
+        // 상품명 후보: AI가 상품명을 확정하지 못하면(name=null) 후보 목록을 프론트에 전달한다.
+        List<String> nameCandidates = result.nameCandidates();
         AiExtractionFields fields = new AiExtractionFields(
-                source.name(), source.brand(), categoryId, source.modelName(), source.color(),
-                source.price(), source.description());
+                source.name(), List.copyOf(nameCandidates), source.brand(), categoryId,
+                source.modelName(), source.color(), source.price(), source.description());
         String status = hasAllCoreFields(fields) ? "COMPLETED" : "PARTIAL";
         return new AiExtractionResponse(status, fields, List.copyOf(warnings));
+    }
+
+    /**
+     * 카테고리를 결정한다. 신규 계약({@code result_json.category_id})이 오면 그 ID의 유효성만
+     * 확인해 그대로 쓰고, 없으면 기존처럼 {@code category_name}을 카탈로그와 이름으로 매칭한다.
+     */
+    private AiField<String> resolveCategory(AiModuleExtraction result, AiField<String> categoryName,
+                                            List<String> warnings) {
+        Long directId = result.directCategoryId();
+        if (directId != null) {
+            if (categoryRepository.existsById(directId)) {
+                return new AiField<>(String.valueOf(directId),
+                        categoryName == null ? java.math.BigDecimal.ZERO : categoryName.confidence());
+            }
+            warnings.add("AI가 준 카테고리를 찾을 수 없습니다. 직접 선택해 주세요.");
+            return null;
+        }
+        return mapCategory(categoryName, warnings);
     }
 
     private AiField<String> mapCategory(AiField<String> category, List<String> warnings) {
