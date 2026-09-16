@@ -1,5 +1,6 @@
 import { POLICY_DEFAULTS } from '@/shared/config/policy'
 import { percent } from '@/shared/lib/format'
+import { useBodyClass } from '@/shared/lib/hooks/useBodyClass'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
 import { ButtonLink } from '@/shared/ui/Button'
 import { DataRow } from '@/shared/ui/DataRow'
@@ -38,6 +39,8 @@ const STEPS = [
 
 export default function AboutPage() {
   useDocumentTitle('서비스 소개')
+  // 배경을 한 톤 눌러 흰 카드가 떠 보이게 합니다.
+  useBodyClass('tone-soft')
 
   return (
     <main className="wrap">

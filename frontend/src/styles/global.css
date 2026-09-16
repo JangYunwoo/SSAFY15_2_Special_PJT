@@ -674,6 +674,18 @@ select.input{
 .how .t{font-size:13px;font-weight:700;margin-bottom:4px;}
 .how .d{font-size:12px;color:var(--ink2);line-height:1.6;}
 
+/*
+ * 배경을 한 톤 누르는 화면 (useBodyClass 로 붙입니다).
+ * 흰 카드가 배경 위에 떠 보이게 하는 구성입니다.
+ */
+body.tone-soft{background:var(--soft);}
+/*
+ * 배경이 회색이 되면 .panel 은 같은 --soft 라서 묻힙니다.
+ * .how 는 배경이 없어 속이 비쳐 보이고요. 둘 다 흰색으로 올립니다.
+ */
+body.tone-soft .panel,
+body.tone-soft .how{background:var(--surface);}
+
 /* ---------- 서비스 소개 ---------- */
 /*
  * 첫 화면에서 "무엇을 하는 서비스인가" 에 먼저 답합니다.
