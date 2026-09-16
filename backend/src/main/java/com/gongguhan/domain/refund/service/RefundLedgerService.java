@@ -119,6 +119,19 @@ public class RefundLedgerService {
         return refund;
     }
 
+    /**
+     * 코인 환불 수취 주소를 확정합니다.
+     *
+     * <p><b>송금 전에</b> 기록합니다. 송금 직후 장애가 나면 "어디로 보냈는지" 가 원장에
+     * 남아 있어야 체인에서 대조할 수 있습니다.
+     */
+    @Transactional
+    public Refund assignWalletAddress(Long refundId, String address) {
+        Refund refund = load(refundId);
+        refund.assignWalletAddress(address);
+        return refund;
+    }
+
     /** 카드 승인 취소 결과를 기록합니다. */
     @Transactional
     public Refund completeByCardCancel(Long refundId, Long ssafyTransactionNo) {

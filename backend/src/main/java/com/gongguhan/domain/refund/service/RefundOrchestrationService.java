@@ -9,6 +9,7 @@ import com.gongguhan.domain.refund.entity.RefundMethod;
 import com.gongguhan.domain.refund.entity.RefundReason;
 import com.gongguhan.domain.refund.service.RefundLedgerService.OpenResult;
 import com.gongguhan.domain.payment.card.service.SsafyApiLogService;
+import com.gongguhan.domain.payment.crypto.service.CryptoRefundService;
 import com.gongguhan.domain.returnrequest.port.RefundPort;
 import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
@@ -74,6 +75,7 @@ public class RefundOrchestrationService {
     private final UserRepository userRepository;
     private final SsafyTransferClient transferClient;
     private final SsafyApiLogService ssafyApiLogService;
+    private final CryptoRefundService cryptoRefundService;
     private final PolicyService policyService;
     private final List<RefundPort> refundPorts;
 
@@ -82,6 +84,7 @@ public class RefundOrchestrationService {
                                       UserRepository userRepository,
                                       SsafyTransferClient transferClient,
                                       SsafyApiLogService ssafyApiLogService,
+                                      CryptoRefundService cryptoRefundService,
                                       PolicyService policyService,
                                       List<RefundPort> refundPorts) {
         this.ledgerService = ledgerService;
@@ -89,6 +92,7 @@ public class RefundOrchestrationService {
         this.userRepository = userRepository;
         this.transferClient = transferClient;
         this.ssafyApiLogService = ssafyApiLogService;
+        this.cryptoRefundService = cryptoRefundService;
         this.policyService = policyService;
         this.refundPorts = refundPorts;
     }
@@ -129,8 +133,10 @@ public class RefundOrchestrationService {
         Refund refund = ledgerService.retry(refundId);
         Long participationId = refund.getParticipationId();
         if (participationId == null) {
-            // 입금 단위 환불(슬롯 만료·미매칭)은 코인 송금 경로이며 아직 어댑터가 없다.
-            return ledgerService.fail(refundId, "코인 환불 송금은 아직 지원되지 않습니다.");
+            // 입금 단위 환불(슬롯 만료·미매칭)은 결제 건이 없어 자산을 특정할 수 없다.
+            // 미매칭 입금 환불은 코인 결제 도메인이 직접 개시·송금한다.
+            return ledgerService.fail(refundId,
+                    "입금 단위 환불은 코인 결제 도메인에서 처리합니다.");
         }
         return execute(refund, loadPayment(participationId));
     }
@@ -169,8 +175,7 @@ public class RefundOrchestrationService {
             return switch (refund.getRefundMethod()) {
                 case KAKAOPAY -> refundByPort(refund, payment);
                 case ACCOUNT_TRANSFER -> refundByTransfer(refund, payment);
-                case CRYPTO -> ledgerService.fail(refundId,
-                        "코인 환불 송금은 아직 지원되지 않습니다.");
+                case CRYPTO -> refundByCrypto(refund, payment);
                 case CARD_CANCEL -> ledgerService.fail(refundId,
                         "카드 취소는 카드 재입력이 필요해 자동 환불로 처리할 수 없습니다.");
             };
@@ -179,6 +184,51 @@ public class RefundOrchestrationService {
             log.warn("환불 실행 실패 refundId={} reason={}", refundId, exception.getMessage());
             return ledgerService.fail(refundId, truncate(exception.getMessage()));
         }
+    }
+
+    /**
+     * 코인으로 결제한 건을 코인으로 돌려줍니다 (S15P21B205-80).
+     *
+     * <p>원화로 보관하고 있으므로 <b>환불 시점 환율</b>로 그만큼의 코인을 지급합니다.
+     * 구매자가 코인 가격 변동을 지고, 플랫폼은 원화 기준으로 정확합니다.
+     *
+     * <p>수취 주소를 <b>송금 전에</b> 원장에 기록합니다. 송금 직후 장애가 나면 어디로
+     * 보냈는지 남아 있어야 체인에서 대조할 수 있습니다.
+     *
+     * <p><b>결과를 알 수 없는 실패는 자동 재시도하면 안 됩니다.</b> 송금이 이미
+     * 나갔을 수 있어 두 번 지급됩니다. 환불 재처리(RFD-04)는 관리자가 직접 누르는
+     * 경로라 사람이 개입하지만, 사유에 확인이 필요하다는 것을 남깁니다.
+     */
+    private Refund refundByCrypto(Refund refund, Payment payment) {
+        Long refundId = refund.getRefundId();
+        if (!cryptoRefundService.isEnabled()) {
+            return ledgerService.fail(refundId,
+                    "환불 지갑 개인키가 설정되지 않아 코인 환불을 보낼 수 없습니다.");
+        }
+
+        String buyerWallet = cryptoRefundService.findBuyerWallet(payment.getPaymentId());
+        ledgerService.assignWalletAddress(refundId, buyerWallet);
+
+        CryptoRefundService.RefundTransfer result;
+        try {
+            result = cryptoRefundService.refundByPayment(
+                    payment.getPaymentId(), refund.getAmount());
+        } catch (BusinessException exception) {
+            if (exception.getErrorCode() == ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE) {
+                // 송금이 나갔는지 알 수 없다. 재처리 전에 체인 확인이 필요하다.
+                log.error("코인 환불 결과 불명 refundId={} to={} - 체인에서 확인 후 재처리 필요",
+                        refundId, buyerWallet, exception);
+                return ledgerService.fail(refundId,
+                        "송금 결과를 확인하지 못했습니다. 체인에서 확인한 뒤 재처리하세요: "
+                                + exception.getMessage());
+            }
+            throw exception;
+        }
+
+        log.info("코인 환불 완료 refundId={} txHash={} 수량={} 환율={}",
+                refundId, result.txHash(), result.assetAmount().toPlainString(),
+                result.appliedRate().toPlainString());
+        return ledgerService.completeByCrypto(refundId, result.txHash(), result.assetAmount());
     }
 
     /** 카카오페이처럼 제공사 취소 어댑터가 있는 수단. */

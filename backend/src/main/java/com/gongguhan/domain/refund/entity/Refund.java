@@ -215,6 +215,23 @@ public class Refund {
                 toAddress, createdAt);
     }
 
+    /**
+     * 코인 환불 수취 주소를 정합니다.
+     *
+     * <p>참여 건 환불은 개시 시점에 주소를 모릅니다 — 어느 결제였는지는 알지만 그
+     * 결제에 쓰인 지갑은 {@code crypto_payments} 를 봐야 알 수 있습니다. <b>송금 직전이
+     * 아니라 송금 전에</b> 기록해야, 송금 후 장애가 나도 어디로 보냈는지 남습니다.
+     */
+    public void assignWalletAddress(String address) {
+        requireProcessing();
+        requireMethod(RefundMethod.CRYPTO);
+        if (address == null || address.isBlank()) {
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR,
+                    "코인 환불 수취 주소가 없습니다. refundId=" + refundId);
+        }
+        this.toAddress = address;
+    }
+
     /** 계좌이체 환불 대상 계좌를 정합니다. 카드 취소 불가로 폴백할 때 씁니다. */
     public void assignAccount(String accountNo) {
         requireProcessing();

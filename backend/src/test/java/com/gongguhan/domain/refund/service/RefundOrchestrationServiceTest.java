@@ -3,6 +3,7 @@ package com.gongguhan.domain.refund.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -14,6 +15,7 @@ import static org.mockito.Mockito.when;
 import com.gongguhan.domain.account.entity.User;
 import com.gongguhan.domain.account.repository.UserRepository;
 import com.gongguhan.domain.payment.card.service.SsafyApiLogService;
+import com.gongguhan.domain.payment.crypto.service.CryptoRefundService;
 import com.gongguhan.domain.payment.common.entity.Payment;
 import com.gongguhan.domain.payment.common.repository.PaymentRepository;
 import com.gongguhan.domain.refund.entity.Refund;
@@ -49,12 +51,16 @@ class RefundOrchestrationServiceTest {
     private static final String BUYER_ACCOUNT = "0204667768182760";
     private static final String USER_KEY = "2695628f-11a1-418e-b533-9ae19e0650ec";
     private static final String INSTITUTION_TX_NO = "20260914103500123456";
+    private static final String BUYER_WALLET = "0x3989ed99f2d2cb64106ed71d8cdaaeecbd671cd6";
+    private static final String CRYPTO_TX_HASH =
+            "0xa18e6822603f143775eb06fc6597ccb06b8256b21aedcd4bdb24f66c85f22134";
 
     private RefundLedgerService ledgerService;
     private PaymentRepository paymentRepository;
     private UserRepository userRepository;
     private SsafyTransferClient transferClient;
     private SsafyApiLogService ssafyApiLogService;
+    private CryptoRefundService cryptoRefundService;
     private PolicyService policyService;
     private RefundPort kakaoPort;
 
@@ -67,6 +73,7 @@ class RefundOrchestrationServiceTest {
         userRepository = mock(UserRepository.class);
         transferClient = mock(SsafyTransferClient.class);
         ssafyApiLogService = mock(SsafyApiLogService.class);
+        cryptoRefundService = mock(CryptoRefundService.class);
         policyService = mock(PolicyService.class);
         kakaoPort = mock(RefundPort.class);
 
@@ -74,7 +81,8 @@ class RefundOrchestrationServiceTest {
                 .thenReturn(INSTITUTION_TX_NO);
 
         service = new RefundOrchestrationService(ledgerService, paymentRepository, userRepository,
-                transferClient, ssafyApiLogService, policyService, List.of(kakaoPort));
+                transferClient, ssafyApiLogService, cryptoRefundService, policyService,
+                List.of(kakaoPort));
     }
 
     // ------------------------------------------------------------------
@@ -353,12 +361,66 @@ class RefundOrchestrationServiceTest {
     // ------------------------------------------------------------------
 
     /**
-     * 구매자가 USDT 로 냈는데 원화를 받게 되는 것은 환율 변동 손익 귀속을 건드리는
-     * 제품 결정입니다. 팀이 정하기 전까지 조용히 통화를 바꾸지 않고 실패로 남깁니다.
+     * 코인으로 낸 사람에게는 코인으로 돌려줍니다. 원화 계좌이체로 조용히 바꾸지
+     * 않습니다 — 구매자가 기대한 것과 다른 통화를 받게 되기 때문입니다.
      */
     @Test
-    @DisplayName("코인 결제는 원화 계좌이체로 바꾸지 않고 실패로 남긴다")
-    void cryptoPaymentIsNotSilentlyConvertedToTransfer() {
+    @DisplayName("코인 결제는 코인으로 환불한다 - 원화 계좌이체로 바꾸지 않는다")
+    void cryptoPaymentRefundsInCrypto() {
+        Payment payment = payment("CRYPTO");
+        Refund refundRow = refund(RefundMethod.CRYPTO);
+        OpenResult opened = new OpenResult(refundRow, true);
+        CryptoRefundService.RefundTransfer transfer = new CryptoRefundService.RefundTransfer(
+                CRYPTO_TX_HASH, new java.math.BigDecimal("39.010002"),
+                new java.math.BigDecimal("1384.26036"), BUYER_WALLET);
+
+        when(paymentRepository.findByParticipationId(PARTICIPATION_ID))
+                .thenReturn(Optional.of(payment));
+        when(ledgerService.openForParticipation(eq(PARTICIPATION_ID), anyLong(), any(), any()))
+                .thenReturn(opened);
+        when(cryptoRefundService.isEnabled()).thenReturn(true);
+        when(cryptoRefundService.findBuyerWallet(PAYMENT_ID)).thenReturn(BUYER_WALLET);
+        when(cryptoRefundService.refundByPayment(eq(PAYMENT_ID), anyLong())).thenReturn(transfer);
+
+        service.refundParticipation(PARTICIPATION_ID, AMOUNT, RefundReason.RECRUIT_FAILED);
+
+        verify(ledgerService).completeByCrypto(eq(REFUND_ID), eq(CRYPTO_TX_HASH), any());
+        verify(transferClient, never()).transfer(anyString(), anyString(), anyString(),
+                anyString(), anyString(), anyString(), anyLong(), anyString(), anyString());
+    }
+
+    /**
+     * 송금 직후 장애가 나도 어디로 보냈는지 원장에 남아야 체인에서 대조할 수 있습니다.
+     */
+    @Test
+    @DisplayName("송금 전에 수취 지갑을 원장에 기록한다")
+    void recordsWalletBeforeSending() {
+        Payment payment = payment("CRYPTO");
+        Refund refundRow = refund(RefundMethod.CRYPTO);
+        OpenResult opened = new OpenResult(refundRow, true);
+        CryptoRefundService.RefundTransfer transfer = new CryptoRefundService.RefundTransfer(
+                CRYPTO_TX_HASH, java.math.BigDecimal.ONE, java.math.BigDecimal.TEN, BUYER_WALLET);
+
+        when(paymentRepository.findByParticipationId(PARTICIPATION_ID))
+                .thenReturn(Optional.of(payment));
+        when(ledgerService.openForParticipation(eq(PARTICIPATION_ID), anyLong(), any(), any()))
+                .thenReturn(opened);
+        when(cryptoRefundService.isEnabled()).thenReturn(true);
+        when(cryptoRefundService.findBuyerWallet(PAYMENT_ID)).thenReturn(BUYER_WALLET);
+        when(cryptoRefundService.refundByPayment(eq(PAYMENT_ID), anyLong())).thenReturn(transfer);
+
+        service.refundParticipation(PARTICIPATION_ID, AMOUNT, RefundReason.RECRUIT_FAILED);
+
+        verify(ledgerService).assignWalletAddress(REFUND_ID, BUYER_WALLET);
+    }
+
+    /**
+     * 송금이 이미 나갔을 수 있어 자동 재시도하면 두 번 지급됩니다. 재처리 전에 체인
+     * 확인이 필요하다는 것을 사유에 남깁니다.
+     */
+    @Test
+    @DisplayName("송금 결과를 모르면 확인이 필요하다는 사유로 실패시킨다")
+    void marksUnknownOutcomeWithVerificationHint() {
         Payment payment = payment("CRYPTO");
         Refund refundRow = refund(RefundMethod.CRYPTO);
         OpenResult opened = new OpenResult(refundRow, true);
@@ -367,12 +429,36 @@ class RefundOrchestrationServiceTest {
                 .thenReturn(Optional.of(payment));
         when(ledgerService.openForParticipation(eq(PARTICIPATION_ID), anyLong(), any(), any()))
                 .thenReturn(opened);
+        when(cryptoRefundService.isEnabled()).thenReturn(true);
+        when(cryptoRefundService.findBuyerWallet(PAYMENT_ID)).thenReturn(BUYER_WALLET);
+        when(cryptoRefundService.refundByPayment(eq(PAYMENT_ID), anyLong()))
+                .thenThrow(new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE,
+                        "송금 결과를 확인하지 못했습니다"));
 
         service.refundParticipation(PARTICIPATION_ID, AMOUNT, RefundReason.RECRUIT_FAILED);
 
-        verify(transferClient, never()).transfer(anyString(), anyString(), anyString(),
-                anyString(), anyString(), anyString(), anyLong(), anyString(), anyString());
+        verify(ledgerService).fail(eq(REFUND_ID), contains("체인에서 확인"));
+        verify(ledgerService, never()).completeByCrypto(anyLong(), anyString(), any());
+    }
+
+    /** 개인키가 없으면 송금 자체를 시도하지 않고 사유를 남깁니다. */
+    @Test
+    @DisplayName("환불 지갑 개인키가 없으면 송금하지 않는다")
+    void failsWhenRefundWalletDisabled() {
+        Payment payment = payment("CRYPTO");
+        Refund refundRow = refund(RefundMethod.CRYPTO);
+        OpenResult opened = new OpenResult(refundRow, true);
+
+        when(paymentRepository.findByParticipationId(PARTICIPATION_ID))
+                .thenReturn(Optional.of(payment));
+        when(ledgerService.openForParticipation(eq(PARTICIPATION_ID), anyLong(), any(), any()))
+                .thenReturn(opened);
+        when(cryptoRefundService.isEnabled()).thenReturn(false);
+
+        service.refundParticipation(PARTICIPATION_ID, AMOUNT, RefundReason.RECRUIT_FAILED);
+
         verify(ledgerService).fail(eq(REFUND_ID), anyString());
+        verify(cryptoRefundService, never()).refundByPayment(anyLong(), anyLong());
     }
 
     // ------------------------------------------------------------------
