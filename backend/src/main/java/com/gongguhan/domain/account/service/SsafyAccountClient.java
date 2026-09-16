@@ -95,6 +95,28 @@ public class SsafyAccountClient {
         return readAuthCode(userKey, accountNo);
     }
 
+    /** 계좌 잔액 조회(가상 은행 콘솔용). */
+    public Balance inquireBalance(String userKey, String accountNo) {
+        BalanceResponse response = post("inquireDemandDepositAccountBalance",
+                "/demandDeposit/inquireDemandDepositAccountBalance",
+                Map.of("accountNo", accountNo), userKey, BalanceResponse.class);
+        return response.rec();
+    }
+
+    /** 계좌 거래내역 조회(가상 은행 콘솔용, 최신순). 환불 입금이 여기에 잡힌다. */
+    public List<History> inquireHistory(String userKey, String accountNo, String startDate, String endDate) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("accountNo", accountNo);
+        body.put("startDate", startDate);
+        body.put("endDate", endDate);
+        body.put("transactionType", "A");
+        body.put("orderByType", "DESC");
+        HistoryResponse response = post("inquireTransactionHistoryList",
+                "/demandDeposit/inquireTransactionHistoryList", body, userKey, HistoryResponse.class);
+        List<History> list = response.rec() == null ? List.of() : response.rec().list();
+        return list == null ? List.of() : list;
+    }
+
     /** 1원 인증코드를 검증한다. */
     public boolean verifyOneWonAuth(String userKey, String accountNo, String authCode) {
         HeaderOnlyResponse response = post("checkAuthCode", "/accountAuth/checkAuthCode",
@@ -208,6 +230,27 @@ public class SsafyAccountClient {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record History(@JsonProperty("transactionSummary") String transactionSummary) {
+    public record History(
+            @JsonProperty("transactionUniqueNo") String transactionUniqueNo,
+            @JsonProperty("transactionDate") String transactionDate,
+            @JsonProperty("transactionTime") String transactionTime,
+            @JsonProperty("transactionType") String transactionType,
+            @JsonProperty("transactionTypeName") String transactionTypeName,
+            @JsonProperty("transactionBalance") String transactionBalance,
+            @JsonProperty("transactionAfterBalance") String transactionAfterBalance,
+            @JsonProperty("transactionSummary") String transactionSummary) {
+    }
+
+    /** 계좌 잔액. */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Balance(
+            @JsonProperty("accountNo") String accountNo,
+            @JsonProperty("accountBalance") String accountBalance,
+            @JsonProperty("currency") String currency) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record BalanceResponse(@JsonProperty("Header") Header header, @JsonProperty("REC") Balance rec)
+            implements HasHeader {
     }
 }
