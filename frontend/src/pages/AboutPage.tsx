@@ -1,7 +1,10 @@
+import { useRef } from 'react'
+
 import { POLICY_DEFAULTS } from '@/shared/config/policy'
 import { percent } from '@/shared/lib/format'
 import { useBodyClass } from '@/shared/lib/hooks/useBodyClass'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
+import { useScrollReveal } from '@/shared/lib/hooks/useScrollReveal'
 import { ButtonLink } from '@/shared/ui/Button'
 import { DataRow } from '@/shared/ui/DataRow'
 import { Panel } from '@/shared/ui/Panel'
@@ -42,9 +45,13 @@ export default function AboutPage() {
   // 배경을 한 톤 눌러 흰 카드가 떠 보이게 합니다.
   useBodyClass('tone-soft')
 
+  const page = useRef<HTMLElement>(null)
+  // 스크롤해서 들어온 블록만 부드럽게 드러냅니다.
+  useScrollReveal(page)
+
   return (
-    <main className="wrap">
-      <section className="about-lead">
+    <main className="wrap" ref={page}>
+      <section className="about-lead reveal">
         <h1>
           혼자 사기엔 비싼 물건,
           <br />
@@ -59,7 +66,7 @@ export default function AboutPage() {
 
       <ul className="points">
         {POINTS.map((item) => (
-          <li key={item.value}>
+          <li className="reveal" key={item.value}>
             <span className="k">{item.key}</span>
             <span className="v">{item.value}</span>
             <span className="d">{item.desc}</span>
@@ -68,7 +75,7 @@ export default function AboutPage() {
       </ul>
 
       <section className="section about-sec">
-        <div className="sec-head center">
+        <div className="sec-head center reveal">
           <div>
             <h2 className="sec-title">이렇게 진행됩니다</h2>
             <p className="sec-sub">
@@ -79,7 +86,7 @@ export default function AboutPage() {
 
         <div className="how">
           {STEPS.map((item) => (
-            <div key={item.step}>
+            <div className="reveal" key={item.step}>
               <div className="n">{item.step}</div>
               <div className="t">{item.title}</div>
               <div className="d">{item.desc}</div>
@@ -89,7 +96,7 @@ export default function AboutPage() {
       </section>
 
       <section className="section about-sec">
-        <div className="sec-head center">
+        <div className="sec-head center reveal">
           <div>
             <h2 className="sec-title">자세한 기준</h2>
             <p className="sec-sub">기한과 부담 주체</p>
@@ -97,7 +104,7 @@ export default function AboutPage() {
         </div>
 
         <div className="split even">
-          <Panel title="결제와 환불" description="돈이 언제 움직이는지">
+          <Panel className="reveal" title="결제와 환불" description="돈이 언제 움직이는지">
             <DataRow label="목표 인원 미달 시">전액 자동 환불</DataRow>
             <DataRow label="참여 취소">모집 종료 전까지 가능</DataRow>
             <DataRow label="청약철회">수령 다음 날부터 7일 이내</DataRow>
@@ -117,7 +124,7 @@ export default function AboutPage() {
             에스크로를 내세우는 서비스인데 "문제가 생기면 어디에 말하나" 가 없었습니다.
             반품(RTN)과 이의제기(CFM-02)는 상황이 달라 고르는 기준부터 적습니다.
           */}
-          <Panel title="문제가 생기면" description="상황에 따라 경로가 다릅니다">
+          <Panel className="reveal" title="문제가 생기면" description="상황에 따라 경로가 다릅니다">
             <DataRow label="못 받았거나 다른 상품이 왔을 때" hint="자동 구매확정이 멈춥니다">
               이의제기
             </DataRow>
@@ -131,7 +138,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="about-end">
+      <section className="about-end reveal">
         <h2>지금 참여할 수 있는 공동구매가 있습니다</h2>
         <p>
           목표 인원이 모이면 공동구매가 성사되고,

@@ -30,7 +30,11 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .gnb{
   position:sticky;top:0;z-index:20;
   background:var(--surface);
-  border-bottom:1px solid var(--line2);
+  /*
+   * 선 대신 그림자로 본문과 나눕니다. 스크롤하면 내용이 헤더 아래로
+   * 지나가는데, 선 한 줄보다 그림자가 그 층을 분명하게 보여줍니다.
+   */
+  box-shadow:var(--shadow-bar);
 }
 .gnb .inner{
   max-width:var(--max);margin:0 auto;padding:0 var(--gutter);
@@ -698,6 +702,34 @@ body.tone-soft{background:var(--soft);}
 body.tone-soft .panel,
 body.tone-soft .how > div{background:var(--surface);}
 body.tone-soft .panel{border-radius:var(--radius-box);}
+
+/* ---------- 스크롤 등장 ---------- */
+/*
+ * useScrollReveal 이 컨테이너에 data-reveal 을 붙인 뒤에만 숨습니다.
+ * CSS 에서 바로 숨겨 두면 스크립트가 실패할 때 내용이 영영 안 보입니다.
+ *
+ * 움직임을 줄이도록 설정한 사용자에게는 규칙 자체를 적용하지 않습니다.
+ * 훅에서도 한 번 막지만, 설정을 도중에 바꾸는 경우까지 여기서 받습니다.
+ */
+@media (prefers-reduced-motion: no-preference){
+  [data-reveal] .reveal{
+    opacity:0;
+    /* 12px 만 올립니다. 크게 움직이면 읽던 자리가 흔들립니다 */
+    transform:translateY(12px);
+  }
+  [data-reveal] .reveal.is-in{
+    opacity:1;transform:none;
+    transition:opacity .5s ease, transform .5s cubic-bezier(.22,.61,.36,1);
+  }
+  /*
+   * 같은 줄에 나란한 카드는 아주 조금씩 늦춰 훑고 지나가는 느낌을 줍니다.
+   * 간격을 넓히면 마지막 칸을 기다리게 되어 60ms 로 둡니다.
+   */
+  [data-reveal] .reveal:nth-child(2){transition-delay:.06s;}
+  [data-reveal] .reveal:nth-child(3){transition-delay:.12s;}
+  [data-reveal] .reveal:nth-child(4){transition-delay:.18s;}
+  [data-reveal] .reveal:nth-child(5){transition-delay:.24s;}
+}
 
 /* ---------- 서비스 소개 ---------- */
 /*
