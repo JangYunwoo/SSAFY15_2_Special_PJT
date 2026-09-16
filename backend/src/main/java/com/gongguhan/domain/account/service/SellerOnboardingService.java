@@ -4,9 +4,6 @@ import com.gongguhan.domain.account.dto.ActorResponse;
 import com.gongguhan.domain.account.dto.LoginResponse;
 import com.gongguhan.domain.account.dto.SellerVerificationDtos.AccountConfirmRequest;
 import com.gongguhan.domain.account.dto.SellerVerificationDtos.AccountRequestResponse;
-import com.gongguhan.domain.account.dto.SellerVerificationDtos.PhoneConfirmRequest;
-import com.gongguhan.domain.account.dto.SellerVerificationDtos.PhoneRequest;
-import com.gongguhan.domain.account.dto.SellerVerificationDtos.PhoneRequestResponse;
 import com.gongguhan.domain.account.dto.SellerVerificationDtos.SellerProfileCreateRequest;
 import com.gongguhan.domain.account.entity.SellerProfile;
 import com.gongguhan.domain.account.entity.SellerVerification;
@@ -19,19 +16,18 @@ import com.gongguhan.global.error.ErrorCode;
 import com.gongguhan.global.security.JwtTokenProvider;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.concurrent.ThreadLocalRandom;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 판매자 전환(SEL-01~05).
+ * 판매자 전환(SEL-03~05).
  *
- * <p><b>하이브리드 인증</b>: 휴대폰(SEL-01·02)은 SMS 사업자가 없어 목업(코드 생성·검증만)이고,
- * 정산계좌 1원 인증(SEL-03·04)은 실제 SSAFY 금융망({@link SsafyAccountClient})을 호출한다.
- * 전환 확정(SEL-05)은 두 인증이 모두 VERIFIED여야 하며, {@code is_seller=true}로 바꾸고
+ * <p>인증은 <b>정산계좌 1원 인증(실제 SSAFY 금융망, {@link SsafyAccountClient})</b> 하나로 한다.
+ * 휴대폰 본인인증은 SSAFY에 해당 API가 없고 은행 업무도 아니라(본인확인기관 영역) 제거했다 -
+ * 판매자에게 실제로 필요한 것은 "정산 받을 계좌가 본인 것인지"의 확인이다.
+ * 전환 확정(SEL-05)은 계좌 인증이 VERIFIED여야 하며, {@code is_seller=true}로 바꾸고
  * isSeller 클레임이 반영된 새 토큰을 발급한다(기존 토큰은 아직 구매자라 판매자센터 접근 불가).
  *
  * <p>외부 SSAFY 호출은 DB 트랜잭션 밖에서 수행하고(계좌 요청·확인 메서드는 @Transactional을
@@ -42,54 +38,24 @@ public class SellerOnboardingService {
 
     private static final Logger log = LoggerFactory.getLogger(SellerOnboardingService.class);
     private static final String DEFAULT_ROLE = "USER";
-    private static final Duration PHONE_TTL = Duration.ofMinutes(5);
     private static final Duration ACCOUNT_TTL = Duration.ofMinutes(10);
 
     private final UserRepository userRepository;
     private final SellerProfileRepository sellerProfileRepository;
     private final SellerVerificationRepository verificationRepository;
     private final SsafyAccountClient ssafyAccountClient;
-    private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
 
     public SellerOnboardingService(UserRepository userRepository,
                                    SellerProfileRepository sellerProfileRepository,
                                    SellerVerificationRepository verificationRepository,
                                    SsafyAccountClient ssafyAccountClient,
-                                   PasswordEncoder passwordEncoder,
                                    JwtTokenProvider jwtTokenProvider) {
         this.userRepository = userRepository;
         this.sellerProfileRepository = sellerProfileRepository;
         this.verificationRepository = verificationRepository;
         this.ssafyAccountClient = ssafyAccountClient;
-        this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
-    }
-
-    /** SEL-01 휴대폰 인증 요청(목업). 6자리 코드를 만들어 저장하고 데모용으로 함께 돌려준다. */
-    @Transactional
-    public PhoneRequestResponse requestPhone(Long userId, PhoneRequest request) {
-        ensureNotSeller(userId);
-        String code = String.format("%06d", ThreadLocalRandom.current().nextInt(1_000_000));
-        verificationRepository.save(SellerVerification.request(
-                userId, SellerVerification.TYPE_PHONE, request.phone(),
-                passwordEncoder.encode(code), null, LocalDateTime.now().plus(PHONE_TTL)));
-        return new PhoneRequestResponse(code, "인증코드를 발송했습니다(데모: 아래 코드를 그대로 입력하세요).");
-    }
-
-    /** SEL-02 휴대폰 인증 확인. */
-    @Transactional
-    public void confirmPhone(Long userId, PhoneConfirmRequest request) {
-        SellerVerification verification = latest(userId, SellerVerification.TYPE_PHONE);
-        LocalDateTime now = LocalDateTime.now();
-        if (verification.isExpired(now)
-                || verification.getCodeHash() == null
-                || !passwordEncoder.matches(request.code(), verification.getCodeHash())) {
-            verification.markFailed();
-            throw new BusinessException(ErrorCode.VERIFICATION_CODE_MISMATCH);
-        }
-        verification.markVerified(now);
-        userRepository.findById(userId).ifPresent(User::markPhoneVerified);
     }
 
     /**
@@ -130,7 +96,7 @@ public class SellerOnboardingService {
         }
     }
 
-    /** SEL-05 판매자 전환 확정. 두 인증이 모두 VERIFIED여야 하며 새 토큰(isSeller=true)을 발급한다. */
+    /** SEL-05 판매자 전환 확정. 계좌 1원 인증이 VERIFIED여야 하며 새 토큰(isSeller=true)을 발급한다. */
     @Transactional
     public LoginResponse createSellerProfile(Long userId, SellerProfileCreateRequest request) {
         User user = userRepository.findById(userId)
@@ -139,9 +105,8 @@ public class SellerOnboardingService {
             throw new BusinessException(ErrorCode.ALREADY_SELLER);
         }
 
-        SellerVerification phone = latest(userId, SellerVerification.TYPE_PHONE);
         SellerVerification account = latest(userId, SellerVerification.TYPE_ACCOUNT_1WON);
-        if (!phone.isVerified() || !account.isVerified()) {
+        if (!account.isVerified()) {
             throw new BusinessException(ErrorCode.SELLER_VERIFICATION_REQUIRED);
         }
 
