@@ -1,9 +1,8 @@
 import { env } from '@/shared/config/env'
 
-import type { ZodType } from 'zod'
-
 import { checkContract } from './contract'
 import { ApiError, NetworkError } from './errors'
+import type { SchemaName } from './schemas'
 import type { ApiResponse, NoContent, PageMeta, Paged } from './types'
 
 type Query = Record<string, string | number | boolean | null | undefined>
@@ -14,10 +13,13 @@ interface RequestOptions {
   query?: Query
   signal?: AbortSignal
   /**
-   * 응답 검증 스키마. 넘기면 개발 중에만 서버 응답 모양을 확인합니다.
-   * 목록 응답에는 배열이 아니라 "항목 하나"의 스키마를 넘깁니다.
+   * 응답 검증 스키마 이름(shared/api/schemas.ts 의 레지스트리 키).
+   * 넘기면 개발 중에만 서버 응답 모양을 확인합니다. 목록 응답에는 배열이
+   * 아니라 "항목 하나"의 스키마 이름을 넘깁니다.
+   *
+   * 객체가 아니라 이름인 이유는 contract.ts 주석에 적어 두었습니다.
    */
-  schema?: ZodType
+  schema?: SchemaName
   /**
    * 401 을 받아도 토큰 재발급을 시도하지 않습니다.
    * 재발급 요청 자신이 401 일 때 무한히 되도는 것을 막는 용도입니다.

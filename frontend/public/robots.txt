@@ -1,0 +1,14 @@
+# 공구한 · 크롤러 규칙
+#
+# SPA 는 없는 경로를 index.html 로 돌려주므로, 이 파일이 없으면 /robots.txt
+# 요청에도 HTML 이 응답돼 크롤러가 규칙을 읽지 못합니다.
+
+User-agent: *
+Allow: /
+
+# 로그인해야 열리는 개인·운영 화면은 색인할 이유가 없습니다.
+Disallow: /me
+Disallow: /orders
+Disallow: /checkout
+Disallow: /seller
+Disallow: /admin

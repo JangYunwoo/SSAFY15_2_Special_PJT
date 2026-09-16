@@ -48,11 +48,13 @@ function toResult(extraction: AiExtraction): AiExtractionResult {
   const hints: AiHints = {}
 
   for (const [key, field] of Object.entries(fields)) {
-    // nameCandidates 는 AiField 가 아니라 문자열 배열이라 confidence 가 없다. 신뢰도 힌트 대상에서 제외한다.
-    if (key === 'nameCandidates' || field === undefined) continue
+    // fields 에는 AiField 가 아닌 값도 섞여 있다(nameCandidates 는 문자열 배열).
+    // 키 이름으로 걸러내면 필드가 늘 때마다 여기를 고쳐야 하고 서버가 보낸
+    // null 도 걸러내지 못하므로, 모양으로 판단한다.
+    if (!isAiField(field)) continue
     hints[key as keyof AiExtraction['fields']] = {
-      confidence: (field as AiField<unknown>).confidence,
-      needsReview: (field as AiField<unknown>).confidence < AI_CONFIDENCE_THRESHOLD,
+      confidence: field.confidence,
+      needsReview: field.confidence < AI_CONFIDENCE_THRESHOLD,
     }
   }
 
@@ -79,4 +81,14 @@ export function aiHintText(hint: AiHint | undefined): string | undefined {
   return hint.needsReview
     ? `AI 추출 · 신뢰도 ${confidence} · 값을 확인해 주세요`
     : `AI 추출 · 신뢰도 ${confidence}`
+}
+
+/** 신뢰도를 가진 AI 추출 필드인지 모양으로 확인합니다. */
+function isAiField(value: unknown): value is AiField<unknown> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'confidence' in value &&
+    typeof value.confidence === 'number'
+  )
 }

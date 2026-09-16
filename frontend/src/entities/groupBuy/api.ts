@@ -1,5 +1,4 @@
 import { api } from '@/shared/api/client'
-import { amountPreviewSchema, groupBuySummarySchema } from '@/shared/api/schemas'
 import type { GroupBuyEscrow } from '@/entities/participation/model'
 import type { Id, NoContent, PageParams, Paged } from '@/shared/api/types'
 
@@ -21,16 +20,16 @@ export const groupBuyApi = {
   list: (params: GroupBuyListParams) =>
     api.getPage<GroupBuySummary>('/group-buys', {
       query: { ...params },
-      schema: groupBuySummarySchema,
+      schema: 'groupBuySummary',
     }),
 
   /** GRP-02 상세·금액·진행률 */
   detail: (groupBuyId: Id) =>
-    api.get<GroupBuyDetail>(`/group-buys/${groupBuyId}`, { schema: groupBuySummarySchema }),
+    api.get<GroupBuyDetail>(`/group-buys/${groupBuyId}`, { schema: 'groupBuySummary' }),
 
   /** GRP-03 생성 전 금액 미리보기 */
   preview: (body: GroupBuyPreviewRequest) =>
-    api.post<AmountPreview>('/sellers/group-buys/preview', body, { schema: amountPreviewSchema }),
+    api.post<AmountPreview>('/sellers/group-buys/preview', body, { schema: 'amountPreview' }),
 
   /** GRP-04 생성 */
   create: (body: CreateGroupBuyRequest) =>
