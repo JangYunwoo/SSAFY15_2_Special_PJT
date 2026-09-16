@@ -32,22 +32,26 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
             <p>필요한 사람끼리 모여 더 싸게, 결제는 에스크로로 안전하게</p>
           </div>
 
-          <nav className="foot-col" aria-label="서비스 바로가기">
+          <div className="foot-col">
             <span className="foot-col-title">서비스</span>
-            <Link to="/">공동구매</Link>
-            <Link to="/about">서비스 소개</Link>
-            <Link to="/seller">판매자센터</Link>
-          </nav>
+            <nav className="foot-col-list" aria-label="서비스 바로가기">
+              <Link to="/">공동구매</Link>
+              <Link to="/about">서비스 소개</Link>
+              <Link to="/seller">판매자센터</Link>
+            </nav>
+          </div>
 
           <div className="foot-col">
-            <span className="foot-col-title">이용 안내</span>
+            <span className="foot-col-title">이용안내</span>
             {/*
               연결할 페이지가 아직 없어 글자로만 둡니다. 없는 곳으로 가는
               링크를 만들면 누른 사람이 빈 화면을 봅니다. 페이지가 생기면
               <Link> 로 바꾸세요.
             */}
-            <span>이용약관</span>
-            <span>개인정보처리방침</span>
+            <div className="foot-col-list">
+              <span>이용약관</span>
+              <span>개인정보처리방침</span>
+            </div>
           </div>
 
           {/*

@@ -825,21 +825,29 @@ footer.foot{margin-top:72px;padding:0 var(--gutter);}
  * flex 로 왼쪽에 모으면 각 열이 내용만큼만 차지합니다.
  */
 .foot-top{
-  display:flex;gap:56px;align-items:flex-start;
+  display:flex;gap:80px;align-items:flex-start;
   padding-bottom:24px;
 }
-.foot-brand{flex:0 1 280px;}
+/* 브랜드가 남는 폭을 먹어서 링크 묶음 둘이 오른쪽으로 밀립니다 */
+.foot-brand{flex:1;min-width:0;}
 .foot-brand .brand{display:block;margin-bottom:10px;}
 .foot-brand p{
   margin:0;font-size:12px;color:var(--muted);
   line-height:1.8;word-break:keep-all;max-width:280px;
 }
-/* 링크 열. span 과 a 가 섞여 있어 display 를 함께 지정합니다. */
-.foot-col{display:flex;flex-direction:column;gap:8px;font-size:12px;}
-.foot-col-title{font-size:12px;font-weight:700;color:var(--ink);margin-bottom:3px;}
-.foot-col a,
-.foot-col > span:not(.foot-col-title){color:var(--muted);}
-.foot-col a:hover{color:var(--ink);}
+/*
+ * 제목을 목록 위가 아니라 왼쪽에 나란히 둡니다.
+ * 항목이 두세 개뿐이라 위에 얹으면 세로로 길어지기만 합니다.
+ */
+.foot-col{display:flex;gap:56px;font-size:12px;}
+.foot-col-title{
+  font-size:12px;font-weight:700;color:var(--ink);white-space:nowrap;
+}
+/* span 과 a 가 섞여 있어 display 를 함께 지정합니다. */
+.foot-col-list{display:flex;flex-direction:column;gap:9px;}
+.foot-col-list a,
+.foot-col-list > span{color:var(--muted);}
+.foot-col-list a:hover{color:var(--ink);}
 /*
  * 아래 줄은 카드 안에서 한 번 더 나눕니다. 여기서는 선을 씁니다.
  * 링크 열과 저작권은 성격이 달라 간격만으로는 덜 구분됩니다.
@@ -904,6 +912,8 @@ footer.foot-min .inner{
   .foot-card{padding:32px 24px 22px;border-radius:16px 16px 0 0;}
   .foot-top{flex-direction:column;gap:24px;}
   .foot-brand{flex:none;}
+  /* 좁은 화면에서는 제목을 목록 위로 올립니다 */
+  .foot-col{flex-direction:column;gap:10px;}
   /* 좁은 화면에서 오른쪽 정렬은 줄바꿈이 지저분해 보여 왼쪽으로 둡니다 */
   .foot-bottom{justify-content:flex-start;}
 }
