@@ -31,6 +31,10 @@
     .err { color:var(--neg); font-size:13px; margin-top:8px; }
     .hide { display:none; }
     .pill { font-size:12px; color:var(--sub); }
+    .cardface { background:linear-gradient(135deg,#1b3a7a,#2d5bb8); border:1px solid var(--line); border-radius:14px; padding:18px; display:flex; flex-direction:column; gap:10px; }
+    .cardface .cardno { font-size:22px; font-weight:700; letter-spacing:2px; font-variant-numeric:tabular-nums; }
+    .cardface b { font-weight:700; }
+    .cardface .pill { color:#cfe0ff; }
   </style>
 </head>
 <body>
@@ -93,6 +97,18 @@
       return data.data;
     }
 
+    async function apiPost(path) {
+      const res = await fetch(apiBase + path, {
+        method: 'POST', headers: { Authorization: 'Bearer ' + token },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error(data?.error?.message || ('HTTP ' + res.status));
+      return data.data;
+    }
+
+    const fmtCard = (no) => !no ? '' : no.replace(/(\d{4})(?=\d)/g, '$1-');
+    const fmtExpiry = (d) => !d ? '' : `${d.slice(2,4)}/${d.slice(4,6)}`; // YYYYMMDD → YY/MM
+
     async function login() {
       $('loginErr').textContent = '';
       apiBase = $('apiBase').value.trim().replace(/\/$/, '');
@@ -128,19 +144,51 @@
     async function renderCard() {
       const box = $('cardBody');
       try {
-        const c = await api('/users/me/bank/card');
-        if (!c.hasCard) { box.innerHTML = '<p class="muted">발급된 카드가 없습니다. 공구한 마이페이지에서 카드를 발급하세요.</p>'; return; }
-        const rows = (c.transactions || []).map(t =>
+        // 발급 여부와 카드번호·CVC는 /users/me/card 로 확인한다.
+        const card = await api('/users/me/card');
+        if (!card.hasCard) {
+          box.innerHTML = `
+            <p class="muted">아직 발급된 카드가 없습니다. 카드를 발급하면 공구한에서 결제할 수 있습니다.</p>
+            <button id="issueBtn">카드 발급받기</button>
+            <div class="err" id="issueErr"></div>`;
+          $('issueBtn').onclick = issueCard;
+          return;
+        }
+        // 카드가 있으면 카드 정보(결제 입력용)와 이용내역(청구예정액)을 함께 보여준다.
+        const usage = await api('/users/me/bank/card');
+        const rows = (usage.transactions || []).map(t =>
           `<tr><td>${dt(t.date, t.time)}</td><td>${t.merchantName ?? ''}</td><td class="muted">${t.categoryName ?? ''}</td><td class="amt out">-${won(t.amount)}</td></tr>`
         ).join('');
         box.innerHTML = `
-          <div class="row" style="justify-content:space-between;">
-            <div><div class="muted">${c.cardIssuerName ?? ''} · ${c.cardName ?? ''}</div><div class="muted">청구 예정액</div></div>
-            <div class="big">${won(c.estimatedBalance)}</div>
+          <div class="cardface">
+            <div class="muted">${card.cardIssuerName ?? ''} · ${card.cardName ?? ''}</div>
+            <div class="cardno">${fmtCard(card.cardNo)}</div>
+            <div class="row" style="gap:24px;">
+              <span>CVC <b>${card.cvc ?? ''}</b></span>
+              <span>유효기간 <b>${fmtExpiry(card.cardExpiryDate)}</b></span>
+            </div>
+            <div class="pill">💡 공구한 카드 결제창에 이 번호와 CVC를 입력하세요.</div>
+          </div>
+          <div class="row" style="justify-content:space-between; margin-top:14px;">
+            <div class="muted">청구 예정액</div>
+            <div class="big">${won(usage.estimatedBalance)}</div>
           </div>
           <table><thead><tr><th>일시</th><th>가맹점</th><th>분류</th><th class="amt">결제액</th></tr></thead>
           <tbody>${rows || '<tr><td colspan="4" class="muted">이용내역이 없습니다.</td></tr>'}</tbody></table>`;
       } catch (e) { box.innerHTML = `<p class="err">${e.message}</p>`; }
+    }
+
+    async function issueCard() {
+      const btn = $('issueBtn');
+      if (btn) { btn.disabled = true; btn.textContent = '발급 중…'; }
+      try {
+        await apiPost('/users/me/card'); // 계좌 없으면 자동 개설 후 발급
+        await renderCard();
+        renderAccount(); // 자동 개설된 계좌가 계좌 섹션에도 반영되도록 갱신
+      } catch (e) {
+        if ($('issueErr')) $('issueErr').textContent = e.message;
+        if (btn) { btn.disabled = false; btn.textContent = '카드 발급받기'; }
+      }
     }
 
     async function renderAccount() {
