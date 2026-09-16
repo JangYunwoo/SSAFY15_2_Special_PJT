@@ -811,10 +811,13 @@ table.list td.more{text-align:center;padding:24px 12px;}
  * 기본 푸터는 연회색 라운드 카드입니다. 윗선으로 자르지 않고 카드가
  * 본문과 떨어져 앉는 형태라, 테두리를 걷어낸 소개 화면과 결이 같습니다.
  */
-footer.foot{margin-top:72px;padding:0 var(--gutter) 40px;}
+/* 아래는 화면 끝에 붙입니다. 바닥에서 떠 있으면 페이지가 끝났다는 느낌이 안 납니다. */
+footer.foot{margin-top:72px;padding:0 var(--gutter);}
 .foot-card{
   max-width:var(--max);margin:0 auto;
-  background:var(--soft);border-radius:20px;
+  background:var(--soft);
+  /* 바닥에 붙으므로 아래 모서리는 깎지 않습니다 */
+  border-radius:20px 20px 0 0;
   padding:44px 44px 28px;
 }
 .foot-top{
@@ -894,7 +897,7 @@ footer.foot-min .inner{
   .steps > *{flex:1 0 33%;}
   .timeline{font-size:10px;}
   .sec-head{flex-direction:column;align-items:flex-start;gap:8px;}
-  .foot-card{padding:32px 24px 22px;border-radius:16px;}
+  .foot-card{padding:32px 24px 22px;border-radius:16px 16px 0 0;}
   .foot-top{grid-template-columns:1fr;gap:26px;}
 }
 
