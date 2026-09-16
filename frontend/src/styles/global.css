@@ -53,7 +53,7 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .gnb .right nav{margin-left:0;}
 .gnb .cta{
   border:1px solid var(--brand);padding:9px 16px;
-  font-size:12px;font-weight:700;color:var(--brand);white-space:nowrap;
+  font-size:12px;font-weight:700;color:var(--brand-text);white-space:nowrap;
 }
 .gnb .cta:hover{background:var(--brand-soft);}
 .gnb .cta.fill{background:var(--brand);border-color:var(--brand);color:var(--on-dark);}
@@ -151,7 +151,7 @@ button,input,select,textarea{font:inherit;color:inherit;}
   font-size:13px;color:var(--ink2);cursor:pointer;background:var(--surface);
 }
 .pick input{accent-color:var(--brand);margin-right:8px;}
-.pick.on{border:1.5px solid var(--brand);color:var(--brand);font-weight:500;}
+.pick.on{border:1.5px solid var(--brand);color:var(--brand-text);font-weight:500;}
 
 /* 약관 동의 */
 .agree{border:1px solid var(--line);}
@@ -261,7 +261,7 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .guide li b{color:var(--ink);}
 
 /* 표 안의 텍스트 링크 */
-.tlink{color:var(--brand);text-decoration:underline;text-underline-offset:3px;}
+.tlink{color:var(--brand-text);text-decoration:underline;text-underline-offset:3px;}
 
 /* 본문 문단 (계좌 정보 · 상품 설명 등) */
 .para{font-size:13px;color:var(--ink2);line-height:1.9;margin:0 0 16px;}
@@ -344,7 +344,7 @@ button,input,select,textarea{font:inherit;color:inherit;}
   padding:7px 16px;font-size:12px;color:var(--ink2);cursor:pointer;
 }
 .chip:hover{background:var(--soft);}
-.chip.on{background:var(--brand-soft);border-color:var(--brand);color:var(--brand);font-weight:700;}
+.chip.on{background:var(--brand-soft);border-color:var(--brand);color:var(--brand-text);font-weight:700;}
 
 /* ---------- 상품 카드 ---------- */
 .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;}
@@ -614,7 +614,7 @@ select.input{
 .how > div{padding:18px 13px;word-break:keep-all;}
 /* 칸 사이에만 선을 그으므로 마지막 칸을 따로 지울 필요가 없습니다 */
 .how > div + div{border-left:1px solid var(--line2);}
-.how .n{font-size:12px;font-weight:700;color:var(--brand);margin-bottom:8px;}
+.how .n{font-size:12px;font-weight:700;color:var(--brand-text);margin-bottom:8px;}
 .how .t{font-size:13px;font-weight:700;margin-bottom:4px;}
 .how .d{font-size:12px;color:var(--ink2);line-height:1.6;}
 

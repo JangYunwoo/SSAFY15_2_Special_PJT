@@ -1,5 +1,4 @@
 import { api } from '@/shared/api/client'
-import { authTokensSchema, sellerProfileSchema, userProfileSchema } from '@/shared/api/schemas'
 import type { NoContent } from '@/shared/api/types'
 
 import type {
@@ -38,7 +37,7 @@ export const authApi = {
 
   /** AUTH-02 통합 로그인 */
   login: (body: LoginRequest) =>
-    api.post<AuthTokens>('/auth/login', body, { schema: authTokensSchema }),
+    api.post<AuthTokens>('/auth/login', body, { schema: 'authTokens' }),
 
   /**
    * AUTH-03 액세스 토큰 재발급 (2026-09-15 백엔드 연동 확인).
@@ -67,7 +66,7 @@ export const authApi = {
     api.post<NoContent>('/auth/logout', { refreshToken }, { skipRefresh: true }),
 
   /** USR-01 */
-  me: () => api.get<UserProfile>('/users/me', { schema: userProfileSchema }),
+  me: () => api.get<UserProfile>('/users/me', { schema: 'userProfile' }),
 
   /** USR-02 */
   updateMe: (body: Partial<UserProfileUpdate>) => api.patch<UserProfile>('/users/me', body),
@@ -85,7 +84,7 @@ export const authApi = {
     api.post<AuthTokens>('/users/me/seller-profile', body),
 
   /** SEL-06 판매자 프로필. 판매자로 전환된 계정만 호출할 수 있습니다 (그 외 403). */
-  sellerMe: () => api.get<SellerProfile>('/sellers/me', { schema: sellerProfileSchema }),
+  sellerMe: () => api.get<SellerProfile>('/sellers/me', { schema: 'sellerProfile' }),
 
   /** SEL-07 */
   updateSellerMe: (body: Partial<SellerProfileUpdate>) =>

@@ -1,5 +1,4 @@
 import { api } from '@/shared/api/client'
-import { escrowSchema, participationSummarySchema } from '@/shared/api/schemas'
 import type { Id, NoContent } from '@/shared/api/types'
 
 import type {
@@ -17,7 +16,7 @@ export const participationApi = {
   list: (params: ParticipationListParams = {}) =>
     api.getPage<ParticipationSummary>('/users/me/participations', {
       query: { ...params },
-      schema: participationSummarySchema,
+      schema: 'participationSummary',
     }),
 
   /** PAR-02 */
@@ -52,6 +51,6 @@ export const participationApi = {
   /** ESC-01 */
   escrow: (participationId: Id) =>
     api.get<Escrow>(`/users/me/participations/${participationId}/escrow`, {
-      schema: escrowSchema,
+      schema: 'escrow',
     }),
 } as const

@@ -53,7 +53,9 @@ export default function SellerVerifyPage() {
   })
   const confirmAccount = useMutation({
     mutationFn: () => authApi.confirmSellerAccount(account?.accountNo ?? '', authCode),
-    onSuccess: () => setStep('profile'),
+    onSuccess: () => {
+      setStep('profile')
+    },
   })
   const createProfile = useMutation({
     mutationFn: () =>
@@ -72,8 +74,9 @@ export default function SellerVerifyPage() {
   // 이미 전환된 계정이 주소로 들어오면 판매자센터로 보냅니다.
   if (isSeller) return <Navigate to="/seller" replace />
 
-  const on = (setter: (v: string) => void) => (e: ChangeEvent<HTMLInputElement>) =>
+  const on = (setter: (v: string) => void) => (e: ChangeEvent<HTMLInputElement>) => {
     setter(e.target.value)
+  }
   const errorOf = (m: { isError: boolean; error: unknown }) =>
     m.isError ? toMessage(m.error) : undefined
 
@@ -109,7 +112,9 @@ export default function SellerVerifyPage() {
                     {account === null ? (
                       <Button
                         block
-                        onClick={() => requestAccount.mutate()}
+                        onClick={() => {
+                          requestAccount.mutate()
+                        }}
                         disabled={requestAccount.isPending}
                       >
                         {requestAccount.isPending ? '계좌 확인·1원 송금 중…' : '정산계좌 만들고 1원 인증 받기'}
@@ -126,7 +131,9 @@ export default function SellerVerifyPage() {
                           error={errorOf(confirmAccount)}
                           action={
                             <Button
-                              onClick={() => confirmAccount.mutate()}
+                              onClick={() => {
+                                confirmAccount.mutate()
+                              }}
                               disabled={confirmAccount.isPending || authCode.trim() === ''}
                             >
                               {confirmAccount.isPending ? '확인 중…' : '확인'}
@@ -178,7 +185,9 @@ export default function SellerVerifyPage() {
                   <Button
                     block
                     className="mt16"
-                    onClick={() => createProfile.mutate()}
+                    onClick={() => {
+                      createProfile.mutate()
+                    }}
                     disabled={
                       createProfile.isPending ||
                       businessName.trim() === '' ||

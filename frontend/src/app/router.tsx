@@ -3,15 +3,31 @@
 import { lazy } from 'react'
 import { createBrowserRouter } from 'react-router'
 
-import { AdminLayout } from './layouts/AdminLayout'
-import { CheckoutLayout } from './layouts/CheckoutLayout'
+/* 가드는 세션 스토어만 읽는 몇 줄짜리라 어느 화면에서나 바로 필요합니다. */
 import { RequireAdmin, RequireAuth, RequireSeller } from './layouts/guards'
 import { RootLayout } from './layouts/RootLayout'
-import { SellerLayout } from './layouts/SellerLayout'
 
 /* 첫 화면 두 개만 즉시 번들에 넣고, 나머지는 라우트 단위로 쪼갭니다. */
 import { GroupBuyListPage } from '@/pages/GroupBuyListPage'
 import { HomePage } from '@/pages/HomePage'
+
+/*
+ * 레이아웃도 페이지와 똑같이 라우트 단위로 쪼갭니다.
+ *
+ * 정적 import 하면 레이아웃과 그 의존성(AdminLayout → useAdminAuth → adminApi
+ * …)이 전부 진입 청크에 들어가, 홈 화면만 보는 사람도 관리자 콘솔 코드를
+ * 내려받게 됩니다. App 이 RouterProvider 를 Suspense 로 감싸고 있어 로딩 중에는
+ * 페이지와 같은 폴백이 나옵니다.
+ */
+const AdminLayout = lazy(() =>
+  import('./layouts/AdminLayout').then((m) => ({ default: m.AdminLayout })),
+)
+const SellerLayout = lazy(() =>
+  import('./layouts/SellerLayout').then((m) => ({ default: m.SellerLayout })),
+)
+const CheckoutLayout = lazy(() =>
+  import('./layouts/CheckoutLayout').then((m) => ({ default: m.CheckoutLayout })),
+)
 
 const AboutPage = lazy(() => import('@/pages/AboutPage'))
 const GroupBuyDetailPage = lazy(() => import('@/pages/GroupBuyDetailPage'))

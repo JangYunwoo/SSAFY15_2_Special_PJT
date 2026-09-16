@@ -1,4 +1,4 @@
-import type { ZodType } from 'zod'
+import type { SchemaName, SchemaRegistry } from './schemas'
 
 /**
  * 서버 응답이 프론트가 기대하는 모양인지 개발 중에만 확인합니다.
@@ -16,12 +16,27 @@ import type { ZodType } from 'zod'
  * 알립니다. 개발 중 눈에 띄는 것이 목적이지, 동작을 멈추는 것이 목적이
  * 아니기 때문입니다.
  *
- * 프로덕션 번들에서는 import.meta.env.DEV 분기가 죽은 코드로 제거됩니다.
+ * 스키마 "객체" 가 아니라 "이름" 을 받는 이유는 프로덕션 번들 때문입니다.
+ * 객체를 받으면 호출부가 schemas.ts 를 정적 import 해야 하고, schemas.ts 는
+ * zod 를 정적 import 합니다. 아래 DEV 분기는 프로덕션에서 죽은 코드로 지워지지만
+ * `z.object(...)` 로 만들어진 스키마 값 자체는 살아남아, 개발용 기능 하나 때문에
+ * zod 가 통째로 실립니다.
+ *
+ * 이름만 받으면 `import type` 은 컴파일 때 사라지고 실제 모듈은 DEV 분기 안의
+ * `import()` 로만 닿습니다. 번들러가 프로덕션에서 이 분기를 지우므로 zod 도
+ * schemas.ts 도 따라오지 않습니다.
  */
-export function checkContract(schema: ZodType | undefined, data: unknown, where: string): void {
-  if (!import.meta.env.DEV || schema === undefined) return
+export function checkContract(name: SchemaName | undefined, data: unknown, where: string): void {
+  if (!import.meta.env.DEV || name === undefined) return
+  void report(name, data, where)
+}
 
-  const result = schema.safeParse(data)
+/** 레지스트리는 한 번만 받아 두고 재사용합니다. */
+let registry: Promise<SchemaRegistry> | null = null
+
+async function report(name: SchemaName, data: unknown, where: string): Promise<void> {
+  registry ??= import('./schemas').then((module) => module.schemas)
+  const result = (await registry)[name].safeParse(data)
   if (result.success) return
 
   const lines = result.error.issues.map((issue) => {
