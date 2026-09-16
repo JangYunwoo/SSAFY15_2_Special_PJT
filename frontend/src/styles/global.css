@@ -428,10 +428,13 @@ button,input,select,textarea{font:inherit;color:inherit;}
 
 /* ---------- 상품 카드 ---------- */
 .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;}
-/* 모서리를 깎으면 안쪽 사진도 같이 잘리도록 overflow 가 필요합니다 */
+/*
+ * 상품 카드는 각진 채로 둡니다. 사진이 카드 폭을 꽉 채우는 형태라
+ * 모서리를 깎으면 사진까지 잘려 상품이 덜 또렷하게 보입니다.
+ * overflow:hidden 도 그 잘라내기 때문에 넣었던 것이라 함께 뺍니다.
+ */
 .card{
   border:1px solid var(--line);display:block;background:var(--surface);
-  border-radius:var(--radius-box);overflow:hidden;
   transition:border-color .18s ease;
 }
 .card:hover{border-color:var(--line-strong);}
