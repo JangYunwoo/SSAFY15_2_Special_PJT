@@ -91,7 +91,21 @@
   --bar-fill:var(--brand);      /* 진행률 채움 */
   --track:var(--gray-30);       /* 캐러셀 바 */
   --track-hover:var(--gray-40);
-  --max:1180px;
+  --max:1000px;
+  /* 컨테이너 좌우 안쪽 여백 */
+  --gutter:24px;
+  /* 버튼 모서리 둥글기 */
+  --btn-radius:10px;
+  /*
+   * 파란 배너 위에 얹는 버튼(.btn-on-brand) 전용.
+   * 기본 --btn 은 어두운 무채색이라 브랜드 카드 위에서 무겁습니다.
+   * 흰 배경은 흰 페이지 위에서 버튼이 사라지므로 배너 안에서만 씁니다.
+   */
+  --btn-on-brand:var(--white);
+  --btn-on-brand-ink:var(--aqua);
+  /* hover 시 반전됩니다 (흰 바탕·파란 글씨 → 파란 바탕·흰 글씨) */
+  --btn-on-brand-hover:var(--aqua);
+  --btn-on-brand-hover-ink:var(--white);
 
   /* 상태 칩에서 쓰는 이름 (IBM 색 이름과 맞춰둔 별칭) */
   --red:var(--red-20);

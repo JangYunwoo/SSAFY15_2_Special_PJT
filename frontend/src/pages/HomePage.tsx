@@ -25,7 +25,7 @@ export function HomePage() {
             이거 <b>공구한</b> 건데
           </h1>
           <p>필요한 사람끼리 모여 더 싸게, 결제는 에스크로로 안전하게</p>
-          <ButtonLink to="/group-buys">공동구매 둘러보기</ButtonLink>
+          <ButtonLink to="/group-buys" className="btn-arrow btn-on-brand">공동구매 둘러보기</ButtonLink>
         </div>
       </section>
 
@@ -40,7 +40,7 @@ export function HomePage() {
                   : '진행 중인 공동구매를 불러오는 중입니다.'}
               </p>
             </div>
-            <ButtonLink variant="ghost" to="/group-buys">
+            <ButtonLink variant="ghost" to="/group-buys" className="btn-arrow">
               상품 전체보기
             </ButtonLink>
           </div>

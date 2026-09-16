@@ -17,7 +17,7 @@ a{color:inherit;text-decoration:none;}
 img{max-width:100%;}
 button,input,select,textarea{font:inherit;color:inherit;}
 
-.wrap{max-width:var(--max);margin:0 auto;padding:0 24px;}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 var(--gutter);}
 .muted{color:var(--muted);}
 .small{font-size:12px;}
 .center{text-align:center;}
@@ -33,7 +33,7 @@ button,input,select,textarea{font:inherit;color:inherit;}
   border-bottom:1px solid var(--line2);
 }
 .gnb .inner{
-  max-width:var(--max);margin:0 auto;padding:0 24px;
+  max-width:var(--max);margin:0 auto;padding:0 var(--gutter);
   height:76px;display:flex;align-items:center;
 }
 .brand{font-size:17px;font-weight:700;letter-spacing:-.5px;}
@@ -276,16 +276,26 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .notice li{font-size:12px;color:var(--ink2);line-height:1.8;}
 
 /* ---------- 히어로 (정지 배너) ---------- */
+/*
+ * 배너는 화면 끝까지 깔지 않고 컨테이너 폭에서 잘립니다 (아정당 참고).
+ * .hero 가 컨테이너 역할, .inner 가 배너 카드입니다. 그래서 카드의 왼쪽 끝이
+ * .wrap 안쪽 콘텐츠의 시작선과 정확히 맞습니다.
+ */
 .hero{
-  background:linear-gradient(180deg, var(--brand-soft) 0%, var(--white) 100%);
-  box-shadow:0 1px 2px rgba(60,64,67,.16), 0 2px 8px 2px rgba(60,64,67,.08);
+  max-width:var(--max);margin:0 auto;padding:20px var(--gutter) 0;
   position:relative;z-index:1;
 }
 .hero .inner{
-  max-width:var(--max);margin:0 auto;padding:96px 24px 104px;
+  /*
+   * 아래쪽을 흰색으로 끝내면 흰 배경에 묻혀 둥근 모서리가 안 보입니다.
+   * 그래서 옅은 파랑 안에서만 그라데이션을 돌립니다.
+   */
+  background:linear-gradient(160deg, var(--blue-20) 0%, var(--brand-soft) 72%);
+  border-radius:16px;
+  padding:76px 56px 84px;
 }
 .hero h1{
-  margin:0 0 16px;font-size:42px;font-weight:500;
+  margin:0 0 16px;font-size:30px;font-weight:600;
   line-height:1.34;letter-spacing:-1.5px;
 }
 .hero h1 b{color:var(--brand);}
@@ -295,9 +305,20 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .btn{
   display:inline-block;background:var(--btn);color:var(--on-dark);
   font-size:13px;font-weight:700;padding:13px 24px;border:0;cursor:pointer;
-  text-align:center;
+  text-align:center;border-radius:var(--btn-radius);
 }
 .btn:hover{background:var(--btn-hover);}
+/*
+ * 파란 배너 위에 얹는 버튼. .btn 과 함께 씁니다 (class="btn btn-on-brand").
+ * 색만 덮어쓰므로 .btn 뒤에 와야 합니다 (명시도가 같아 순서로 이깁니다).
+ * 흰 배경 위에서는 배경과 같은 색이 되어 버튼이 사라지니 배너 안에서만 쓰세요.
+ */
+.btn-on-brand{
+  background:var(--btn-on-brand);color:var(--btn-on-brand-ink);
+  font-weight:600;padding:12px 18px;
+}
+/* 화살표는 currentColor 라 글자색을 따라 같이 반전됩니다 */
+.btn-on-brand:hover{background:var(--btn-on-brand-hover);color:var(--btn-on-brand-hover-ink);}
 .btn-block{display:block;width:100%;padding:16px;font-size:14px;}
 .btn-ghost{
   display:inline-block;background:var(--surface);color:var(--ink2);
@@ -305,6 +326,41 @@ button,input,select,textarea{font:inherit;color:inherit;}
 }
 .btn-ghost:hover{background:var(--soft);}
 .btn[disabled]{background:var(--fill);color:var(--muted);cursor:not-allowed;}
+/*
+ * 화살표를 CSS mask 로 넣습니다. png 를 쓰지 않는 이유:
+ *   - mask 는 background-color 로 칠하므로 currentColor 를 그대로 물려받습니다.
+ *     버튼 글자색을 바꾸면 화살표도 따라옵니다. png 는 색이 박혀서 색마다 파일이 필요합니다.
+ *   - 벡터라 고해상도 화면에서도 선이 뭉개지지 않고, 요청도 늘지 않습니다.
+ *
+ * 유니코드 → 는 축이 짧고 뭉툭해서 이 비율(긴 축 + 작은 화살머리)이 안 나옵니다.
+ * 그래서 경로를 직접 그립니다. 조절할 값은 네 개입니다.
+ *   width/height  : 화살표 크기. viewBox 비율(14:12)에 맞춰 함께 키우세요
+ *   stroke-width  : 선 두께 (1.6)
+ *   M1 6h11       : 축(꼬리). 머리 끝이 x=13 이므로 시작점+길이 합을 13 으로
+ *                   유지해야 선과 머리가 안 끊깁니다 (M3 6h10 처럼)
+ *   margin-left   : 글자와의 간격
+ */
+.btn-arrow::after{
+  content:"";
+  display:inline-block;
+  width:14px;height:12px;
+  margin-left:10px;
+  vertical-align:middle;
+  /*
+   * vertical-align:middle 은 라틴 x-height 중앙 기준이라 한글 옆에서는 낮게 앉습니다.
+   * 그만큼 위로 올립니다. translate 로 올리면 hover 의 translate 가 Y 를 0 으로
+   * 되돌려 마우스 올릴 때 툭 떨어지므로, 위치 보정은 top 으로 분리합니다.
+   */
+  position:relative;
+  top:-2px;
+  /* mask 는 알파를 쓰므로 stroke 색은 아무 불투명색이어도 됩니다 */
+  --arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 12' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 6h11M8.5 1.5L13 6l-4.5 4.5'/%3E%3C/svg%3E");
+  -webkit-mask:var(--arrow) no-repeat center / contain;
+  mask:var(--arrow) no-repeat center / contain;
+  background-color:currentColor;
+  transition:translate .15s ease;
+}
+.btn-arrow:hover::after{ translate:3px 0; }
 
 /* ---------- 페이지네이션 ---------- */
 .pager{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:32px;}
@@ -669,7 +725,7 @@ footer.foot{
   border-top:1px solid var(--line2);background:var(--surface);margin-top:40px;
 }
 footer.foot .inner{
-  max-width:var(--max);margin:0 auto;padding:28px 24px 40px;
+  max-width:var(--max);margin:0 auto;padding:28px var(--gutter) 40px;
   font-size:12px;color:var(--muted);display:flex;gap:24px;flex-wrap:wrap;
 }
 footer.foot .inner .sp{margin-left:auto;}
@@ -704,7 +760,8 @@ footer.foot .inner .sp{margin-left:auto;}
   .how > div + div{border-top:1px solid var(--line2);}
   .gnb .inner{height:60px;}
   .gnb nav{gap:12px;font-size:11px;}
-  .hero .inner{padding:44px 24px;}
+  .hero{padding:14px var(--gutter) 0;}
+  .hero .inner{padding:44px 24px;border-radius:12px;}
   .hero h1{font-size:24px;}
   .steps{flex-wrap:wrap;}
   .steps > *{flex:1 0 33%;}
