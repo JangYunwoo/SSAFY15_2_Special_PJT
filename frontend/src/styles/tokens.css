@@ -83,7 +83,11 @@
   --bar-fill:var(--brand);      /* 진행률 채움 */
   --track:var(--gray-30);       /* 캐러셀 바 */
   --track-hover:var(--gray-40);
-  --max:1180px;
+  --max:1000px;
+  /* 컨테이너 좌우 안쪽 여백 */
+  --gutter:24px;
+  /* 버튼 모서리 둥글기 */
+  --btn-radius:10px;
 
   /* 상태 칩에서 쓰는 이름 (IBM 색 이름과 맞춰둔 별칭) */
   --red:var(--red-20);
