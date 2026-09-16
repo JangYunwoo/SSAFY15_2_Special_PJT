@@ -8,10 +8,27 @@
     <title>공구한 · 함께 사면 더 저렴하게</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!--
+      폰트 CSS 는 렌더를 막지 않고 받습니다.
+
+      Noto Sans KR 은 한글 서브셋이 많아 CSS 만 70KB 입니다. 그냥
+      rel="stylesheet" 로 두면 이 왕복이 끝날 때까지 첫 픽셀이 나오지 않습니다.
+      media="print" 면 브라우저는 지금 화면에 필요 없다고 보고 렌더를 막지 않은
+      채 받아 두고, 다 받으면 onload 에서 media 를 all 로 되돌려 적용합니다.
+      display=swap 덕분에 폰트가 늦게 와도 폴백 글꼴로 글자는 먼저 보입니다.
+    -->
     <link
       href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media=&#39;all&#39;;this.onload=null"
     />
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
   </head>
   <body>
     <div id="root"></div>

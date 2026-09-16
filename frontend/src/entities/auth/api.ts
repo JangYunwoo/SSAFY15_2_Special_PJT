@@ -1,12 +1,10 @@
 import { api } from '@/shared/api/client'
-import { authTokensSchema, sellerProfileSchema, userProfileSchema } from '@/shared/api/schemas'
 import type { NoContent } from '@/shared/api/types'
 
 import type {
   AuthTokens,
   LoginRequest,
   SellerAccountRequestResult,
-  SellerPhoneRequestResult,
   SellerProfile,
   SellerProfileCreateRequest,
   SellerProfileUpdate,
@@ -39,7 +37,7 @@ export const authApi = {
 
   /** AUTH-02 통합 로그인 */
   login: (body: LoginRequest) =>
-    api.post<AuthTokens>('/auth/login', body, { schema: authTokensSchema }),
+    api.post<AuthTokens>('/auth/login', body, { schema: 'authTokens' }),
 
   /**
    * AUTH-03 액세스 토큰 재발급 (2026-09-15 백엔드 연동 확인).
@@ -54,19 +52,24 @@ export const authApi = {
   refresh: (refreshToken: string) =>
     api.post<AuthTokens>('/auth/refresh', { refreshToken }, { skipRefresh: true }),
 
+  /**
+   * AUTH-04 로그아웃. 서버에서 리프레시 토큰을 폐기합니다.
+   *
+   * 이 호출이 없으면 브라우저에서 토큰만 버리는 셈이라, 서버는 그 리프레시
+   * 토큰을 계속 유효하게 봅니다. 토큰이 남아 있는 쪽에서는 로그아웃 뒤에도
+   * 액세스 토큰을 새로 받아 쓸 수 있습니다.
+   *
+   * skipRefresh 인 이유는 재발급과 같습니다. 세션을 끝내는 요청이 401 을
+   * 받았다고 토큰을 되살리려 들면 앞뒤가 맞지 않습니다.
+   */
+  logout: (refreshToken: string) =>
+    api.post<NoContent>('/auth/logout', { refreshToken }, { skipRefresh: true }),
+
   /** USR-01 */
-  me: () => api.get<UserProfile>('/users/me', { schema: userProfileSchema }),
+  me: () => api.get<UserProfile>('/users/me', { schema: 'userProfile' }),
 
   /** USR-02 */
   updateMe: (body: Partial<UserProfileUpdate>) => api.patch<UserProfile>('/users/me', body),
-
-  /** SEL-01 판매자 전환 휴대폰 인증 요청(목업). */
-  requestSellerPhone: (phone: string) =>
-    api.post<SellerPhoneRequestResult>('/users/me/seller-verifications/phone/request', { phone }),
-
-  /** SEL-02 휴대폰 인증 확인. */
-  confirmSellerPhone: (phone: string, code: string) =>
-    api.post<NoContent>('/users/me/seller-verifications/phone/confirm', { phone, code }),
 
   /** SEL-03 정산계좌 1원 인증 요청(실제 SSAFY, 계좌 없으면 자동 개설). */
   requestSellerAccount: () =>
@@ -81,7 +84,7 @@ export const authApi = {
     api.post<AuthTokens>('/users/me/seller-profile', body),
 
   /** SEL-06 판매자 프로필. 판매자로 전환된 계정만 호출할 수 있습니다 (그 외 403). */
-  sellerMe: () => api.get<SellerProfile>('/sellers/me', { schema: sellerProfileSchema }),
+  sellerMe: () => api.get<SellerProfile>('/sellers/me', { schema: 'sellerProfile' }),
 
   /** SEL-07 */
   updateSellerMe: (body: Partial<SellerProfileUpdate>) =>

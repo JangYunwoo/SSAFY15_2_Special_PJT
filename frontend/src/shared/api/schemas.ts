@@ -8,6 +8,11 @@ import { z } from 'zod'
  *
  * 명세서 1.5에 맞춰 식별자는 문자열만 허용합니다. JavaScript의 안전 정수 범위를
  * 넘어가는 BIGINT도 손실 없이 다루기 위한 서버·클라이언트 공통 계약입니다.
+ *
+ * 이 모듈은 개발 빌드에서만 실행됩니다. contract.ts 가 `import()` 로만
+ * 가져가므로 프로덕션 번들에는 zod 도 이 파일도 들어가지 않습니다. 그래서
+ * 호출부는 스키마 객체가 아니라 아래 `schemas` 레지스트리의 이름을 넘깁니다.
+ * 새 스키마를 추가할 땐 상수를 만든 뒤 맨 아래 레지스트리에도 등록하세요.
  */
 
 const id = z.string()
@@ -175,3 +180,31 @@ export const productSchema = z.object({
   categoryName: z.string(),
   price: z.number(),
 })
+
+/* ---------- 레지스트리 ----------
+   호출부가 문자열로 지목할 수 있게 한곳에 모읍니다. 목록 응답은 항목 하나만
+   검사하지만, 응답 자체가 배열인 엔드포인트는 배열 스키마로 등록합니다. */
+
+export const schemas = {
+  actor: actorSchema,
+  authTokens: authTokensSchema,
+  userProfile: userProfileSchema,
+  sellerProfile: sellerProfileSchema,
+  address: addressSchema,
+  addressList: z.array(addressSchema),
+  participationSummary: participationSummarySchema,
+  groupBuySummary: groupBuySummarySchema,
+  amountPreview: amountPreviewSchema,
+  payment: paymentSchema,
+  cryptoStatus: cryptoStatusSchema,
+  escrow: escrowSchema,
+  category: categorySchema,
+  categoryList: z.array(categorySchema),
+  product: productSchema,
+} as const
+
+/** 호출부가 넘길 수 있는 스키마 이름. 오타는 컴파일 단계에서 걸립니다. */
+export type SchemaName = keyof typeof schemas
+
+/** contract.ts 가 동적 import 결과를 담을 때 씁니다. */
+export type SchemaRegistry = typeof schemas

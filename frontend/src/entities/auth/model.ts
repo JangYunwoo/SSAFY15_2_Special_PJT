@@ -96,12 +96,6 @@ export interface SellerProfile {
   status: string
 }
 
-/** SEL-01 휴대폰 인증 요청 응답. 목업이라 devCode 를 함께 내려줍니다(데모). */
-export interface SellerPhoneRequestResult {
-  devCode: string
-  message: string
-}
-
 /** SEL-03 정산계좌 1원 인증 요청 응답. 개설/사용 계좌와 자동 조회한 인증코드. */
 export interface SellerAccountRequestResult {
   accountNo: string

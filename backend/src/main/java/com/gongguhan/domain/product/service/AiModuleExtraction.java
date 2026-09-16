@@ -55,11 +55,26 @@ public record AiModuleExtraction(
             AiField<String> description) {
     }
 
+    /** AI가 상품명을 확정하지 못했을 때 주는 후보 목록(name은 null). 없으면 빈 목록. */
+    public List<String> nameCandidates() {
+        if (resultJson == null || resultJson.nameCandidates() == null) {
+            return List.of();
+        }
+        return resultJson.nameCandidates();
+    }
+
+    /** AI가 카테고리 ID를 직접 준 경우(신규 계약). 없으면 null이라 category_name 매칭으로 폴백. */
+    public Long directCategoryId() {
+        return resultJson == null ? null : resultJson.categoryId();
+    }
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record ResultJson(
             String name,
+            @JsonProperty("name_candidates") List<String> nameCandidates,
             String brand,
             @JsonProperty("category_name") String categoryName,
+            @JsonProperty("category_id") Long categoryId,
             @JsonProperty("model_name") String modelName,
             String color,
             Long price,

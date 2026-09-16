@@ -74,6 +74,11 @@ export interface AiExtraction {
   status: 'COMPLETED' | 'PARTIAL' | 'FAILED'
   fields: {
     name?: AiField<string>
+    /**
+     * AI가 상품명을 확정하지 못했을 때의 후보 목록(name이 없을 때 채워집니다).
+     * 화면에서 후보 중 하나를 고르게 하거나 직접 입력을 유도합니다.
+     */
+    nameCandidates?: string[]
     brand?: AiField<string>
     categoryId?: AiField<string>
     modelName?: AiField<string>

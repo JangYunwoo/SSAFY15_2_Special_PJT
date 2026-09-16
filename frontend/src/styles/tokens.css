@@ -15,6 +15,10 @@
   --gray-100:#202124;
   --gray-90:#3c4043;
   --gray-80:#5f6368;
+  /* --gray-70 은 흰 배경 대비 3.68:1 이라 본문 크기 글자의 WCAG AA(4.5:1)에
+     못 미칩니다. 보조 텍스트는 --gray-75, --gray-70 은 대비 기준이 없는
+     아이콘·구분선에 씁니다. */
+  --gray-75:#6e7378;
   --gray-70:#80868b;
   --gray-50:#9aa0a6;
   --gray-40:#bdc1c6;
@@ -54,6 +58,10 @@
   --brand:var(--aqua);
   --brand-dark:var(--blue-70);
   --brand-soft:var(--blue-10);
+  /* 밝은 배경 위 브랜드색 글자. 히어로의 "공구한" 과 같은 색으로 맞춰 둡니다.
+     #428dff 는 흰 배경 대비 3.24:1 이라 본문 크기 글자의 WCAG AA(4.5:1)에는
+     못 미칩니다. 대비를 우선하려면 이 한 줄만 --blue-70 으로 바꾸면 됩니다. */
+  --brand-text:var(--brand);
 
   /* 배경 · 3단계: 흰 표면 → 옅은 회색 → 채움 */
   --bg:var(--white);
@@ -65,7 +73,7 @@
   /* 글자 */
   --ink:var(--gray-90);
   --ink2:var(--gray-80);
-  --muted:var(--gray-70);
+  --muted:var(--gray-75);      /* 흰 배경 대비 4.79:1 · WCAG AA */
   --placeholder:var(--gray-50);
   --on-dark:var(--white);  /* 어두운 배경 위 글자 */
   --black:var(--gray-100);
@@ -83,7 +91,21 @@
   --bar-fill:var(--brand);      /* 진행률 채움 */
   --track:var(--gray-30);       /* 캐러셀 바 */
   --track-hover:var(--gray-40);
-  --max:1180px;
+  --max:1000px;
+  /* 컨테이너 좌우 안쪽 여백 */
+  --gutter:24px;
+  /* 버튼 모서리 둥글기 */
+  --btn-radius:10px;
+  /*
+   * 파란 배너 위에 얹는 버튼(.btn-on-brand) 전용.
+   * 기본 --btn 은 어두운 무채색이라 브랜드 카드 위에서 무겁습니다.
+   * 흰 배경은 흰 페이지 위에서 버튼이 사라지므로 배너 안에서만 씁니다.
+   */
+  --btn-on-brand:var(--white);
+  --btn-on-brand-ink:var(--aqua);
+  /* hover 시 반전됩니다 (흰 바탕·파란 글씨 → 파란 바탕·흰 글씨) */
+  --btn-on-brand-hover:var(--aqua);
+  --btn-on-brand-hover-ink:var(--white);
 
   /* 상태 칩에서 쓰는 이름 (IBM 색 이름과 맞춰둔 별칭) */
   --red:var(--red-20);

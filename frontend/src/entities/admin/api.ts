@@ -2,7 +2,6 @@ import type { AuthTokens, LoginRequest } from '@/entities/auth/model'
 import type { ReturnListParams, ReturnRequestDetail, ReturnRequestSummary } from '@/entities/returnRequest/model'
 import type { Penalty, Settlement, SettlementDetail, SettlementListParams } from '@/entities/settlement/model'
 import { api, newIdempotencyKey } from '@/shared/api/client'
-import { authTokensSchema } from '@/shared/api/schemas'
 import type { Id, Krw, PageParams, Paged } from '@/shared/api/types'
 
 import type {
@@ -64,7 +63,7 @@ function toRestrictionProduct(response: RestrictionProductResponse): Restriction
 export const adminApi = {
   /** AUTH-05 관리자 로그인. 응답 봉투는 통합 로그인(AUTH-02)과 같습니다. */
   login: (body: LoginRequest) =>
-    api.post<AuthTokens>('/auth/admins/login', body, { schema: authTokensSchema }),
+    api.post<AuthTokens>('/auth/admins/login', body, { schema: 'authTokens' }),
 
   /* ---------- ESC-03 ---------- */
 

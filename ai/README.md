@@ -19,13 +19,23 @@ cd ai
 .\venv\Scripts\Activate.ps1
 ```
 
-2. 개발 의존성을 설치합니다.
+2. 기본 의존성을 설치합니다.
+
+```powershell
+python -m pip install -r requirements.txt
+```
+
+테스트까지 실행할 개발자는 다음 파일을 사용합니다.
 
 ```powershell
 python -m pip install -r requirements-dev.txt
 ```
 
-3. Qwen 비교 실험이 필요한 경우에만 Ollama와 이미지 입력 모델을 준비합니다.
+3. Qwen·YOLO 비교 실험이 필요한 경우에만 실험 의존성과 Ollama 이미지 입력 모델을 준비합니다.
+
+```powershell
+python -m pip install -r requirements-experiments.txt
+```
 
 ```powershell
 ollama pull qwen3-vl:4b-instruct
@@ -86,6 +96,7 @@ ai/
 ├── .env.example
 ├── .gitignore
 ├── requirements.txt
+├── requirements-experiments.txt
 ├── requirements-dev.txt
 └── README.md
 ```

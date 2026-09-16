@@ -6,27 +6,15 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 /**
- * 판매자 전환(SEL-01~05) 요청·응답 DTO 모음.
+ * 판매자 전환(SEL-03~05) 요청·응답 DTO 모음.
  *
- * <p>휴대폰 인증(SEL-01·02)은 SMS 사업자가 없어 목업이다 - 인증코드를 응답으로 함께
- * 돌려줘 데모에서 그대로 입력할 수 있게 한다. 계좌 1원 인증(SEL-03·04)은 실제 SSAFY
- * 금융망을 호출하며, 인증코드도 1원 입금 적요에서 자동으로 읽어 응답에 담는다.
+ * <p>정산계좌 1원 인증(SEL-03·04)은 실제 SSAFY 금융망을 호출하며, 인증코드도 1원 입금
+ * 적요에서 자동으로 읽어 응답에 담는다. 휴대폰 인증은 SSAFY에 API가 없고 은행 업무도
+ * 아니라 제거했다.
  */
 public final class SellerVerificationDtos {
 
     private SellerVerificationDtos() {
-    }
-
-    /** SEL-01 휴대폰 인증 요청. */
-    public record PhoneRequest(@NotBlank String phone) {
-    }
-
-    /** SEL-01 응답. 목업이라 인증코드를 함께 내려준다(데모용). */
-    public record PhoneRequestResponse(String devCode, String message) {
-    }
-
-    /** SEL-02 휴대폰 인증 확인. */
-    public record PhoneConfirmRequest(@NotBlank String phone, @NotBlank String code) {
     }
 
     /** SEL-03 정산계좌 1원 인증 요청 응답. 개설/사용된 계좌번호와 자동 조회한 인증코드. */
