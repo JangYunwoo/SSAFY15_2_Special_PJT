@@ -50,12 +50,11 @@ export interface BackendFeatureFlags {
   participationCancel: boolean
 
   /**
-   * GRP-10 판매 철회 (`POST /sellers/group-buys/{id}/withdrawal`) · 컨트롤러 없음.
+   * GRP-10 판매 철회 (`POST /sellers/group-buys/{id}/withdrawal`) ·
+   * `SellerGroupBuyController` 구현됨 (2026-09-16 연동).
    *
-   * 예전 이름은 `groupBuyLifecycle` 이었고 GRP-07·08·10 이 모두 없다고 적어
-   * 두었지만 사실과 달랐습니다. `SellerGroupBuyController` 에 수정(PATCH
-   * /sellers/group-buys/{id})과 취소(POST /{id}/cancel)는 이미 있습니다.
-   * 남은 건 철회뿐이라 이름과 범위를 거기에 맞췄습니다.
+   * 참여자 전원 환불과 판매자 제재가 따라붙는 동작이라, 문제가 생기면 화면에서
+   * 즉시 내릴 수 있도록 플래그를 남겨 둡니다.
    */
   groupBuyWithdrawal: boolean
 
@@ -81,7 +80,7 @@ export const BACKEND_FEATURES: BackendFeatureFlags = {
   settlements: true,
   sellerOnboarding: true,
   participationCancel: true,
-  groupBuyWithdrawal: false,
+  groupBuyWithdrawal: true,
   logout: true,
   emailAvailability: true,
 }

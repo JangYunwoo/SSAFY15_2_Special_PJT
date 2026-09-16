@@ -10,6 +10,7 @@ import type { Participant, SellerGroupBuyDetail } from '@/entities/groupBuy/mode
 import { groupBuyQueries } from '@/entities/groupBuy/queries'
 import { toMessage } from '@/shared/api/errors'
 import { queryKeys } from '@/shared/api/queryKeys'
+import { BACKEND_FEATURES } from '@/shared/config/backendFeatures'
 import { date, dateTime, groupBuyNo, maskName, won } from '@/shared/lib/format'
 import { usePageParam } from '@/shared/lib/hooks/usePageParam'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
@@ -124,8 +125,34 @@ function SummaryPanel({ item }: { item: SellerGroupBuyDetail }) {
         </ButtonLink>
       )}
       {item.canCancel && <CancelGroupBuy item={item} />}
+
+      {/*
+        철회는 canCancel 과 반대 상황입니다. 참여자가 있어 취소할 수 없을 때
+        쓰는 마지막 수단이라 두 버튼이 같이 뜨지는 않습니다.
+      */}
+      {BACKEND_FEATURES.groupBuyWithdrawal && canWithdraw(item) && (
+        <WithdrawGroupBuy item={item} />
+      )}
     </Panel>
   )
+}
+
+/**
+ * 판매 철회(GRP-10)를 할 수 있는 상태인지.
+ *
+ * 서버는 canEdit·canCancel 은 내려주는데 철회에 대응하는 값은 주지 않습니다.
+ * 그래서 백엔드와 같은 조건을 화면에서 세웁니다
+ * (GroupBuyWithdrawalService.prepareWithdrawal + GroupBuy.withdrawBySeller).
+ *
+ *   모집 중이어야 하고, 결제를 마친 참여자가 한 명 이상 있어야 합니다.
+ *
+ * paidCount 는 서버에서 group_buys.current_participants 를 그대로 내려준 값이고
+ * 철회 조건이 세는 것과 같은 값입니다. 그래도 최종 판단은 서버가 합니다.
+ * 조건이 어긋나면 INVALID_STATE_TRANSITION 을 돌려주고, 그 문구를 화면에
+ * 그대로 보여줍니다.
+ */
+function canWithdraw(item: SellerGroupBuyDetail): boolean {
+  return item.status === 'RECRUITING' && item.paidCount > 0
 }
 
 /**
@@ -193,6 +220,96 @@ function CancelGroupBuy({ item }: { item: SellerGroupBuyDetail }) {
         block
         className="mt8"
         disabled={cancel.isPending}
+        onClick={() => {
+          setAsking(false)
+          setReason('')
+        }}
+      >
+        그대로 두기
+      </Button>
+    </div>
+  )
+}
+
+/**
+ * GRP-10 판매 철회.
+ *
+ * 취소(GRP-08)와 다릅니다. 취소는 참여자가 없을 때 없던 일로 되돌리는 것이고,
+ * 철회는 이미 결제한 참여자가 있는데 판매자 사정으로 중단하는 것입니다.
+ * 참여자 전원에게 환불이 나가고 판매자에게는 제재 후보가 생깁니다
+ * (백엔드가 GroupBuyWithdrawnEvent 를 발행해 penalty 도메인이 처리합니다).
+ *
+ * 무게가 다른 동작이라 사유를 적게 하고, 몇 명에게 환불되는지 먼저 밝힙니다.
+ */
+function WithdrawGroupBuy({ item }: { item: SellerGroupBuyDetail }) {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const [asking, setAsking] = useState(false)
+  const [reason, setReason] = useState('')
+
+  const withdraw = useMutation({
+    mutationFn: () => groupBuyApi.withdraw(item.id, reason.trim()),
+    onSuccess: async () => {
+      // 참여자 상태가 환불로 넘어가므로 참여·결제 캐시도 함께 비웁니다.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.sellerGroupBuys.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.participations.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.payments.all }),
+      ])
+      await navigate('/seller', { replace: true })
+    },
+  })
+
+  if (!asking) {
+    return (
+      <Button
+        variant="ghost"
+        block
+        className="mt8"
+        onClick={() => {
+          setAsking(true)
+        }}
+      >
+        판매 철회
+      </Button>
+    )
+  }
+
+  return (
+    <div className="mt16">
+      <p className="small" style={{ marginBottom: 10, lineHeight: 1.8 }}>
+        참여자 {item.paidCount}명에게 전액 환불하고 모집을 중단합니다. 판매자 귀책으로 기록되어
+        제재 대상이 됩니다. 되돌릴 수 없습니다.
+      </p>
+
+      <TextField
+        label="철회 사유"
+        required
+        value={reason}
+        maxLength={500}
+        onChange={(event) => {
+          setReason(event.target.value)
+        }}
+        hint="참여자 안내와 제재 검토에 쓰입니다."
+      />
+
+      {withdraw.isError && <p className="ai-hint fail">{toMessage(withdraw.error)}</p>}
+
+      <Button
+        block
+        className="mt8"
+        disabled={reason.trim() === '' || withdraw.isPending}
+        onClick={() => {
+          withdraw.mutate()
+        }}
+      >
+        {withdraw.isPending ? '철회하는 중…' : '철회 확정'}
+      </Button>
+      <Button
+        variant="ghost"
+        block
+        className="mt8"
+        disabled={withdraw.isPending}
         onClick={() => {
           setAsking(false)
           setReason('')
