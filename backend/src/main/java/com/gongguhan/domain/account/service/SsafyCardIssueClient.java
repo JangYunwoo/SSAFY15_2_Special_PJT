@@ -88,6 +88,25 @@ public class SsafyCardIssueClient {
         return response.rec() == null ? List.of() : response.rec().stream().map(Product::toCard).toList();
     }
 
+    /**
+     * 카드 이용내역과 청구예정액 조회(가상 은행 콘솔용). 카드번호·CVC를 입력받는다.
+     *
+     * <p>SSAFY 카드는 신용카드라 결제해도 계좌에서 즉시 빠지지 않고 이 이용내역에 잡힌다
+     * ({@code estimatedBalance}=청구예정액). "카드로 얼마 결제됐나"는 계좌가 아니라 여기서 본다.
+     */
+    public CardUsage inquireCardUsage(String userKey, String cardNo, String cvc,
+                                      String startDate, String endDate) {
+        Map<String, Object> extra = new LinkedHashMap<>();
+        extra.put("cardNo", cardNo);
+        extra.put("cvc", cvc);
+        extra.put("startDate", startDate);
+        extra.put("endDate", endDate);
+        CardUsageResponse response = post("inquireCreditCardTransactionList",
+                "/creditCard/inquireCreditCardTransactionList", extra, userKey, CardUsageResponse.class);
+        CardUsage rec = response.rec();
+        return rec == null ? new CardUsage(null, null, null, null, List.of()) : rec;
+    }
+
     private <T extends HasHeader> T post(String apiName, String path, Map<String, Object> extra,
                                           String userKey, Class<T> type) {
         Map<String, Object> body = new LinkedHashMap<>();
@@ -151,6 +170,32 @@ public class SsafyCardIssueClient {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     record ListResponse(@JsonProperty("Header") Header header, @JsonProperty("REC") List<Product> rec)
+            implements HasHeader {
+    }
+
+    /** 카드 이용내역 조회 결과. {@code estimatedBalance}는 청구예정액. */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record CardUsage(
+            @JsonProperty("cardName") String cardName,
+            @JsonProperty("cardIssuerName") String cardIssuerName,
+            @JsonProperty("cardNo") String cardNo,
+            @JsonProperty("estimatedBalance") String estimatedBalance,
+            @JsonProperty("transactionList") List<CardUsageItem> transactionList) {
+    }
+
+    /** 카드 이용내역 한 건. */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record CardUsageItem(
+            @JsonProperty("transactionUniqueNo") String transactionUniqueNo,
+            @JsonProperty("merchantName") String merchantName,
+            @JsonProperty("categoryName") String categoryName,
+            @JsonProperty("transactionDate") String transactionDate,
+            @JsonProperty("transactionTime") String transactionTime,
+            @JsonProperty("transactionBalance") String transactionBalance) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record CardUsageResponse(@JsonProperty("Header") Header header, @JsonProperty("REC") CardUsage rec)
             implements HasHeader {
     }
 
