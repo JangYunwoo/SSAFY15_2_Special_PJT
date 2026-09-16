@@ -4,20 +4,17 @@ import { SiteFooter } from './SiteFooter'
 import { SiteHeader } from './SiteHeader'
 
 /**
- * 큰 푸터를 다는 화면인지 봅니다.
+ * 푸터를 아예 달지 않는 화면.
  *
- * 처음 온 사람이 서비스를 둘러보는 화면에만 답니다. 거기서는 "이게 뭐 하는
- * 곳인지", "약관은 어디 있는지" 를 찾아 스크롤을 내리니 푸터가 일을 합니다.
+ * 로그인·회원가입은 폼 하나를 채우는 것이 전부인 화면입니다. 여기서 나가는
+ * 링크는 하던 일에서 벗어나게 할 뿐이라, 한 줄짜리도 두지 않고 비웁니다.
+ * 둘은 오가는 화면이라 한쪽에만 푸터가 있으면 이동할 때 화면이 들썩입니다.
  *
- * 로그인·회원가입이나 거래관리·내 정보처럼 이미 들어와서 할 일이 정해진
- * 화면은 다릅니다. 폼을 채우거나 주문을 확인하러 온 사람에게 링크 묶음을
- * 내밀 이유가 없고, 로그인 화면에서 "판매자센터" 같은 링크는 오히려 하던
- * 일에서 벗어나게 합니다. 결제·판매자센터·관리자가 이미 compact 를 쓰는
- * 것과 같은 이유입니다.
+ * 나머지 구매자 화면은 전부 같은 푸터를 씁니다. 화면마다 다르면 그때그때
+ * 규칙을 다시 정해야 하고, 보는 사람도 어디에 뭐가 있는지 헷갈립니다.
+ * 결제·판매자센터·관리자는 각자 레이아웃에서 compact 를 쓰고 있습니다.
  */
-function hasFullFooter(pathname: string): boolean {
-  return pathname === '/' || pathname === '/about' || pathname.startsWith('/group-buys')
-}
+const NO_FOOTER_PATHS: readonly string[] = ['/login', '/signup']
 
 /** 구매자 화면 기본 골격 */
 export function RootLayout() {
@@ -27,7 +24,7 @@ export function RootLayout() {
     <>
       <SiteHeader />
       <Outlet />
-      <SiteFooter compact={!hasFullFooter(pathname)} />
+      {!NO_FOOTER_PATHS.includes(pathname) && <SiteFooter />}
       <ScrollRestoration />
     </>
   )
