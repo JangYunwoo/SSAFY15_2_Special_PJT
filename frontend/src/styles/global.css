@@ -303,11 +303,22 @@ button,input,select,textarea{font:inherit;color:inherit;}
 
 /* ---------- 버튼 ---------- */
 .btn{
-  display:inline-block;background:var(--white);color:var(--aqua);
-  font-size:13px;font-weight:600;padding:12px 18px;border:0;cursor:pointer;
+  display:inline-block;background:var(--btn);color:var(--on-dark);
+  font-size:13px;font-weight:700;padding:13px 24px;border:0;cursor:pointer;
   text-align:center;border-radius:var(--btn-radius);
 }
-.btn:hover{background:var(--aqua);color:var(--white);}
+.btn:hover{background:var(--btn-hover);}
+/*
+ * 파란 배너 위에 얹는 버튼. .btn 과 함께 씁니다 (class="btn btn-on-brand").
+ * 색만 덮어쓰므로 .btn 뒤에 와야 합니다 (명시도가 같아 순서로 이깁니다).
+ * 흰 배경 위에서는 배경과 같은 색이 되어 버튼이 사라지니 배너 안에서만 쓰세요.
+ */
+.btn-on-brand{
+  background:var(--btn-on-brand);color:var(--btn-on-brand-ink);
+  font-weight:600;padding:12px 18px;
+}
+/* 화살표는 currentColor 라 글자색을 따라 같이 반전됩니다 */
+.btn-on-brand:hover{background:var(--btn-on-brand-hover);color:var(--btn-on-brand-hover-ink);}
 .btn-block{display:block;width:100%;padding:16px;font-size:14px;}
 .btn-ghost{
   display:inline-block;background:var(--surface);color:var(--ink2);
