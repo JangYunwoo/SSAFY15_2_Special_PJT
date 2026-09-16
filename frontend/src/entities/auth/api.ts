@@ -6,7 +6,6 @@ import type {
   AuthTokens,
   LoginRequest,
   SellerAccountRequestResult,
-  SellerPhoneRequestResult,
   SellerProfile,
   SellerProfileCreateRequest,
   SellerProfileUpdate,
@@ -72,14 +71,6 @@ export const authApi = {
 
   /** USR-02 */
   updateMe: (body: Partial<UserProfileUpdate>) => api.patch<UserProfile>('/users/me', body),
-
-  /** SEL-01 판매자 전환 휴대폰 인증 요청(목업). */
-  requestSellerPhone: (phone: string) =>
-    api.post<SellerPhoneRequestResult>('/users/me/seller-verifications/phone/request', { phone }),
-
-  /** SEL-02 휴대폰 인증 확인. */
-  confirmSellerPhone: (phone: string, code: string) =>
-    api.post<NoContent>('/users/me/seller-verifications/phone/confirm', { phone, code }),
 
   /** SEL-03 정산계좌 1원 인증 요청(실제 SSAFY, 계좌 없으면 자동 개설). */
   requestSellerAccount: () =>

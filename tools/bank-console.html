@@ -7,40 +7,84 @@
   <style>
     :root { --bg:#0b1b3a; --card:#12264d; --line:#20386b; --txt:#eaf0ff; --sub:#9fb2dd; --pos:#37d67a; --neg:#ff6b6b; --accent:#4c8dff; }
     * { box-sizing:border-box; }
-    body { margin:0; font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--txt); }
-    header { padding:16px 20px; background:linear-gradient(90deg,#0b1b3a,#173366); border-bottom:1px solid var(--line); display:flex; align-items:center; gap:10px; }
-    header .logo { font-weight:800; font-size:20px; letter-spacing:-.5px; }
-    header .badge { font-size:12px; color:var(--sub); border:1px solid var(--line); border-radius:999px; padding:2px 10px; }
-    header .who { margin-left:auto; font-size:13px; color:var(--sub); }
-    main { max-width:920px; margin:0 auto; padding:20px; }
-    .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px; margin-bottom:16px; }
-    h2 { margin:0 0 4px; font-size:16px; }
-    .muted { color:var(--sub); font-size:13px; }
-    input { background:#0c1c3d; border:1px solid var(--line); border-radius:8px; padding:10px 12px; color:var(--txt); font-size:14px; width:100%; }
-    label { display:block; font-size:13px; color:var(--sub); margin:10px 0 4px; }
-    button { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:10px 16px; font-size:14px; font-weight:600; cursor:pointer; }
+    body {
+      margin:0; font-family:'Segoe UI',system-ui,sans-serif; color:var(--txt);
+      background:radial-gradient(1200px 800px at 50% -10%, #1a2340, #070a14 70%);
+      min-height:100vh; display:flex; justify-content:center; align-items:center; padding:24px;
+    }
+    /* 폰 프레임: 데스크톱 배경 위에 뜬 스마트폰 목업 */
+    .phone {
+      position:relative; width:400px; max-width:100%; height:840px; max-height:calc(100vh - 48px);
+      background:var(--bg); border:12px solid #05070f; border-radius:46px; overflow:hidden;
+      box-shadow:0 40px 90px rgba(0,0,0,.6), 0 0 0 2px #1c2540;
+    }
+    .phone::before { /* 노치 */
+      content:''; position:absolute; top:0; left:50%; transform:translateX(-50%);
+      width:150px; height:26px; background:#05070f; border-radius:0 0 18px 18px; z-index:10;
+    }
+    .phone-screen { height:100%; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+    .phone-screen::-webkit-scrollbar { width:0; }
+    header {
+      position:sticky; top:0; z-index:5; padding:38px 18px 14px;
+      background:linear-gradient(180deg,#0e2044,#122a55); border-bottom:1px solid var(--line);
+      display:flex; align-items:center; gap:8px;
+    }
+    header .logo { font-weight:800; font-size:17px; letter-spacing:-.5px; }
+    header .badge { font-size:10px; color:var(--sub); border:1px solid var(--line); border-radius:999px; padding:2px 8px; }
+    header .who { margin-left:auto; font-size:12px; color:var(--sub); }
+    main { padding:16px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:14px; }
+    h2 { margin:0 0 4px; font-size:15px; }
+    .muted { color:var(--sub); font-size:12px; }
+    input { background:#0c1c3d; border:1px solid var(--line); border-radius:10px; padding:11px 12px; color:var(--txt); font-size:14px; width:100%; }
+    label { display:block; font-size:12px; color:var(--sub); margin:10px 0 4px; }
+    button { background:var(--accent); color:#fff; border:0; border-radius:10px; padding:11px 16px; font-size:14px; font-weight:600; cursor:pointer; }
     button.ghost { background:transparent; border:1px solid var(--line); color:var(--txt); }
     button:disabled { opacity:.5; cursor:not-allowed; }
-    .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-    .big { font-size:28px; font-weight:800; letter-spacing:-1px; }
-    table { width:100%; border-collapse:collapse; margin-top:10px; font-size:13px; }
-    th,td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); }
+    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .big { font-size:24px; font-weight:800; letter-spacing:-1px; }
+    table { width:100%; border-collapse:collapse; margin-top:10px; font-size:12px; }
+    th,td { text-align:left; padding:7px 4px; border-bottom:1px solid var(--line); }
     th { color:var(--sub); font-weight:600; }
     td.amt { text-align:right; font-variant-numeric:tabular-nums; }
     .in { color:var(--pos); } .out { color:var(--neg); }
-    .err { color:var(--neg); font-size:13px; margin-top:8px; }
+    .err { color:var(--neg); font-size:12px; margin-top:8px; }
     .hide { display:none; }
-    .pill { font-size:12px; color:var(--sub); }
-    .cardface { background:linear-gradient(135deg,#1b3a7a,#2d5bb8); border:1px solid var(--line); border-radius:14px; padding:18px; display:flex; flex-direction:column; gap:10px; }
-    .cardface .cardno { font-size:22px; font-weight:700; letter-spacing:2px; font-variant-numeric:tabular-nums; }
+    .pill { font-size:11px; color:var(--sub); }
+    .cardface { background:linear-gradient(135deg,#1b3a7a,#2d5bb8); border:1px solid var(--line); border-radius:14px; padding:16px; display:flex; flex-direction:column; gap:9px; }
+    .cardface .cardno { font-size:19px; font-weight:700; letter-spacing:1.5px; font-variant-numeric:tabular-nums; }
     .cardface b { font-weight:700; }
     .cardface .pill { color:#cfe0ff; }
+    /* 런처: 큰 창에서 '폰 창으로 열기' 버튼만 보여준다 */
+    .launcher { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; }
+    .launcher-card { text-align:center; background:var(--card); border:1px solid var(--line); border-radius:20px; padding:40px 48px; }
+    .launcher-card .emoji { font-size:48px; }
+    .launcher-card h1 { margin:12px 0 6px; font-size:22px; }
+    .launcher-card p { margin:0 0 20px; }
+    .launcher-card button { padding:14px 24px; font-size:15px; border-radius:12px; }
+    /* 폰 창(팝업)에서는 창 자체가 폰이므로 베젤/노치를 없애고 화면을 꽉 채운다 */
+    body.phone-mode { padding:0; align-items:stretch; background:var(--bg); }
+    body.phone-mode .phone { width:100%; height:100vh; max-height:none; border:none; border-radius:0; box-shadow:none; }
+    body.phone-mode .phone::before { display:none; }
+    body.phone-mode header { padding-top:16px; }
   </style>
 </head>
 <body>
+  <!-- 큰 창에서 보이는 런처 (폰 창으로 열기) -->
+  <div class="launcher" id="launcher" style="display:none;">
+    <div class="launcher-card">
+      <div class="emoji">🏦</div>
+      <h1>SSAFY 뱅크</h1>
+      <p class="muted">시연용 조회 콘솔을 폰 크기 창으로 엽니다.</p>
+      <button id="openPhone">📱 폰 창으로 열기</button>
+    </div>
+  </div>
+
+  <div class="phone" id="phone" style="display:none;">
+    <div class="phone-screen">
   <header>
     <span class="logo">🏦 SSAFY 뱅크</span>
-    <span class="badge">조회 콘솔 · 시연용</span>
+    <span class="badge">시연용</span>
     <span class="who" id="who"></span>
   </header>
   <main>
@@ -81,9 +125,27 @@
       </section>
     </section>
   </main>
+    </div>
+  </div>
 
   <script>
     const $ = (id) => document.getElementById(id);
+
+    // 창 분기: 폰 크기 팝업(window.name='ssafybank')이거나 이미 작은 창이면 앱을 폰 모드로,
+    // 그 외 큰 창에서는 "폰 창으로 열기" 런처만 보여준다.
+    (function routeWindow() {
+      const inPhone = window.name === 'ssafybank' || window.innerWidth < 520;
+      if (inPhone) {
+        document.body.classList.add('phone-mode');
+        $('phone').style.display = '';
+      } else {
+        $('launcher').style.display = '';
+        $('openPhone').onclick = () => {
+          window.open(location.href, 'ssafybank',
+            'width=440,height=900,menubar=no,toolbar=no,location=no,status=no,resizable=yes');
+        };
+      }
+    })();
     let token = null;
     let apiBase = 'http://localhost:8080/api/v1';
 
