@@ -3,154 +3,134 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SSAFY 뱅크 · 조회 콘솔</title>
+  <title>SSAFY 뱅크</title>
   <style>
-    :root { --bg:#0b1b3a; --card:#12264d; --line:#20386b; --txt:#eaf0ff; --sub:#9fb2dd; --pos:#37d67a; --neg:#ff6b6b; --accent:#4c8dff; }
+    :root {
+      --blue:#3182f6; --ink:#191f28; --sub:#8b95a1; --line:#f2f4f6; --field:#f2f4f6;
+      --bg:#ffffff; --screen:#f9fafb; --pos:#3182f6; --neg:#191f28;
+    }
     * { box-sizing:border-box; }
     body {
-      margin:0; font-family:'Segoe UI',system-ui,sans-serif; color:var(--txt);
-      background:radial-gradient(1200px 800px at 50% -10%, #1a2340, #070a14 70%);
-      min-height:100vh; display:flex; justify-content:center; align-items:center; padding:24px;
+      margin:0; color:var(--ink);
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+      background:#e5e8eb; min-height:100vh; display:flex; justify-content:center; align-items:center; padding:24px;
     }
-    /* 폰 프레임: 데스크톱 배경 위에 뜬 스마트폰 목업 */
+    /* 폰 목업 */
     .phone {
       position:relative; width:400px; max-width:100%; height:840px; max-height:calc(100vh - 48px);
-      background:var(--bg); border:12px solid #05070f; border-radius:46px; overflow:hidden;
-      box-shadow:0 40px 90px rgba(0,0,0,.6), 0 0 0 2px #1c2540;
+      background:var(--bg); border:12px solid #191f28; border-radius:48px; overflow:hidden;
+      box-shadow:0 30px 80px rgba(0,0,0,.28);
     }
-    .phone::before { /* 노치 */
-      content:''; position:absolute; top:0; left:50%; transform:translateX(-50%);
-      width:150px; height:26px; background:#05070f; border-radius:0 0 18px 18px; z-index:10;
-    }
-    .phone-screen { height:100%; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+    .phone::before { content:''; position:absolute; top:0; left:50%; transform:translateX(-50%);
+      width:130px; height:24px; background:#191f28; border-radius:0 0 16px 16px; z-index:10; }
+    .phone-screen { height:100%; overflow-y:auto; background:var(--screen); }
     .phone-screen::-webkit-scrollbar { width:0; }
     header {
-      position:sticky; top:0; z-index:5; padding:38px 18px 14px;
-      background:linear-gradient(180deg,#0e2044,#122a55); border-bottom:1px solid var(--line);
-      display:flex; align-items:center; gap:8px;
+      position:sticky; top:0; z-index:5; padding:40px 20px 14px; background:var(--bg);
+      display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--line);
     }
-    header .logo { font-weight:800; font-size:17px; letter-spacing:-.5px; }
-    header .badge { font-size:10px; color:var(--sub); border:1px solid var(--line); border-radius:999px; padding:2px 8px; }
-    header .who { margin-left:auto; font-size:12px; color:var(--sub); }
-    main { padding:16px; }
-    .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:14px; }
-    h2 { margin:0 0 4px; font-size:15px; }
-    .muted { color:var(--sub); font-size:12px; }
-    input { background:#0c1c3d; border:1px solid var(--line); border-radius:10px; padding:11px 12px; color:var(--txt); font-size:14px; width:100%; }
-    label { display:block; font-size:12px; color:var(--sub); margin:10px 0 4px; }
-    button { background:var(--accent); color:#fff; border:0; border-radius:10px; padding:11px 16px; font-size:14px; font-weight:600; cursor:pointer; }
-    button.ghost { background:transparent; border:1px solid var(--line); color:var(--txt); }
-    button:disabled { opacity:.5; cursor:not-allowed; }
-    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-    .big { font-size:24px; font-weight:800; letter-spacing:-1px; }
-    table { width:100%; border-collapse:collapse; margin-top:10px; font-size:12px; }
-    th,td { text-align:left; padding:7px 4px; border-bottom:1px solid var(--line); }
-    th { color:var(--sub); font-weight:600; }
-    td.amt { text-align:right; font-variant-numeric:tabular-nums; }
+    header .logo { font-weight:800; font-size:18px; letter-spacing:-.5px; }
+    header .who { margin-left:auto; font-size:13px; color:var(--sub); font-weight:600; }
+    header .pop { background:none; border:0; color:var(--sub); font-size:18px; cursor:pointer; padding:4px; }
+    main { padding:20px; }
+    h2 { margin:0 0 2px; font-size:17px; font-weight:700; letter-spacing:-.3px; }
+    .muted { color:var(--sub); font-size:13px; line-height:1.5; }
+    .card { background:var(--bg); border-radius:20px; padding:22px; margin-bottom:14px; box-shadow:0 2px 12px rgba(0,0,0,.04); }
+    label { display:block; font-size:13px; color:var(--sub); margin:14px 0 6px; font-weight:600; }
+    input {
+      background:var(--field); border:0; border-radius:12px; padding:14px 14px; color:var(--ink);
+      font-size:15px; width:100%; outline:none;
+    }
+    input:focus { box-shadow:0 0 0 2px var(--blue) inset; }
+    button {
+      background:var(--blue); color:#fff; border:0; border-radius:14px; padding:14px 18px;
+      font-size:15px; font-weight:700; cursor:pointer; letter-spacing:-.3px;
+    }
+    button.block { width:100%; }
+    button.ghost { background:var(--field); color:var(--ink); }
+    button.small { padding:9px 14px; font-size:13px; border-radius:10px; }
+    button:disabled { opacity:.4; cursor:not-allowed; }
+    .row { display:flex; gap:8px; align-items:center; }
+    .amount { font-size:30px; font-weight:800; letter-spacing:-1.2px; }
+    .label-s { font-size:13px; color:var(--sub); font-weight:600; }
+    .tx { display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-top:1px solid var(--line); }
+    .tx:first-of-type { border-top:0; }
+    .tx .t-main { font-size:14px; font-weight:600; }
+    .tx .t-sub { font-size:12px; color:var(--sub); margin-top:2px; }
+    .tx .t-amt { font-size:15px; font-weight:700; font-variant-numeric:tabular-nums; letter-spacing:-.3px; }
     .in { color:var(--pos); } .out { color:var(--neg); }
-    .err { color:var(--neg); font-size:12px; margin-top:8px; }
+    .err { color:#f04452; font-size:13px; margin-top:10px; }
     .hide { display:none; }
-    .pill { font-size:11px; color:var(--sub); }
-    .cardface { background:linear-gradient(135deg,#1b3a7a,#2d5bb8); border:1px solid var(--line); border-radius:14px; padding:16px; display:flex; flex-direction:column; gap:9px; }
-    .cardface .cardno { font-size:19px; font-weight:700; letter-spacing:1.5px; font-variant-numeric:tabular-nums; }
-    .cardface b { font-weight:700; }
-    .cardface .pill { color:#cfe0ff; }
-    /* 런처: 큰 창에서 '폰 창으로 열기' 버튼만 보여준다 */
-    .launcher { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; }
-    .launcher-card { text-align:center; background:var(--card); border:1px solid var(--line); border-radius:20px; padding:40px 48px; }
-    .launcher-card .emoji { font-size:48px; }
-    .launcher-card h1 { margin:12px 0 6px; font-size:22px; }
-    .launcher-card p { margin:0 0 20px; }
-    .launcher-card button { padding:14px 24px; font-size:15px; border-radius:12px; }
-    /* 폰 창(팝업)에서는 창 자체가 폰이므로 베젤/노치를 없애고 화면을 꽉 채운다 */
-    body.phone-mode { padding:0; align-items:stretch; background:var(--bg); }
+    .empty { color:var(--sub); font-size:13px; padding:20px 0; text-align:center; }
+    /* 카드 비주얼 (다크, 깔끔) */
+    .cardface { background:#4e5968; color:#fff; border-radius:16px; padding:20px; display:flex; flex-direction:column; gap:14px; }
+    .cardface .c-brand { font-size:13px; opacity:.85; font-weight:600; }
+    .cardface .c-no { font-size:19px; font-weight:700; letter-spacing:2px; font-variant-numeric:tabular-nums; }
+    .cardface .c-meta { display:flex; gap:22px; font-size:13px; }
+    .cardface .c-meta b { font-weight:700; }
+    .hint { margin-top:12px; font-size:12px; color:var(--sub); background:var(--field); border-radius:10px; padding:10px 12px; }
+    .sec-gap { height:8px; }
+    /* 팝업(폰 크기 창)에서는 창 자체가 폰이므로 목업 베젤 제거 */
+    body.phone-mode { padding:0; align-items:stretch; background:var(--screen); }
     body.phone-mode .phone { width:100%; height:100vh; max-height:none; border:none; border-radius:0; box-shadow:none; }
     body.phone-mode .phone::before { display:none; }
-    body.phone-mode header { padding-top:16px; }
+    body.phone-mode header { padding-top:18px; }
+    body.phone-mode .pop { display:none; }
   </style>
 </head>
 <body>
-  <!-- 큰 창에서 보이는 런처 (폰 창으로 열기) -->
-  <div class="launcher" id="launcher" style="display:none;">
-    <div class="launcher-card">
-      <div class="emoji">🏦</div>
-      <h1>SSAFY 뱅크</h1>
-      <p class="muted">시연용 조회 콘솔을 폰 크기 창으로 엽니다.</p>
-      <button id="openPhone">📱 폰 창으로 열기</button>
-    </div>
-  </div>
-
-  <div class="phone" id="phone" style="display:none;">
+  <div class="phone" id="phone">
     <div class="phone-screen">
-  <header>
-    <span class="logo">🏦 SSAFY 뱅크</span>
-    <span class="badge">시연용</span>
-    <span class="who" id="who"></span>
-  </header>
-  <main>
-    <!-- 로그인 -->
-    <section class="card" id="loginCard">
-      <h2>로그인</h2>
-      <p class="muted">공구한 계정으로 로그인하면 그 계정의 카드·계좌를 조회합니다.</p>
-      <label>API 주소</label>
-      <input id="apiBase" value="http://localhost:8080/api/v1" />
-      <label>이메일</label>
-      <input id="email" placeholder="you@example.com" autocomplete="username" />
-      <label>비밀번호</label>
-      <input id="password" type="password" placeholder="비밀번호" autocomplete="current-password" />
-      <div class="row" style="margin-top:14px;">
-        <button id="loginBtn">로그인</button>
-      </div>
-      <div class="err" id="loginErr"></div>
-    </section>
+      <header>
+        <span class="logo">SSAFY 뱅크</span>
+        <span class="who" id="who"></span>
+        <button class="pop" id="openPhone" title="폰 창으로 열기">⤢</button>
+      </header>
+      <main>
+        <!-- 로그인 -->
+        <section class="card" id="loginCard">
+          <h2>로그인</h2>
+          <p class="muted">공구한 계정으로 로그인하면 내 카드·계좌를 볼 수 있어요.</p>
+          <label>이메일</label>
+          <input id="email" placeholder="you@example.com" autocomplete="username" />
+          <label>비밀번호</label>
+          <input id="password" type="password" placeholder="비밀번호" autocomplete="current-password" />
+          <input id="apiBase" type="hidden" value="http://localhost:8080/api/v1" />
+          <button class="block" id="loginBtn" style="margin-top:20px;">로그인</button>
+          <div class="err" id="loginErr"></div>
+        </section>
 
-    <!-- 대시보드 -->
-    <section class="hide" id="dash">
-      <div class="row" style="margin-bottom:12px;">
-        <button id="refreshBtn">🔄 새로고침</button>
-        <button class="ghost" id="logoutBtn">로그아웃</button>
-        <span class="pill">결제하면 카드에, 환불되면 계좌에 반영됩니다. 새로고침으로 확인하세요.</span>
-      </div>
-
-      <!-- 카드 -->
-      <section class="card">
-        <h2>💳 내 카드</h2>
-        <div id="cardBody"><p class="muted">불러오는 중…</p></div>
-      </section>
-
-      <!-- 계좌 -->
-      <section class="card">
-        <h2>🏛️ 내 계좌</h2>
-        <div id="acctBody"><p class="muted">불러오는 중…</p></div>
-      </section>
-    </section>
-  </main>
+        <!-- 대시보드 -->
+        <section class="hide" id="dash">
+          <div id="cardBody"></div>
+          <div id="acctBody"></div>
+          <div class="row" style="margin-top:6px;">
+            <button class="ghost small block" id="refreshBtn">새로고침</button>
+            <button class="ghost small block" id="logoutBtn">로그아웃</button>
+          </div>
+        </section>
+      </main>
     </div>
   </div>
 
   <script>
     const $ = (id) => document.getElementById(id);
-
-    // 창 분기: 폰 크기 팝업(window.name='ssafybank')이거나 이미 작은 창이면 앱을 폰 모드로,
-    // 그 외 큰 창에서는 "폰 창으로 열기" 런처만 보여준다.
-    (function routeWindow() {
-      const inPhone = window.name === 'ssafybank' || window.innerWidth < 520;
-      if (inPhone) {
-        document.body.classList.add('phone-mode');
-        $('phone').style.display = '';
-      } else {
-        $('launcher').style.display = '';
-        $('openPhone').onclick = () => {
-          window.open(location.href, 'ssafybank',
-            'width=440,height=900,menubar=no,toolbar=no,location=no,status=no,resizable=yes');
-        };
-      }
-    })();
     let token = null;
     let apiBase = 'http://localhost:8080/api/v1';
 
+    // 창 분기: 폰 크기 팝업이거나 작은 창이면 폰 모드(꽉 채움), 큰 창이면 목업 + 팝업 버튼.
+    (function routeWindow() {
+      if (window.name === 'ssafybank' || window.innerWidth < 520) {
+        document.body.classList.add('phone-mode');
+      }
+      $('openPhone').onclick = () => window.open(location.href, 'ssafybank',
+        'width=440,height=900,menubar=no,toolbar=no,location=no,status=no,resizable=yes');
+    })();
+
     const won = (v) => (v == null || v === '') ? '-' : Number(v).toLocaleString('ko-KR') + '원';
     const dt = (d, t) => !d ? '' : `${d.slice(0,4)}.${d.slice(4,6)}.${d.slice(6,8)}` + (t ? ` ${t.slice(0,2)}:${t.slice(2,4)}` : '');
+    const fmtCard = (no) => !no ? '' : no.replace(/(\d{4})(?=\d)/g, '$1-');
+    const fmtExpiry = (d) => !d ? '' : `${d.slice(2,4)}/${d.slice(4,6)}`;
 
     async function api(path) {
       const res = await fetch(apiBase + path, { headers: { Authorization: 'Bearer ' + token } });
@@ -158,18 +138,12 @@
       if (!res.ok || !data.success) throw new Error(data?.error?.message || ('HTTP ' + res.status));
       return data.data;
     }
-
     async function apiPost(path) {
-      const res = await fetch(apiBase + path, {
-        method: 'POST', headers: { Authorization: 'Bearer ' + token },
-      });
+      const res = await fetch(apiBase + path, { method:'POST', headers: { Authorization: 'Bearer ' + token } });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) throw new Error(data?.error?.message || ('HTTP ' + res.status));
       return data.data;
     }
-
-    const fmtCard = (no) => !no ? '' : no.replace(/(\d{4})(?=\d)/g, '$1-');
-    const fmtExpiry = (d) => !d ? '' : `${d.slice(2,4)}/${d.slice(4,6)}`; // YYYYMMDD → YY/MM
 
     async function login() {
       $('loginErr').textContent = '';
@@ -187,89 +161,82 @@
         $('dash').classList.remove('hide');
         await refresh();
       } catch (e) {
-        $('loginErr').textContent = e.message + ' (CORS 오류면 백엔드 로컬 프로파일 CORS 설정을 확인하세요)';
+        $('loginErr').textContent = e.message;
       }
     }
-
     function logout() {
       token = null;
       $('dash').classList.add('hide');
       $('loginCard').classList.remove('hide');
       $('who').textContent = '';
     }
-
-    async function refresh() {
-      renderCard();
-      renderAccount();
-    }
+    async function refresh() { await renderCard(); await renderAccount(); }
 
     async function renderCard() {
       const box = $('cardBody');
       try {
-        // 발급 여부와 카드번호·CVC는 /users/me/card 로 확인한다.
         const card = await api('/users/me/card');
         if (!card.hasCard) {
           box.innerHTML = `
-            <p class="muted">아직 발급된 카드가 없습니다. 카드를 발급하면 공구한에서 결제할 수 있습니다.</p>
-            <button id="issueBtn">카드 발급받기</button>
-            <div class="err" id="issueErr"></div>`;
+            <section class="card">
+              <h2>내 카드</h2>
+              <p class="muted" style="margin:8px 0 16px;">아직 발급된 카드가 없어요. 카드를 발급하면 공구한에서 결제할 수 있어요.</p>
+              <button class="block" id="issueBtn">카드 발급받기</button>
+              <div class="err" id="issueErr"></div>
+            </section>`;
           $('issueBtn').onclick = issueCard;
           return;
         }
-        // 카드가 있으면 카드 정보(결제 입력용)와 이용내역(청구예정액)을 함께 보여준다.
         const usage = await api('/users/me/bank/card');
-        const rows = (usage.transactions || []).map(t =>
-          `<tr><td>${dt(t.date, t.time)}</td><td>${t.merchantName ?? ''}</td><td class="muted">${t.categoryName ?? ''}</td><td class="amt out">-${won(t.amount)}</td></tr>`
-        ).join('');
+        const rows = (usage.transactions || []).map(t => `
+          <div class="tx"><div><div class="t-main">${t.merchantName ?? ''}</div>
+          <div class="t-sub">${dt(t.date, t.time)} · ${t.categoryName ?? ''}</div></div>
+          <div class="t-amt out">-${won(t.amount)}</div></div>`).join('');
         box.innerHTML = `
-          <div class="cardface">
-            <div class="muted">${card.cardIssuerName ?? ''} · ${card.cardName ?? ''}</div>
-            <div class="cardno">${fmtCard(card.cardNo)}</div>
-            <div class="row" style="gap:24px;">
-              <span>CVC <b>${card.cvc ?? ''}</b></span>
-              <span>유효기간 <b>${fmtExpiry(card.cardExpiryDate)}</b></span>
+          <section class="card">
+            <div class="cardface">
+              <div class="c-brand">${card.cardIssuerName ?? ''} · ${card.cardName ?? ''}</div>
+              <div class="c-no">${fmtCard(card.cardNo)}</div>
+              <div class="c-meta"><span>CVC <b>${card.cvc ?? ''}</b></span><span>유효기간 <b>${fmtExpiry(card.cardExpiryDate)}</b></span></div>
             </div>
-            <div class="pill">💡 공구한 카드 결제창에 이 번호와 CVC를 입력하세요.</div>
-          </div>
-          <div class="row" style="justify-content:space-between; margin-top:14px;">
-            <div class="muted">청구 예정액</div>
-            <div class="big">${won(usage.estimatedBalance)}</div>
-          </div>
-          <table><thead><tr><th>일시</th><th>가맹점</th><th>분류</th><th class="amt">결제액</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="4" class="muted">이용내역이 없습니다.</td></tr>'}</tbody></table>`;
-      } catch (e) { box.innerHTML = `<p class="err">${e.message}</p>`; }
+            <div class="hint">공구한 카드 결제창에 이 번호와 CVC를 입력하세요.</div>
+          </section>
+          <section class="card">
+            <div class="label-s">이번 달 청구 예정</div>
+            <div class="amount" style="margin-top:6px;">${won(usage.estimatedBalance)}</div>
+            <div style="margin-top:14px;">${rows || '<div class="empty">이용내역이 없어요.</div>'}</div>
+          </section>`;
+      } catch (e) { box.innerHTML = `<section class="card"><div class="err">${e.message}</div></section>`; }
     }
 
     async function issueCard() {
       const btn = $('issueBtn');
       if (btn) { btn.disabled = true; btn.textContent = '발급 중…'; }
-      try {
-        await apiPost('/users/me/card'); // 계좌 없으면 자동 개설 후 발급
-        await renderCard();
-        renderAccount(); // 자동 개설된 계좌가 계좌 섹션에도 반영되도록 갱신
-      } catch (e) {
-        if ($('issueErr')) $('issueErr').textContent = e.message;
-        if (btn) { btn.disabled = false; btn.textContent = '카드 발급받기'; }
-      }
+      try { await apiPost('/users/me/card'); await renderCard(); await renderAccount(); }
+      catch (e) { if ($('issueErr')) $('issueErr').textContent = e.message; if (btn) { btn.disabled = false; btn.textContent = '카드 발급받기'; } }
     }
 
     async function renderAccount() {
       const box = $('acctBody');
       try {
         const a = await api('/users/me/bank/account');
-        if (!a.hasAccount) { box.innerHTML = '<p class="muted">연결된 정산 계좌가 없습니다. 카드 발급/판매자 전환 시 개설됩니다.</p>'; return; }
+        if (!a.hasAccount) {
+          box.innerHTML = `<section class="card"><h2>내 계좌</h2><p class="empty">연결된 계좌가 없어요. 카드 발급 시 자동으로 개설돼요.</p></section>`;
+          return;
+        }
         const rows = (a.transactions || []).map(t => {
           const isIn = (t.type ?? '').includes('입금');
-          return `<tr><td>${dt(t.date, t.time)}</td><td>${t.summary ?? t.type ?? ''}</td><td class="amt ${isIn?'in':'out'}">${isIn?'+':'-'}${won(t.amount)}</td><td class="amt muted">${won(t.afterBalance)}</td></tr>`;
+          return `<div class="tx"><div><div class="t-main">${t.summary ?? t.type ?? ''}</div>
+            <div class="t-sub">${dt(t.date, t.time)}</div></div>
+            <div class="t-amt ${isIn?'in':'out'}">${isIn?'+':'-'}${won(t.amount)}</div></div>`;
         }).join('');
         box.innerHTML = `
-          <div class="row" style="justify-content:space-between;">
-            <div><div class="muted">계좌번호 ${a.accountNo ?? ''}</div><div class="muted">잔액</div></div>
-            <div class="big">${won(a.balance)}</div>
-          </div>
-          <table><thead><tr><th>일시</th><th>내용</th><th class="amt">금액</th><th class="amt">잔액</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="4" class="muted">거래내역이 없습니다.</td></tr>'}</tbody></table>`;
-      } catch (e) { box.innerHTML = `<p class="err">${e.message}</p>`; }
+          <section class="card">
+            <div class="label-s">SSAFY 계좌 ${a.accountNo ?? ''}</div>
+            <div class="amount" style="margin-top:6px;">${won(a.balance)}</div>
+            <div style="margin-top:14px;">${rows || '<div class="empty">거래내역이 없어요.</div>'}</div>
+          </section>`;
+      } catch (e) { box.innerHTML = `<section class="card"><div class="err">${e.message}</div></section>`; }
     }
 
     $('loginBtn').onclick = login;
