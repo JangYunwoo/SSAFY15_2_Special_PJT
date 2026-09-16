@@ -59,7 +59,12 @@ export interface BackendFeatureFlags {
    */
   groupBuyWithdrawal: boolean
 
-  /** AUTH-04 로그아웃 · 컨트롤러 없음 (토큰은 클라이언트에서만 폐기) */
+  /**
+   * AUTH-04 로그아웃 · `AuthController` 구현됨 (2026-09-16 연동).
+   *
+   * 끄면 서버에 알리지 않고 브라우저 토큰만 버립니다. 그 상태로 두면 서버는
+   * 리프레시 토큰을 계속 유효하게 보므로, 되돌릴 일이 아니면 켜 두어야 합니다.
+   */
   logout: boolean
 
   /**
@@ -77,6 +82,6 @@ export const BACKEND_FEATURES: BackendFeatureFlags = {
   sellerOnboarding: true,
   participationCancel: true,
   groupBuyWithdrawal: false,
-  logout: false,
+  logout: true,
   emailAvailability: true,
 }

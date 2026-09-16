@@ -54,6 +54,19 @@ export const authApi = {
   refresh: (refreshToken: string) =>
     api.post<AuthTokens>('/auth/refresh', { refreshToken }, { skipRefresh: true }),
 
+  /**
+   * AUTH-04 로그아웃. 서버에서 리프레시 토큰을 폐기합니다.
+   *
+   * 이 호출이 없으면 브라우저에서 토큰만 버리는 셈이라, 서버는 그 리프레시
+   * 토큰을 계속 유효하게 봅니다. 토큰이 남아 있는 쪽에서는 로그아웃 뒤에도
+   * 액세스 토큰을 새로 받아 쓸 수 있습니다.
+   *
+   * skipRefresh 인 이유는 재발급과 같습니다. 세션을 끝내는 요청이 401 을
+   * 받았다고 토큰을 되살리려 들면 앞뒤가 맞지 않습니다.
+   */
+  logout: (refreshToken: string) =>
+    api.post<NoContent>('/auth/logout', { refreshToken }, { skipRefresh: true }),
+
   /** USR-01 */
   me: () => api.get<UserProfile>('/users/me', { schema: userProfileSchema }),
 
