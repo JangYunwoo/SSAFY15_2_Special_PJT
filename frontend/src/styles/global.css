@@ -843,9 +843,9 @@ table.list td.more{text-align:center;padding:24px 12px;}
 /* ---------- 인증 화면 (로그인 · 회원가입) ---------- */
 /*
  * 할 일이 하나뿐인 화면이라 헤더 메뉴 말고는 아무것도 두지 않습니다.
- * 배경을 옅은 파랑으로 깔고 흰 카드만 띄워 시선을 폼으로 모읍니다.
+ * 배경은 소개 화면과 같은 tone-soft 를 씁니다. 톤을 하나로 묶어두면
+ * 나중에 회색 값을 바꿀 때 두 화면이 따로 놀지 않습니다.
  */
-body.tone-auth{background:var(--brand-soft);}
 .auth{max-width:420px;margin:0 auto;padding:72px 0 96px;}
 /* 로고가 나오면 이 자리의 .brand 를 <img> 로 바꾸면 됩니다 */
 .auth-mark{display:block;text-align:center;margin-bottom:22px;}

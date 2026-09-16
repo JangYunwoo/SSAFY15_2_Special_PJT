@@ -22,8 +22,8 @@ function signedUpEmail(state: unknown): string {
 
 export default function LoginPage() {
   useDocumentTitle('로그인')
-  // 배경을 옅은 파랑으로 깔고 흰 카드만 띄웁니다.
-  useBodyClass('tone-auth')
+  // 소개 화면과 같은 회색 배경 위에 흰 카드만 띄웁니다.
+  useBodyClass('tone-soft')
 
   const location = useLocation()
   const justSignedUp = signedUpEmail(location.state)
