@@ -58,7 +58,7 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .gnb nav a:hover{color:var(--ink);}
 .gnb nav a.on{color:var(--ink);font-weight:700;border-bottom-color:var(--brand);}
 /* 헤더 높이만큼 늘어나야 그 안의 메뉴도 아래선까지 닿습니다 */
-.gnb .right{margin-left:auto;align-self:stretch;display:flex;align-items:center;gap:28px;}
+.gnb .right{margin-left:auto;align-self:stretch;display:flex;align-items:center;gap:15px;}
 .gnb .right nav{margin-left:0;}
 .gnb .cta{
   border:1px solid var(--brand);padding:9px 16px;
@@ -67,8 +67,9 @@ button,input,select,textarea{font:inherit;color:inherit;}
 }
 /* 배너 버튼과 같은 방식으로 반전됩니다 (테두리만 → 브랜드색 채움) */
 .gnb .cta:hover{background:var(--brand);color:var(--on-dark);}
-.gnb .cta.fill{background:var(--brand);border-color:var(--brand);color:var(--on-dark);}
-.gnb .cta.fill:hover{background:var(--brand-dark);border-color:var(--brand-dark);}
+/* 보조 동작. 같은 자리의 주 동작(상품 등록하기)보다 약하게 둡니다 */
+.gnb .cta.quiet{border-color:var(--line);color:var(--line);}
+.gnb .cta.quiet:hover{border-color:var(--ink);background:var(--white);color:var(--ink);}
 
 /* ---------- 헤더 알림 ---------- */
 /* 패널을 버튼 기준으로 띄우므로 relative 가 필요합니다 */
