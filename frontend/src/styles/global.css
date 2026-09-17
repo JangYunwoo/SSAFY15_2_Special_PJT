@@ -734,23 +734,30 @@ select.input{
 /* ---------- 거래 타임라인 ---------- */
 /* ---------- 거래 진행 막대 ---------- */
 /*
- * 칸을 나누고 사이를 벌립니다. 하나로 이은 막대는 "배송 중 60%" 처럼 중간값이
- * 있는 것처럼 보이는데, 실제로는 띄엄띄엄한 상태라 칸이 맞습니다.
+ * 양 끝 라벨을 막대 끝에 맞추고 나머지를 사이에 고르게 둡니다.
+ * space-between 이 첫 항목의 왼쪽 끝과 마지막 항목의 오른쪽 끝을 막대 끝에
+ * 붙여주므로, 채워진 길이가 곧 "몇 번째 라벨까지 왔는가" 가 됩니다.
  */
-.track{display:flex;gap:4px;list-style:none;margin:8px 0 0;padding:0;}
-.track-step{
-  flex:1;min-width:0;text-align:center;
-  font-size:11px;color:var(--muted);word-break:keep-all;
+.track{margin-top:8px;}
+.track-labels{
+  display:flex;justify-content:space-between;gap:8px;
+  list-style:none;margin:0 0 7px;padding:0;
+  font-size:11px;color:var(--muted);
 }
-.track-bar{
-  display:block;height:6px;margin-top:7px;
-  border-radius:999px;background:var(--fill);
+.track-labels > li{word-break:keep-all;}
+/* 양 끝은 막대 끝에 붙으므로 글자도 바깥쪽으로 정렬합니다 */
+.track-labels > li:first-child{text-align:left;}
+.track-labels > li:last-child{text-align:right;}
+.track-labels > li.on{color:var(--ink2);}
+.track-labels > li.now{color:var(--brand-text);font-weight:700;}
+
+.track-bar{height:6px;border-radius:999px;background:var(--fill);overflow:hidden;}
+.track-bar > span{
+  display:block;height:100%;border-radius:inherit;background:var(--brand);
+  /* 첫 단계(0%)에서도 빈 줄로 보이지 않게 점만큼은 남깁니다 */
+  min-width:6px;
+  transition:width .4s cubic-bezier(.22,.61,.36,1);
 }
-/* 지나온 칸 */
-.track-step.on{color:var(--ink2);}
-.track-step.on .track-bar{background:var(--brand);}
-/* 지금 있는 칸만 글자를 세웁니다 */
-.track-step.now{color:var(--brand-text);font-weight:700;}
 
 /* ---------- 이용 안내 스트립 ---------- */
 /* > 로 바깥 칸만 잡습니다. 그냥 .how div 로 쓰면 안쪽 .n/.t/.d 까지 걸립니다. */
@@ -1090,7 +1097,7 @@ footer.foot-min .inner{
   .auth-card{padding:28px 20px 24px;}
   .steps{flex-wrap:wrap;}
   .steps > *{flex:1 0 33%;}
-  .track-step{font-size:10px;}
+  .track-labels{font-size:10px;}
   .sec-head{flex-direction:column;align-items:flex-start;gap:8px;}
   .foot-card{padding:32px 24px 22px;border-radius:16px 16px 0 0;}
   .foot-top{flex-direction:column;gap:24px;}
