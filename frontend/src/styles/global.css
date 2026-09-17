@@ -5,6 +5,13 @@
 
 *{box-sizing:border-box;}
 html,body{margin:0;padding:0;}
+/*
+ * 스크롤바 자리를 항상 비워 둡니다.
+ * 내용이 짧아 스크롤바가 사라지면 뷰포트가 15px 넓어지고, 가운데 정렬된
+ * 레이아웃이 그 절반만큼 오른쪽으로 밀립니다. 화면을 오갈 때 내용이
+ * 좌우로 흔들려 보이던 원인입니다.
+ */
+html{scrollbar-gutter:stable;}
 body{
   background:var(--bg);
   color:var(--ink);
