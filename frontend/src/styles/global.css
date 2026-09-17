@@ -40,7 +40,12 @@ button,input,select,textarea{font:inherit;color:inherit;}
   max-width:var(--max);margin:0 auto;padding:0 var(--gutter);
   height:76px;display:flex;align-items:center;
 }
-.brand{font-size:17px;font-weight:700;letter-spacing:-.5px;}
+/*
+ * 로고. 글자가 아니라 윤곽선 SVG 라 웹폰트 로딩과 무관하게 항상 같은 모양입니다.
+ * 크기는 height 로만 정합니다. width 는 비율을 따라가므로 지정하지 않습니다.
+ */
+.brand{display:inline-flex;align-items:center;}
+.brand img{display:block;height:27px;width:auto;}
 /* 메뉴는 헤더 높이를 꽉 채웁니다. 그래야 활성 밑줄이 헤더 아래선에 붙습니다. */
 .gnb nav{
   margin-left:auto;align-self:stretch;display:flex;gap:36px;
@@ -876,8 +881,9 @@ table.list td.more{text-align:center;padding:24px 12px;}
  * 나중에 회색 값을 바꿀 때 두 화면이 따로 놀지 않습니다.
  */
 .auth{max-width:420px;margin:0 auto;padding:72px 0 96px;}
-/* 로고가 나오면 이 자리의 .brand 를 <img> 로 바꾸면 됩니다 */
 .auth-mark{display:block;text-align:center;margin-bottom:22px;}
+/* 로그인·회원가입은 로고가 홀로 놓이는 자리라 헤더보다 큽니다 */
+.auth-mark .brand img{height:34px;}
 .auth-card{
   background:var(--surface);border-radius:var(--radius-box);
   padding:36px 32px 32px;
@@ -945,6 +951,7 @@ footer.foot{margin-top:72px;padding:0 var(--gutter);}
 /* 브랜드가 남는 폭을 먹어서 링크 묶음 둘이 오른쪽으로 밀립니다 */
 .foot-brand{flex:1;min-width:0;}
 .foot-brand .brand{display:block;margin-bottom:10px;}
+.foot-brand .brand img{height:22px;}
 .foot-brand p{
   margin:0;font-size:12px;color:var(--muted);
   line-height:1.8;word-break:keep-all;max-width:280px;
@@ -1008,6 +1015,8 @@ footer.foot-min .inner{
 @media(max-width:620px){
   .cards,.how,.points{grid-template-columns:1fr;}
   .gnb .inner{height:60px;}
+  /* 헤더가 76px 에서 60px 로 줄어드는 만큼 로고도 같은 비율로 줄입니다 */
+  .gnb .brand img{height:22px;}
   .gnb nav{gap:12px;font-size:11px;}
   /* 소개 페이지 여백은 데스크톱 기준이라 좁은 화면에서는 줄입니다 */
   .about-lead{padding:48px 0 36px;}

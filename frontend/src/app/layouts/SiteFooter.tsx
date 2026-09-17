@@ -1,5 +1,7 @@
 import { Link } from 'react-router'
 
+import { BrandMark } from '@/shared/ui/BrandMark'
+
 /**
  * 공통 푸터 (.foot)
  *
@@ -23,12 +25,8 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
     <footer className="foot">
       <div className="foot-card">
         <div className="foot-top">
-          {/*
-            로고가 나오면 이 자리의 .brand 를 <img> 로 바꾸면 됩니다.
-            높이만 맞추면 나머지 배치는 그대로 유지됩니다.
-          */}
           <div className="foot-brand">
-            <span className="brand">공구한</span>
+            <span className="brand"><BrandMark /></span>
             <p>필요한 사람끼리 모여 더 싸게, 결제는 에스크로로 안전하게</p>
           </div>
 
