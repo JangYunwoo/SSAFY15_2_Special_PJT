@@ -466,7 +466,11 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .chip.on{background:var(--brand-soft);border-color:var(--brand);color:var(--brand-text);font-weight:700;}
 
 /* ---------- 상품 카드 ---------- */
-.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;}
+/*
+ * minmax(0,1fr) 이어야 칸이 균등합니다. 그냥 1fr 은 minmax(auto,1fr) 이고
+ * auto 최소값이 min-content 라, 카드 제목이 nowrap 이면 그 칸만 넓어집니다.
+ */
+.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px;}
 /*
  * 상품 카드는 각진 채로 둡니다. 사진이 카드 폭을 꽉 채우는 형태라
  * 모서리를 깎으면 사진까지 잘려 상품이 덜 또렷하게 보입니다.
@@ -491,9 +495,19 @@ button,input,select,textarea{font:inherit;color:inherit;}
   font-size:11px;padding:4px 8px;color:var(--ink2);
 }
 .card .body{padding:16px;}
+/*
+ * 상품명은 두 줄까지 보여줍니다. 한 줄에서 잘라내면 "클룹 애사비소다 오리지널
+ * 500ml" 처럼 용량·색상 같은 구분 정보가 먼저 사라집니다. 목록에서 상품을
+ * 고르는 데 필요한 부분이라 화면에 남겨야 합니다.
+ *
+ * min-height 로 두 줄 자리를 늘 비워 둡니다. 한 줄짜리 이름과 두 줄짜리
+ * 이름이 섞이면 카드 높이가 들쭉날쭉해집니다.
+ */
 .card h3{
   margin:0 0 10px;font-size:14px;font-weight:500;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  line-height:1.45;min-height:2.9em;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+  overflow:hidden;word-break:keep-all;
 }
 /* 가격을 카드의 주인공으로 */
 .card .cost{display:flex;align-items:baseline;gap:7px;margin-bottom:5px;}
@@ -511,7 +525,7 @@ button,input,select,textarea{font:inherit;color:inherit;}
  * 위 여백 54px = 예전 .crumb(공유 버튼) 자리 42px + 원래 여백 12px.
  * 공유 버튼을 지우면서 본문이 헤더에 붙어버려, 그 자리만큼 여백으로 남깁니다.
  */
-.detail{display:grid;grid-template-columns:1fr 1fr;gap:48px;padding:54px 0 40px;}
+.detail{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;padding:54px 0 40px;}
 
 /*
  * 갤러리 아래 끝을 오른쪽 열의 "공동구매 참여하기" 버튼과 맞춥니다.
@@ -781,7 +795,7 @@ select.input{
  * 배경을 눌러 흰 블록이 스스로 드러나므로 선이 필요 없어졌습니다.
  * 칸 사이는 간격으로만 벌립니다.
  */
-.how{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;}
+.how{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;}
 /* 한글은 기본값이 글자 단위로 끊어져 "결제합니 / 다." 처럼 갈라집니다 */
 .how > div{
   padding:26px 22px;word-break:keep-all;
@@ -870,7 +884,7 @@ body.tone-soft .how > div{background:var(--surface);}
 
 /* 핵심 약속 3가지. 표 안에 묻히면 안 보여서 위로 끌어올립니다. */
 .points{
-  display:grid;grid-template-columns:repeat(3,1fr);gap:20px;
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;
   margin:0;padding:0;list-style:none;
 }
 .points li{
@@ -899,7 +913,7 @@ body.tone-soft .how > div{background:var(--surface);}
 .about-sec .sec-head{margin-bottom:34px;}
 
 /* 두 패널의 무게가 비슷할 때 (.split 은 1.4 : .6 이라 한쪽이 눌립니다) */
-.split.even{grid-template-columns:1fr 1fr;}
+.split.even{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
 
 /* 닫는 CTA */
 .about-end{
@@ -1073,13 +1087,13 @@ footer.foot-min .inner{
 
 /* ---------- 반응형 ---------- */
 @media(max-width:1100px){
-  .cards{grid-template-columns:repeat(3,1fr);}
+  .cards{grid-template-columns:repeat(3,minmax(0,1fr));}
 }
 @media(max-width:900px){
   .slides{min-height:0;}
-  .cards{grid-template-columns:1fr 1fr;}
+  .cards{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
   .detail,.split,.split.even{grid-template-columns:1fr;gap:28px;}
-  .points{grid-template-columns:1fr 1fr;}
+  .points{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
   /*
    * 한 열에서는 갤러리 아래 끝을 맞출 상대가 없고, 늘어나게 두면 이미지가
    * 화면 폭만큼 커집니다. flex 를 끄고 높이를 묶습니다.
@@ -1089,7 +1103,7 @@ footer.foot-min .inner{
   .detail-info{display:block;}
   .detail-info .btn{margin-top:16px;}
   .sticky{position:static;}
-  .how{grid-template-columns:1fr 1fr;}
+  .how{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
   .gnb nav{gap:14px;font-size:12px;}
 }
 @media(max-width:620px){
