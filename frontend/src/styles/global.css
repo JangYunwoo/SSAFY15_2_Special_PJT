@@ -787,26 +787,34 @@ body.tone-soft .how > div{background:var(--surface);}
   [data-reveal] .reveal{
     opacity:0;
     /*
-     * 올라오는 거리. 0.8s 로 늘리면서 12px 은 짧아 보여 18px 로 맞췄습니다.
-     * 더 키우면 읽던 자리가 흔들립니다.
+     * 올라오는 거리. 이만큼은 움직여야 "떠오른다" 가 눈에 보입니다.
+     * 한 줄 높이(약 22px)보다 조금 큰 값이라, 글이 아래에서 올라와 자리를
+     * 잡는 것으로 읽힙니다. 더 키우면 스크롤 중에 자리가 흔들립니다.
      */
-    transform:translateY(18px);
+    transform:translateY(32px);
   }
   [data-reveal] .reveal.is-in{
     opacity:1;transform:none;
-    /* 두 값은 같이 움직여야 합니다. 다르면 글자가 다 보인 뒤에도 계속 떠오릅니다 */
-    transition:opacity .8s ease, transform .8s cubic-bezier(.22,.61,.36,1);
+    /*
+     * 곡선이 속도감을 정합니다. cubic-bezier(.16,1,.3,1) 은 처음에 확 올라왔다가
+     * 끝에서 길게 미끄러지며 멈춥니다. 등속이나 완만한 곡선이면 같은 시간을
+     * 써도 "천천히 나타난다" 로만 보이고 떠오르는 느낌이 안 납니다.
+     *
+     * 두 값은 같이 움직입니다. 다르면 글자가 다 보인 뒤에도 계속 떠올라
+     * 읽기 시작한 줄이 밀립니다.
+     */
+    transition:opacity 1.1s ease, transform 1.1s cubic-bezier(.16,1,.3,1);
   }
   /*
    * 같은 줄에 나란한 카드는 조금씩 늦춰 훑고 지나가는 느낌을 줍니다.
-   * 위 0.8s 에 맞춰 간격도 60 → 100ms 로 늘렸습니다. 지속 시간만 늘리고
-   * 간격을 두면 카드는 여전히 촤르륵 뜨면서 각자 느리게 떠오릅니다.
-   * 다섯째 칸이 0.4s 에 시작해 1.2s 에 끝납니다.
+   * 위 1.1s 에 맞춰 간격은 120ms 입니다. 지속 시간만 늘리고 간격을 두면
+   * 카드는 여전히 촤르륵 뜨면서 각자 느리게 떠오릅니다.
+   * 다섯째 칸이 0.48s 에 시작해 1.58s 에 끝납니다.
    */
-  [data-reveal] .reveal:nth-child(2){transition-delay:.1s;}
-  [data-reveal] .reveal:nth-child(3){transition-delay:.2s;}
-  [data-reveal] .reveal:nth-child(4){transition-delay:.3s;}
-  [data-reveal] .reveal:nth-child(5){transition-delay:.4s;}
+  [data-reveal] .reveal:nth-child(2){transition-delay:.12s;}
+  [data-reveal] .reveal:nth-child(3){transition-delay:.24s;}
+  [data-reveal] .reveal:nth-child(4){transition-delay:.36s;}
+  [data-reveal] .reveal:nth-child(5){transition-delay:.48s;}
 }
 
 /* ---------- 서비스 소개 ---------- */
