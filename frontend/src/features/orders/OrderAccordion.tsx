@@ -21,6 +21,7 @@ import { cx } from '@/shared/lib/cx'
 import { date, dateTime, dday, groupBuyNo, number, won } from '@/shared/lib/format'
 import { Button } from '@/shared/ui/Button'
 import { DataRow } from '@/shared/ui/DataRow'
+import { TextField } from '@/shared/ui/Field'
 import { StateChip } from '@/shared/ui/StateChip'
 import { Timeline } from '@/shared/ui/Timeline'
 
@@ -36,15 +37,31 @@ export function OrderAccordion({ item, defaultOpen = false }: OrderAccordionProp
   const [open, setOpen] = useState(defaultOpen)
   /** 참여 취소 확인 단계를 보여줄지 */
   const [askingCancel, setAskingCancel] = useState(false)
+  /** 카드 결제 건 취소 시 카드 승인 취소에 다시 필요한 카드 정보(저장하지 않음) */
+  const [cardNumber, setCardNumber] = useState('')
+  const [cvc, setCvc] = useState('')
   const panelId = useId()
   const queryClient = useQueryClient()
 
   const display = displayFor(PARTICIPATION_STATUS_DISPLAY, item.status, '참여 상태')
 
+  // 카드 결제는 SSAFY 카드 취소가 카드번호·CVC 를 다시 요구합니다. 카카오페이·코인은 필요 없습니다.
+  const isCardPayment = item.method === 'CARD'
+  const cardDigits = cardNumber.replace(/\D/g, '')
+  const cvcDigits = cvc.replace(/\D/g, '')
+  const cardReady = !isCardPayment || (/^\d{15,16}$/.test(cardDigits) && /^\d{3}$/.test(cvcDigits))
+
+  const resetCancel = () => {
+    setAskingCancel(false)
+    setCardNumber('')
+    setCvc('')
+  }
+
   const cancel = useMutation({
-    mutationFn: () => participationApi.cancel(item.id),
+    mutationFn: () =>
+      participationApi.cancel(item.id, isCardPayment ? { cardNumber: cardDigits, cvc: cvcDigits } : undefined),
     onSuccess: async () => {
-      setAskingCancel(false)
+      resetCancel()
       // 취소하면 슬롯이 풀려 공동구매의 참여 인원이 줄고, 결제는 환불로 넘어갑니다.
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.participations.all }),
@@ -143,28 +160,56 @@ export function OrderAccordion({ item, defaultOpen = false }: OrderAccordionProp
         {item.status === 'PAID' && BACKEND_FEATURES.participationCancel && (
           <div className="order-actions">
             {askingCancel ? (
-              <>
-                <span className="small" style={{ flex: 1 }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <span className="small">
                   참여를 취소하고 결제금을 환불받습니다. 되돌릴 수 없습니다.
                 </span>
-                <Button
-                  disabled={cancel.isPending}
-                  onClick={() => {
-                    cancel.mutate()
-                  }}
-                >
-                  {cancel.isPending ? '취소 처리 중…' : '취소 확정'}
-                </Button>
-                <Button
-                  variant="ghost"
-                  disabled={cancel.isPending}
-                  onClick={() => {
-                    setAskingCancel(false)
-                  }}
-                >
-                  그대로 두기
-                </Button>
-              </>
+                {isCardPayment && (
+                  <>
+                    <p className="small muted" style={{ margin: 0 }}>
+                      카드 결제는 카드 승인을 취소해 돌려드립니다. 보안상 카드 정보를 저장하지
+                      않아, 취소를 위해 카드번호와 CVC 를 다시 입력해 주세요.
+                    </p>
+                    <TextField
+                      label="카드번호"
+                      placeholder="숫자 15~16자리"
+                      inputMode="numeric"
+                      autoComplete="cc-number"
+                      maxLength={16}
+                      value={cardNumber}
+                      onChange={(event) => {
+                        setCardNumber(event.target.value.replace(/\D/g, ''))
+                      }}
+                    />
+                    <div style={{ maxWidth: 160 }}>
+                      <TextField
+                        label="CVC"
+                        placeholder="뒷면 3자리"
+                        inputMode="numeric"
+                        autoComplete="cc-csc"
+                        maxLength={3}
+                        value={cvc}
+                        onChange={(event) => {
+                          setCvc(event.target.value.replace(/\D/g, ''))
+                        }}
+                      />
+                    </div>
+                  </>
+                )}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Button
+                    disabled={cancel.isPending || !cardReady}
+                    onClick={() => {
+                      cancel.mutate()
+                    }}
+                  >
+                    {cancel.isPending ? '취소 처리 중…' : '취소 확정'}
+                  </Button>
+                  <Button variant="ghost" disabled={cancel.isPending} onClick={resetCancel}>
+                    그대로 두기
+                  </Button>
+                </div>
+              </div>
             ) : (
               <Button
                 variant="ghost"
