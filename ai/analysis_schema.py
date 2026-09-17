@@ -28,6 +28,9 @@ class ExtractionResult(BaseModel):
     category_id: CategoryId = Field(
         description="ERD products.category_id에 반영할 카테고리 ID",
     )
+    brand: str | None = Field(default=None, description="이미지에서 확인한 products.brand, 불명확하면 null")
+    model_name: None = Field(default=None, description="모델명·규격 추출은 비활성화되어 반드시 null")
+    color: str | None = Field(default=None, description="이미지에서 확인한 products.color, 불명확하면 null")
 
 
 class ProductAnalysis(BaseModel):
