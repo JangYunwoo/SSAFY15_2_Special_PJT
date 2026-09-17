@@ -274,9 +274,6 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .order-actions{display:flex;gap:8px;margin-top:20px;}
 .order-actions .btn,.order-actions .btn-ghost{flex:1;}
 
-/* 진행 중 단계 표시 */
-.step.now{color:var(--ink);font-weight:700;}
-.step.now .dot{border:2px solid var(--btn);color:var(--ink);}
 
 /* 슬롯 선점 (결제 버튼 아래) */
 .slot{
@@ -735,16 +732,25 @@ select.input{
 .steps > *.on{background:var(--fill);color:var(--ink);font-weight:700;}
 
 /* ---------- 거래 타임라인 ---------- */
-.timeline{display:flex;justify-content:space-between;position:relative;margin-top:8px;list-style:none;padding:0;margin-bottom:0;}
-.timeline:before{content:"";position:absolute;left:10%;right:10%;top:14px;height:1px;background:var(--line);}
-.step{width:20%;text-align:center;font-size:11px;color:var(--muted);position:relative;}
-.step .dot{
-  width:28px;height:28px;border-radius:50%;background:var(--surface);border:1px solid var(--line);
-  margin:0 auto 8px;display:grid;place-items:center;font-size:12px;color:var(--muted);
-  position:relative;z-index:1;
+/* ---------- 거래 진행 막대 ---------- */
+/*
+ * 칸을 나누고 사이를 벌립니다. 하나로 이은 막대는 "배송 중 60%" 처럼 중간값이
+ * 있는 것처럼 보이는데, 실제로는 띄엄띄엄한 상태라 칸이 맞습니다.
+ */
+.track{display:flex;gap:4px;list-style:none;margin:8px 0 0;padding:0;}
+.track-step{
+  flex:1;min-width:0;text-align:center;
+  font-size:11px;color:var(--muted);word-break:keep-all;
 }
-.step.done{color:var(--ink);font-weight:700;}
-.step.done .dot{background:var(--btn);border-color:var(--btn);color:var(--on-dark);}
+.track-bar{
+  display:block;height:6px;margin-top:7px;
+  border-radius:999px;background:var(--fill);
+}
+/* 지나온 칸 */
+.track-step.on{color:var(--ink2);}
+.track-step.on .track-bar{background:var(--brand);}
+/* 지금 있는 칸만 글자를 세웁니다 */
+.track-step.now{color:var(--brand-text);font-weight:700;}
 
 /* ---------- 이용 안내 스트립 ---------- */
 /* > 로 바깥 칸만 잡습니다. 그냥 .how div 로 쓰면 안쪽 .n/.t/.d 까지 걸립니다. */
@@ -1084,7 +1090,7 @@ footer.foot-min .inner{
   .auth-card{padding:28px 20px 24px;}
   .steps{flex-wrap:wrap;}
   .steps > *{flex:1 0 33%;}
-  .timeline{font-size:10px;}
+  .track-step{font-size:10px;}
   .sec-head{flex-direction:column;align-items:flex-start;gap:8px;}
   .foot-card{padding:32px 24px 22px;border-radius:16px 16px 0 0;}
   .foot-top{flex-direction:column;gap:24px;}
