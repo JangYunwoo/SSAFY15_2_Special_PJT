@@ -40,9 +40,6 @@ export function HomePage() {
                   : '진행 중인 공동구매를 불러오는 중입니다.'}
               </p>
             </div>
-            <ButtonLink variant="ghost" to="/group-buys" className="btn-arrow">
-              상품 전체보기
-            </ButtonLink>
           </div>
 
           <div className="mt24">

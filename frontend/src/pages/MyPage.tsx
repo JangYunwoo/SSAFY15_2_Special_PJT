@@ -37,15 +37,23 @@ export default function MyPage() {
           </div>
         </div>
 
-        <QueryBoundary query={profile}>
-          {(user) => <ProfilePanel key={user.id} user={user} />}
-        </QueryBoundary>
-
-        <Panel className="mt16" title="배송지" description="공동구매 상품을 받을 주소">
-          <QueryBoundary query={addresses}>
-            {(items) => <AddressList items={items} />}
+        {/*
+          위아래로 쌓으면 두 패널이 본문 폭을 그대로 써서 표 한 줄이 필요 이상으로
+          길어집니다. 라벨과 값 사이가 벌어져 짝이 잘 안 읽힙니다.
+          좌우로 나란히 두면 각 표가 읽기 좋은 폭으로 줄고, 좁은 화면에서는
+          .split 규칙이 알아서 한 열로 접습니다.
+        */}
+        <div className="split even">
+          <QueryBoundary query={profile}>
+            {(user) => <ProfilePanel key={user.id} user={user} />}
           </QueryBoundary>
-        </Panel>
+
+          <Panel title="배송지" description="공동구매 상품을 받을 주소">
+            <QueryBoundary query={addresses}>
+              {(items) => <AddressList items={items} />}
+            </QueryBoundary>
+          </Panel>
+        </div>
       </section>
     </main>
   )
