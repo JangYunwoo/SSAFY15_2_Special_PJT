@@ -495,9 +495,19 @@ button,input,select,textarea{font:inherit;color:inherit;}
   font-size:11px;padding:4px 8px;color:var(--ink2);
 }
 .card .body{padding:16px;}
+/*
+ * 상품명은 두 줄까지 보여줍니다. 한 줄에서 잘라내면 "클룹 애사비소다 오리지널
+ * 500ml" 처럼 용량·색상 같은 구분 정보가 먼저 사라집니다. 목록에서 상품을
+ * 고르는 데 필요한 부분이라 화면에 남겨야 합니다.
+ *
+ * min-height 로 두 줄 자리를 늘 비워 둡니다. 한 줄짜리 이름과 두 줄짜리
+ * 이름이 섞이면 카드 높이가 들쭉날쭉해집니다.
+ */
 .card h3{
   margin:0 0 10px;font-size:14px;font-weight:500;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  line-height:1.45;min-height:2.9em;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+  overflow:hidden;word-break:keep-all;
 }
 /* 가격을 카드의 주인공으로 */
 .card .cost{display:flex;align-items:baseline;gap:7px;margin-bottom:5px;}
