@@ -17,6 +17,14 @@ a{color:inherit;text-decoration:none;}
 img{max-width:100%;}
 button,input,select,textarea{font:inherit;color:inherit;}
 
+/*
+ * 내용이 짧아도 푸터가 화면 아래에 붙게 합니다. 반품 목록처럼 항목이 적은
+ * 화면에서 푸터가 중간에 떠 있고 그 아래가 빈 바탕으로 남았습니다.
+ * 레이아웃들이 header/main/footer 를 #root 바로 아래에 두므로 여기서 묶습니다.
+ */
+#root{min-height:100vh;display:flex;flex-direction:column;}
+#root > main{flex:1 0 auto;}
+
 .wrap{max-width:var(--max);margin:0 auto;padding:0 var(--gutter);}
 .muted{color:var(--muted);}
 .small{font-size:12px;}
@@ -60,6 +68,12 @@ button,input,select,textarea{font:inherit;color:inherit;}
 /* 헤더 높이만큼 늘어나야 그 안의 메뉴도 아래선까지 닿습니다 */
 .gnb .right{margin-left:auto;align-self:stretch;display:flex;align-items:center;gap:15px;}
 .gnb .right nav{margin-left:0;}
+/*
+ * 알림은 글자 메뉴인데 .right 의 gap(버튼용)만 받아 로그아웃에 붙어 보였습니다.
+ * 오른쪽은 버튼 안쪽 여백이 더해져 실제보다 넓어 보이고, 안 읽은 배지가
+ * 오른쪽으로 14px 튀어나와 그 자리를 또 먹습니다. 양쪽을 따로 벌려 맞춥니다.
+ */
+.gnb .right > .bell{margin-left:16px;margin-right:14px;}
 .gnb .cta{
   border:1px solid var(--brand);padding:9px 16px;
   font-size:12px;font-weight:700;color:var(--brand-text);white-space:nowrap;
@@ -68,7 +82,8 @@ button,input,select,textarea{font:inherit;color:inherit;}
 /* 배너 버튼과 같은 방식으로 반전됩니다 (테두리만 → 브랜드색 채움) */
 .gnb .cta:hover{background:var(--brand);color:var(--on-dark);}
 /* 보조 동작. 같은 자리의 주 동작(상품 등록하기)보다 약하게 둡니다 */
-.gnb .cta.quiet{border-color:var(--line);color:var(--line);}
+/* 글자는 --muted(4.79:1). 테두리용 --line 을 글자에 쓰면 1.37:1 로 읽히지 않습니다 */
+.gnb .cta.quiet{border-color:var(--line);color:var(--muted);}
 .gnb .cta.quiet:hover{border-color:var(--ink);background:var(--white);color:var(--ink);}
 
 /* ---------- 헤더 알림 ---------- */
@@ -118,7 +133,7 @@ button,input,select,textarea{font:inherit;color:inherit;}
 
 /* 판매자센터 헤더 */
 .badge{
-  display:inline-block;margin-left:10px;padding:4px 9px;
+  display:inline-block;margin-left:18px;padding:4px 9px;
   border:1px solid var(--line);background:var(--soft);
   font-size:11px;color:var(--ink2);vertical-align:middle;
 }
@@ -206,7 +221,12 @@ button,input,select,textarea{font:inherit;color:inherit;}
 /* 거래관리 · 참여 건 목록 (클릭하면 펼침) */
 .list-title{font-size:13px;font-weight:700;color:var(--ink2);margin-bottom:10px;}
 
-.order{border:1px solid var(--line);background:var(--surface);}
+/* 다른 화면의 카드(.panel/.points)와 같은 모서리·테두리를 씁니다 */
+.order{
+  border:1px solid var(--line2);background:var(--surface);
+  border-radius:var(--radius-box);overflow:hidden;
+  transition:border-color .18s ease;
+}
 .order + .order{margin-top:10px;}
 .order.open{border-color:var(--line-strong);}
 
@@ -217,6 +237,8 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .order-row:hover{background:var(--soft);}
 .order-row .info{flex:1;min-width:0;}
 .order-row .name{display:block;font-size:15px;font-weight:500;margin-bottom:4px;}
+/* 이름 바로 뒤에 붙던 상태 칩을 띄웁니다 */
+.order-row .name .state{margin-left:8px;vertical-align:1px;}
 .order-row .small{display:block;}
 .order-row .amount-s{font-size:15px;font-weight:700;white-space:nowrap;}
 .order-row .caret{
@@ -439,8 +461,9 @@ button,input,select,textarea{font:inherit;color:inherit;}
  * 모서리를 깎으면 사진까지 잘려 상품이 덜 또렷하게 보입니다.
  * overflow:hidden 도 그 잘라내기 때문에 넣었던 것이라 함께 뺍니다.
  */
+/* 테두리는 칸을 나누는 정도면 충분합니다. --line 은 사진 옆에서 도드라집니다 */
 .card{
-  border:1px solid var(--line);display:block;background:var(--surface);
+  border:1px solid var(--line2);display:block;background:var(--surface);
   transition:border-color .18s ease;
 }
 .card:hover{border-color:var(--line-strong);}

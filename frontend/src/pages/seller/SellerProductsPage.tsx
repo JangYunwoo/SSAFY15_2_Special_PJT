@@ -6,7 +6,6 @@ import { productQueries } from '@/entities/product/queries'
 import { groupBuyNo, number, won } from '@/shared/lib/format'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
 import { usePageParam } from '@/shared/lib/hooks/usePageParam'
-import { ButtonLink } from '@/shared/ui/Button'
 import { Pagination } from '@/shared/ui/Pagination'
 import { StateChip, type StateTone } from '@/shared/ui/StateChip'
 import { EmptyState, QueryBoundary } from '@/shared/ui/states'
@@ -44,7 +43,6 @@ export default function SellerProductsPage() {
             공동구매를 개설합니다.
           </p>
         </div>
-        <ButtonLink to="/seller/products/new">상품 등록하기</ButtonLink>
       </div>
 
       <div className="panel">
