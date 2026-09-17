@@ -21,34 +21,55 @@ public class AiExtractionService {
 
     private final ProductExtractionClient extractionClient;
     private final CategoryRepository categoryRepository;
+    private final AiExtractionProperties properties;
 
     public AiExtractionService(
             ProductExtractionClient extractionClient,
-            CategoryRepository categoryRepository) {
+            CategoryRepository categoryRepository,
+            AiExtractionProperties properties) {
         this.extractionClient = extractionClient;
         this.categoryRepository = categoryRepository;
+        this.properties = properties;
     }
 
+    /**
+     * 업로드된 이미지 <b>전체</b>를 AI 모듈로 보내 상품 필드를 추출한다.
+     *
+     * <p>여러 장을 함께 분석하면 대표 한 장만으로는 안 보이던 브랜드·모델명·상세 스펙을
+     * 더 잘 잡아낸다(AI 파트 요청). 빈 슬롯은 걸러내고, 대표(첫 장)를 포함해 순서를 유지한다.
+     */
     public AiExtractionResponse extract(List<MultipartFile> images) {
-        MultipartFile representativeImage = representativeImage(images);
+        List<MultipartFile> validImages = validImages(images);
         try {
-            AiModuleExtraction result = extractionClient.extract(representativeImage);
+            AiModuleExtraction result = extractionClient.extract(validImages);
             return map(result);
         } catch (RestClientException | IllegalStateException e) {
-            log.warn("AI 상품 정보 추출 실패 file={}", representativeImage.getOriginalFilename(), e);
+            log.warn("AI 상품 정보 추출 실패 imageCount={}", validImages.size(), e);
             return AiExtractionResponse.failed("AI 분석을 완료하지 못했습니다. 직접 입력해 주세요.");
         }
     }
 
-    private MultipartFile representativeImage(List<MultipartFile> images) {
-        if (images == null || images.isEmpty() || images.get(0).isEmpty()) {
+    /**
+     * 분석에 보낼 이미지를 추린다. 빈 슬롯(미첨부)은 제거하고, 남은 것은 모두 JPG/PNG 여야 하며
+     * 최소 한 장(대표) 이상, {@code app.ai-extraction.max-images} 이하여야 한다.
+     */
+    private List<MultipartFile> validImages(List<MultipartFile> images) {
+        List<MultipartFile> present = images == null ? List.of()
+                : images.stream().filter(image -> image != null && !image.isEmpty()).toList();
+        if (present.isEmpty()) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "대표 이미지 한 장이 필요합니다.");
         }
-        MultipartFile image = images.get(0);
-        if (!MediaTypeValidator.isJpegOrPng(image.getContentType())) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "JPG 또는 PNG 이미지만 분석할 수 있습니다.");
+        if (present.size() > properties.maxImages()) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR,
+                    "이미지는 최대 " + properties.maxImages() + "장까지 분석할 수 있습니다.");
         }
-        return image;
+        for (MultipartFile image : present) {
+            if (!MediaTypeValidator.isJpegOrPng(image.getContentType())) {
+                throw new BusinessException(ErrorCode.VALIDATION_ERROR,
+                        "JPG 또는 PNG 이미지만 분석할 수 있습니다.");
+            }
+        }
+        return present;
     }
 
     private AiExtractionResponse map(AiModuleExtraction result) {

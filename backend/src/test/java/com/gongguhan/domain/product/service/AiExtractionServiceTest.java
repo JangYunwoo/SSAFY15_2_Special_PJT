@@ -29,24 +29,50 @@ class AiExtractionServiceTest {
     void setUp() {
         client = mock(ProductExtractionClient.class);
         categoryRepository = mock(CategoryRepository.class);
-        service = new AiExtractionService(client, categoryRepository);
+        AiExtractionProperties properties =
+                new AiExtractionProperties("http://localhost:8000", "/extract", 10000, 5);
+        service = new AiExtractionService(client, categoryRepository, properties);
     }
 
     @Test
-    void sendsOnlyRepresentativeImageAndMapsCategoryNameToId() {
+    void sendsAllUploadedImagesAndMapsCategoryNameToId() {
         MockMultipartFile first = image("main.jpg", "image/jpeg");
         MockMultipartFile second = image("detail.png", "image/png");
         Category category = mock(Category.class);
         when(category.getCategoryId()).thenReturn(12L);
         when(categoryRepository.findFirstByNameIgnoreCaseAndActiveTrue("생활"))
                 .thenReturn(Optional.of(category));
-        when(client.extract(first)).thenReturn(moduleResult("생활"));
+        when(client.extract(List.of(first, second))).thenReturn(moduleResult("생활"));
 
         var response = service.extract(List.of(first, second));
 
         assertThat(response.status()).isEqualTo("COMPLETED");
         assertThat(response.fields().categoryId().value()).isEqualTo("12");
-        verify(client).extract(first);
+        // 대표 한 장이 아니라 올린 이미지 전체가 그대로 전달된다.
+        verify(client).extract(List.of(first, second));
+    }
+
+    @Test
+    void skipsEmptySlotsButKeepsRemainingImages() {
+        MockMultipartFile first = image("main.jpg", "image/jpeg");
+        MockMultipartFile empty = new MockMultipartFile("images", "", "image/jpeg", new byte[0]);
+        MockMultipartFile third = image("detail.png", "image/png");
+        when(client.extract(List.of(first, third))).thenReturn(moduleResult("생활"));
+
+        service.extract(List.of(first, empty, third));
+
+        verify(client).extract(List.of(first, third));
+    }
+
+    @Test
+    void rejectsWhenImageCountExceedsMax() {
+        List<MockMultipartFile> tooMany = List.of(
+                image("1.jpg", "image/jpeg"), image("2.jpg", "image/jpeg"),
+                image("3.jpg", "image/jpeg"), image("4.jpg", "image/jpeg"),
+                image("5.jpg", "image/jpeg"), image("6.jpg", "image/jpeg"));
+
+        assertThrows(BusinessException.class, () -> service.extract(List.copyOf(tooMany)));
+        verifyNoInteractions(client);
     }
 
     @Test
@@ -54,7 +80,7 @@ class AiExtractionServiceTest {
         MockMultipartFile image = image("main.png", "image/png");
         when(categoryRepository.findFirstByNameIgnoreCaseAndActiveTrue("알 수 없는 품목"))
                 .thenReturn(Optional.empty());
-        when(client.extract(image)).thenReturn(moduleResult("알 수 없는 품목"));
+        when(client.extract(List.of(image))).thenReturn(moduleResult("알 수 없는 품목"));
 
         var response = service.extract(List.of(image));
 
@@ -66,7 +92,7 @@ class AiExtractionServiceTest {
     @Test
     void timeoutReturnsFailedEmptyFieldsSoManualInputCanContinue() {
         MockMultipartFile image = image("main.jpg", "image/jpeg");
-        when(client.extract(image)).thenThrow(new ResourceAccessException("timeout"));
+        when(client.extract(List.of(image))).thenThrow(new ResourceAccessException("timeout"));
 
         var response = service.extract(List.of(image));
 
@@ -97,7 +123,7 @@ class AiExtractionServiceTest {
         AiModuleExtraction parsed = new com.fasterxml.jackson.databind.ObjectMapper()
                 .readValue(json, AiModuleExtraction.class);
         MockMultipartFile image = image("main.jpg", "image/jpeg");
-        when(client.extract(image)).thenReturn(parsed);
+        when(client.extract(List.of(image))).thenReturn(parsed);
         when(categoryRepository.existsById(10001L)).thenReturn(true);
 
         var response = service.extract(List.of(image));
@@ -118,7 +144,7 @@ class AiExtractionServiceTest {
         when(category.getCategoryId()).thenReturn(12L);
         when(categoryRepository.findFirstByNameIgnoreCaseAndActiveTrue("생활"))
                 .thenReturn(Optional.of(category));
-        when(client.extract(image)).thenReturn(moduleResult("생활"));
+        when(client.extract(List.of(image))).thenReturn(moduleResult("생활"));
 
         var response = service.extract(List.of(image));
 
