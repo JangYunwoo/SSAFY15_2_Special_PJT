@@ -3,10 +3,12 @@ package com.gongguhan.domain.refund.service;
 import com.gongguhan.domain.account.entity.User;
 import com.gongguhan.domain.account.repository.UserRepository;
 import com.gongguhan.domain.payment.common.entity.Payment;
+import com.gongguhan.domain.payment.common.port.CardRefundPort;
 import com.gongguhan.domain.payment.common.repository.PaymentRepository;
 import com.gongguhan.domain.refund.entity.Refund;
 import com.gongguhan.domain.refund.entity.RefundMethod;
 import com.gongguhan.domain.refund.entity.RefundReason;
+import com.gongguhan.domain.refund.entity.RefundStatus;
 import com.gongguhan.domain.refund.service.RefundLedgerService.OpenResult;
 import com.gongguhan.domain.payment.card.service.SsafyApiLogService;
 import com.gongguhan.domain.returnrequest.port.RefundPort;
@@ -76,6 +78,8 @@ public class RefundOrchestrationService {
     private final SsafyApiLogService ssafyApiLogService;
     private final PolicyService policyService;
     private final List<RefundPort> refundPorts;
+    private final CardRefundPort cardRefundPort;
+    private final RefundFinalizationService finalizationService;
 
     public RefundOrchestrationService(RefundLedgerService ledgerService,
                                       PaymentRepository paymentRepository,
@@ -83,7 +87,9 @@ public class RefundOrchestrationService {
                                       SsafyTransferClient transferClient,
                                       SsafyApiLogService ssafyApiLogService,
                                       PolicyService policyService,
-                                      List<RefundPort> refundPorts) {
+                                      List<RefundPort> refundPorts,
+                                      CardRefundPort cardRefundPort,
+                                      RefundFinalizationService finalizationService) {
         this.ledgerService = ledgerService;
         this.paymentRepository = paymentRepository;
         this.userRepository = userRepository;
@@ -91,6 +97,8 @@ public class RefundOrchestrationService {
         this.ssafyApiLogService = ssafyApiLogService;
         this.policyService = policyService;
         this.refundPorts = refundPorts;
+        this.cardRefundPort = cardRefundPort;
+        this.finalizationService = finalizationService;
     }
 
     /**
@@ -106,7 +114,77 @@ public class RefundOrchestrationService {
 
         OpenResult opened = ledgerService.openForParticipation(
                 participationId, amount, reason, method);
-        return executeIfCreated(opened, payment);
+        Refund refund = executeIfCreated(opened, payment);
+        // 새로 만들어 실행한 건만 종결한다. 이미 있던 건은 이 요청이 실행하지 않았으므로
+        // (executeIfCreated 가 건너뜀) 여기서 다시 에스크로를 닫으려 하면 안 된다.
+        if (opened.created()) {
+            finalizeIfParticipationCompleted(refund);
+        }
+        return refund;
+    }
+
+    /**
+     * 카드 결제 건을 <b>카드 승인 취소</b>로 환불합니다 (S15P21B205-108).
+     *
+     * <p>{@link #refundParticipation} 은 카드 재입력 화면이 없어 계좌이체로만 돌려주지만,
+     * 참여 취소는 사용자가 화면에서 카드를 다시 입력할 수 있으므로 카드 취소를 직접
+     * 시도합니다. 전액·청구서 발행 전이면 원결제가 카드에서 취소되고, 부분 환불이거나
+     * 청구서가 발행된 건은 {@link CardRefundPort.CardRefundResult.Status#REQUIRES_TRANSFER_FALLBACK}
+     * 로 알려져 계좌이체로 폴백합니다. 그래서 "왜 카드로 환불되지 않느냐"는 물음에 먼저
+     * 카드 취소로 답하고, 정말 불가능한 경우에만 계좌이체로 넘어갑니다.
+     *
+     * @throws BusinessException 결제 수단이 카드가 아니면 {@code INVALID_STATE_TRANSITION}
+     */
+    public Refund refundParticipationByCard(Long participationId, long amount, RefundReason reason,
+                                            String cardNumber, String cvc) {
+        Payment payment = loadPayment(participationId);
+        if (!METHOD_CARD.equals(payment.getMethod())) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
+                    "카드 결제만 카드 취소로 환불할 수 있습니다. method=" + payment.getMethod());
+        }
+
+        OpenResult opened = ledgerService.openForParticipation(
+                participationId, amount, reason, RefundMethod.CARD_CANCEL);
+        if (!opened.created()) {
+            log.info("이미 진행 중이거나 완료된 환불이라 카드 취소를 건너뜁니다. refundId={}",
+                    opened.refund().getRefundId());
+            return opened.refund();
+        }
+        Refund refund = executeCardCancel(opened.refund(), payment, cardNumber, cvc);
+        finalizeIfParticipationCompleted(refund);
+        return refund;
+    }
+
+    /**
+     * 카드 취소를 실행하고, 취소 불가면 계좌이체로 폴백합니다.
+     *
+     * <p>외부 호출은 {@link RefundOrchestrationService} 규약대로 트랜잭션 밖입니다.
+     * 카드번호·CVC 는 어디에도 저장하지 않고 이 호출 안에서만 씁니다.
+     */
+    private Refund executeCardCancel(Refund refund, Payment payment, String cardNumber, String cvc) {
+        Long refundId = refund.getRefundId();
+        CardRefundPort.CardRefundResult result;
+        try {
+            result = cardRefundPort.cancel(new CardRefundPort.CardRefundCommand(
+                    payment.getPaymentId(), cardNumber, cvc, refund.getAmount()));
+        } catch (BusinessException exception) {
+            log.warn("카드 취소 실행 실패 refundId={} reason={}", refundId, exception.getMessage());
+            return ledgerService.fail(refundId, truncate(exception.getMessage()));
+        }
+
+        return switch (result.status()) {
+            case CANCELED -> ledgerService.completeByCardCancel(refundId, null);
+            case REQUIRES_TRANSFER_FALLBACK -> {
+                log.info("카드 취소 불가로 계좌이체 폴백 refundId={} reason={}",
+                        refundId, result.responseMessage());
+                // 전환된 엔티티(수단=ACCOUNT_TRANSFER)를 넘긴다. 넘기지 않고 기존 refund 를
+                // 다시 쓰면 in-memory 수단이 CARD_CANCEL 이라 execute 가 잘못 분기한다.
+                Refund switched = ledgerService.fallbackToAccountTransfer(refundId);
+                yield execute(switched, payment);
+            }
+            case FAILED -> ledgerService.fail(refundId, truncate(
+                    result.responseMessage() == null ? "카드 취소가 거절되었습니다." : result.responseMessage()));
+        };
     }
 
     /** 반품 승인·수거 완료에 따른 환불을 개시하고 실행합니다 (FR-RTN-17). */
@@ -132,7 +210,9 @@ public class RefundOrchestrationService {
             // 입금 단위 환불(슬롯 만료·미매칭)은 코인 송금 경로이며 아직 어댑터가 없다.
             return ledgerService.fail(refundId, "코인 환불 송금은 아직 지원되지 않습니다.");
         }
-        return execute(refund, loadPayment(participationId));
+        Refund result = execute(refund, loadPayment(participationId));
+        finalizeIfParticipationCompleted(result);
+        return result;
     }
 
     private Refund executeIfCreated(OpenResult opened, Payment payment) {
@@ -302,6 +382,32 @@ public class RefundOrchestrationService {
             return "사유가 기록되지 않았습니다.";
         }
         return reason.length() <= 255 ? reason : reason.substring(0, 255);
+    }
+
+    /**
+     * 환불이 완료됐으면 에스크로를 닫고 참여를 종결한다.
+     *
+     * <p>참여 취소·모집 실패·판매자 귀책 무산이 대상이다. 반품({@code returnId} 있음)은 반품
+     * 도메인이 스스로 종결하고, 입금 단위 코인 환불({@code participationId} 없음)은 참여가 없다.
+     *
+     * <p><b>환불 송금은 이미 완료·커밋된 상태다.</b> 마무리(에스크로/참여 종결)가 실패해도
+     * 환불을 되돌리거나 호출자(참여 취소 요청)를 실패로 만들면 안 된다 — 로그만 남기고 넘어가,
+     * 재처리(RFD-04)나 정합성 점검(FR-ESC invariant) 대상으로 둔다.
+     */
+    private void finalizeIfParticipationCompleted(Refund refund) {
+        if (refund == null || refund.getStatus() != RefundStatus.COMPLETED) {
+            return;
+        }
+        if (refund.getReturnId() != null || refund.getParticipationId() == null) {
+            return;
+        }
+        Long participationId = refund.getParticipationId();
+        try {
+            finalizationService.finalizeParticipationRefund(participationId, "참여 환불 완료");
+        } catch (RuntimeException exception) {
+            log.error("환불은 완료됐으나 에스크로/참여 종결에 실패했습니다. participationId={} refundId={}",
+                    participationId, refund.getRefundId(), exception);
+        }
     }
 
 }
