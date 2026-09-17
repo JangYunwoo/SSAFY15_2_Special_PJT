@@ -119,6 +119,20 @@ public class RefundLedgerService {
         return refund;
     }
 
+    /**
+     * 카드 취소 불가로 계좌이체 환불로 전환합니다.
+     *
+     * <p>{@code CardRefundPort} 가 부분 환불·청구서 발행으로 {@code REQUIRES_TRANSFER_FALLBACK}
+     * 를 돌려줬을 때만 부릅니다. 수단만 바꾸고, 실제 이체는 오케스트레이션이 이어서 합니다.
+     */
+    @Transactional
+    public Refund fallbackToAccountTransfer(Long refundId) {
+        Refund refund = load(refundId);
+        refund.fallbackToAccountTransfer();
+        log.info("카드 취소 불가로 계좌이체 환불로 전환합니다. refundId={}", refundId);
+        return refund;
+    }
+
     /** 카드 승인 취소 결과를 기록합니다. */
     @Transactional
     public Refund completeByCardCancel(Long refundId, Long ssafyTransactionNo) {

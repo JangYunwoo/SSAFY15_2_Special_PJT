@@ -26,12 +26,13 @@ export const participationApi = {
   /**
    * PAR-03 모집 완료 전 참여 취소·환불 개시.
    *
-   * 본문 없이 보냅니다(백엔드 ParticipationCancelController 가 경로 변수만 받습니다).
-   * 결제 완료(PAID) 이면서 모집이 끝나지 않은 건만 받아들이고, 그 외에는
-   * INVALID_STATE_TRANSITION 으로 거절합니다.
+   * 카드 결제 건은 SSAFY 카드 승인 취소가 카드번호·CVC 를 다시 요구하므로 함께 보냅니다
+   * (백엔드가 카드 취소를 시도하고, 부분 환불·청구서 발행 등으로 불가하면 계좌이체로
+   * 폴백합니다). 카카오페이·코인 결제는 카드 정보 없이 보냅니다. 결제 완료(PAID) 이면서
+   * 모집이 끝나지 않은 건만 받아들이고, 그 외에는 INVALID_STATE_TRANSITION 으로 거절합니다.
    */
-  cancel: (participationId: Id) =>
-    api.post<NoContent>(`/users/me/participations/${participationId}/cancel`),
+  cancel: (participationId: Id, card?: { cardNumber: string; cvc: string }) =>
+    api.post<NoContent>(`/users/me/participations/${participationId}/cancel`, card),
 
   /**
    * CFM-01 배송완료 건 수동 구매확정. 취소할 수 없습니다.

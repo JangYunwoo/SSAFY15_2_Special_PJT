@@ -227,6 +227,20 @@ public class Refund {
     }
 
     /**
+     * 카드 취소가 불가해 계좌이체 환불로 전환합니다.
+     *
+     * <p>SSAFY 카드 취소는 전액·청구서 발행 전에만 가능합니다. 부분 환불이거나 청구서가
+     * 발행된 건은 {@code CardRefundPort} 가 {@code REQUIRES_TRANSFER_FALLBACK} 로 알리고,
+     * 호출자가 이 메서드로 수단을 바꾼 뒤 계좌이체 경로를 탑니다. 아직 진행 중일 때만
+     * 바꿉니다 — 완료·실패한 건의 수단을 바꾸면 원장 이력이 어긋납니다.
+     */
+    public void fallbackToAccountTransfer() {
+        requireProcessing();
+        requireMethod(RefundMethod.CARD_CANCEL);
+        this.refundMethod = RefundMethod.ACCOUNT_TRANSFER;
+    }
+
+    /**
      * 카드 승인 취소가 확정됐습니다.
      *
      * <p>SSAFY 카드 취소는 거래 단위 전액 취소입니다. 부분 환불은 이 경로로 올 수
