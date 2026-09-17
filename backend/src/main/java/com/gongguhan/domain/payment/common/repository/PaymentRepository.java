@@ -18,6 +18,12 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     boolean existsByGroupBuyIdAndUserIdAndStatus(Long groupBuyId, Long userId, String status);
 
+    /**
+     * 사용자가 이 공동구매에 잡아둔 진행 중 결제. uk_payments_slot(group_buy_id, user_id,
+     * slot_marker)이 활성 결제를 하나로 보장하므로 결과는 최대 한 건이다.
+     */
+    Optional<Payment> findByGroupBuyIdAndUserIdAndStatus(Long groupBuyId, Long userId, String status);
+
     Optional<Payment> findByPaymentIdAndUserId(Long paymentId, Long userId);
 
     Optional<Payment> findByParticipationId(Long participationId);

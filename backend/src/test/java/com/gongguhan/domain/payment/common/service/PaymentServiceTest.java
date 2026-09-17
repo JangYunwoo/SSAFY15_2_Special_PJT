@@ -103,6 +103,57 @@ class PaymentServiceTest {
     }
 
     @Test
+    void prepareReusesActiveSlotWhenIdempotencyKeyDiffers() {
+        // 새로고침하면 클라이언트가 만든 멱등키가 사라져 같은 화면에서도 새 키로 온다.
+        // 그때마다 자리를 새로 잡으면 사용자가 자기 자신 때문에 정원을 채운다.
+        Payment activeSlot = mock(Payment.class);
+        when(activeSlot.getMethod()).thenReturn("CARD");
+        when(activeSlot.isExpired(any())).thenReturn(false);
+        when(activeSlot.getPaymentId()).thenReturn(PAYMENT_ID);
+        when(activeSlot.getGroupBuyId()).thenReturn(GROUP_BUY_ID);
+        when(activeSlot.getStatus()).thenReturn(Payment.STATUS_PROCESSING);
+        when(activeSlot.isProcessing()).thenReturn(true);
+        when(activeSlot.getSlotExpiresAt()).thenReturn(LocalDateTime.now());
+        when(paymentRepository.findByIdempotencyKey("another-key")).thenReturn(Optional.empty());
+        when(paymentRepository.findByGroupBuyIdAndUserIdAndStatus(
+                GROUP_BUY_ID, USER_ID, Payment.STATUS_PROCESSING)).thenReturn(Optional.of(activeSlot));
+        when(groupBuySlotPort.get(GROUP_BUY_ID)).thenReturn(slotView());
+
+        PaymentResponse response =
+                paymentService.prepare(USER_ID, GROUP_BUY_ID, cardRequest(), "another-key");
+
+        assertEquals(String.valueOf(PAYMENT_ID), response.paymentId());
+        verify(groupBuySlotGate, never()).tryReserve(any(), anyInt(), anyInt());
+        verify(slotReservationTransaction, never()).execute(any(), any(), any(), any());
+    }
+
+    @Test
+    void prepareDoesNotReuseActiveSlotOfAnotherMethod() {
+        // 카드로 잡아둔 자리를 코인 결제로 이어 쓸 수 없다. 금액 검증 대상과 승인
+        // 경로가 다르다. 이전 자리 반납은 호출 측(PAY-03)이 한다.
+        Payment cardSlot = mock(Payment.class);
+        when(cardSlot.getMethod()).thenReturn("CARD");
+        when(paymentRepository.findByIdempotencyKey(IDEMPOTENCY_KEY)).thenReturn(Optional.empty());
+        when(paymentRepository.findByGroupBuyIdAndUserIdAndStatus(
+                GROUP_BUY_ID, USER_ID, Payment.STATUS_PROCESSING)).thenReturn(Optional.of(cardSlot));
+        GroupBuyRepository.SlotCounts slotCounts = mock(GroupBuyRepository.SlotCounts.class);
+        when(slotCounts.getReservedSlots()).thenReturn(0);
+        when(slotCounts.getCurrentParticipants()).thenReturn(0);
+        when(slotCounts.getTargetParticipants()).thenReturn(50);
+        when(groupBuyRepository.findSlotCounts(GROUP_BUY_ID)).thenReturn(Optional.of(slotCounts));
+        when(groupBuySlotGate.tryReserve(GROUP_BUY_ID, 50, 0)).thenReturn(true);
+        PaymentPrepareRequest cryptoRequest = new PaymentPrepareRequest("CRYPTO", 10L, 1L);
+        PaymentResponse expected = mock(PaymentResponse.class);
+        when(slotReservationTransaction.execute(USER_ID, GROUP_BUY_ID, cryptoRequest, IDEMPOTENCY_KEY))
+                .thenReturn(expected);
+
+        PaymentResponse response =
+                paymentService.prepare(USER_ID, GROUP_BUY_ID, cryptoRequest, IDEMPOTENCY_KEY);
+
+        assertEquals(expected, response);
+    }
+
+    @Test
     void prepareRejectsImmediatelyWhenGateDeniesWithoutStartingDbTransaction() {
         when(paymentRepository.findByIdempotencyKey(IDEMPOTENCY_KEY)).thenReturn(Optional.empty());
         GroupBuyRepository.SlotCounts slotCounts = mock(GroupBuyRepository.SlotCounts.class);

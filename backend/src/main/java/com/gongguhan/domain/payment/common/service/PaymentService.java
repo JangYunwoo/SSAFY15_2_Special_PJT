@@ -92,6 +92,26 @@ public class PaymentService {
             return PaymentResponse.from(existing, existingGroupBuySlot, LocalDateTime.now(clock));
         }
 
+        // 멱등키가 달라도 자리는 하나다.
+        //
+        // 멱등키는 클라이언트가 만드는데, 새로고침하면 그 값이 사라져 같은 화면에서도
+        // 매번 새 키로 오게 된다. 그때마다 슬롯을 새로 잡으면 사용자가 자기 자신 때문에
+        // 정원을 채우고 GROUP_BUY_FULL로 막힌다. uk_payments_slot(group_buy_id, user_id,
+        // slot_marker)이 활성 결제를 하나로 보장하므로 새로 만들어도 어차피 제약에 걸린다.
+        // 유효한 자리가 이미 있으면 그것을 그대로 돌려준다.
+        //
+        // 결제수단이 다르면 재사용하지 않는다 - 금액 검증 대상과 후속 승인 경로가 달라서
+        // 카드 슬롯을 코인 결제로 이어 쓸 수 없다. 이전 자리 반납은 호출 측(PAY-03)이 한다.
+        Payment activeSlot = paymentRepository
+                .findByGroupBuyIdAndUserIdAndStatus(groupBuyId, userId, Payment.STATUS_PROCESSING)
+                .orElse(null);
+        if (activeSlot != null
+                && activeSlot.getMethod().equals(request.method())
+                && !activeSlot.isExpired(LocalDateTime.now(clock))) {
+            GroupBuySlotPort.GroupBuySlot activeGroupBuySlot = groupBuySlotPort.get(groupBuyId);
+            return PaymentResponse.from(activeSlot, activeGroupBuySlot, LocalDateTime.now(clock));
+        }
+
         // Redis fast-fail 게이트: 프로젝션 조회(짧은 자체 트랜잭션, 즉시 커넥션 반납)라
         // PaymentSlotReservationTransaction의 슬롯 예약과 버전 충돌이 나지 않고, 락도
         // 잡지 않는다. 정원 초과면 그 슬롯 예약까지 가지 않고 여기서 즉시 거부한다 -
