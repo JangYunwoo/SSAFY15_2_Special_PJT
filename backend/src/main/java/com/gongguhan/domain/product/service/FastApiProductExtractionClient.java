@@ -2,7 +2,7 @@ package com.gongguhan.domain.product.service;
 
 import java.net.http.HttpClient;
 import java.time.Duration;
-import org.springframework.core.io.Resource;
+import java.util.List;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -30,10 +30,13 @@ public class FastApiProductExtractionClient implements ProductExtractionClient {
     }
 
     @Override
-    public AiModuleExtraction extract(MultipartFile representativeImage) {
+    public AiModuleExtraction extract(List<MultipartFile> images) {
+        // 같은 파트명("images")을 반복해 담으면 FastAPI 는 List[UploadFile] 로 수신한다.
+        // 순서는 유지되며, 첫 장이 대표 이미지다.
         MultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
-        Resource imageResource = representativeImage.getResource();
-        parts.add("images", imageResource);
+        for (MultipartFile image : images) {
+            parts.add("images", image.getResource());
+        }
         return restClient.post()
                 .uri(extractionPath)
                 .contentType(MediaType.MULTIPART_FORM_DATA)
