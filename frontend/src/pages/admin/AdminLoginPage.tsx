@@ -6,6 +6,7 @@ import { useAdminLogin } from '@/features/admin/useAdminAuth'
 import { toMessage } from '@/shared/api/errors'
 import type { SubmitHandlerEvent } from '@/shared/lib/dom'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
+import { BrandMark } from '@/shared/ui/BrandMark'
 import { Button } from '@/shared/ui/Button'
 import { TextField } from '@/shared/ui/Field'
 import { SiteFooter } from '@/app/layouts/SiteFooter'
@@ -37,7 +38,7 @@ export default function AdminLoginPage() {
       <header className="gnb">
         <div className="inner">
           <Link className="brand" to="/">
-            공구한
+            <BrandMark />
           </Link>
           <span className="badge">관리자 콘솔</span>
         </div>

@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet, ScrollRestoration } from 'react-router'
 
 import { cx } from '@/shared/lib/cx'
+import { BrandMark } from '@/shared/ui/BrandMark'
 
 import { SiteFooter } from './SiteFooter'
 
@@ -19,7 +20,7 @@ export function SellerLayout() {
       <header className="gnb">
         <div className="inner">
           <Link className="brand" to="/seller">
-            공구한
+            <BrandMark />
           </Link>
           <span className="badge">판매자센터</span>
           <div className="right">

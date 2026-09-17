@@ -15,6 +15,7 @@ import { BACKEND_FEATURES } from '@/shared/config/backendFeatures'
 import type { SubmitHandlerEvent } from '@/shared/lib/dom'
 import { useBodyClass } from '@/shared/lib/hooks/useBodyClass'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
+import { BrandMark } from '@/shared/ui/BrandMark'
 import { Button } from '@/shared/ui/Button'
 import { FieldRow, TextField } from '@/shared/ui/Field'
 import { Panel } from '@/shared/ui/Panel'
@@ -104,9 +105,8 @@ export default function SignupPage() {
   return (
     <main className="wrap">
       <section className="auth auth-wide">
-        {/* 로고가 나오면 이 자리를 <img> 로 바꾸면 됩니다 */}
         <span className="auth-mark">
-          <span className="brand">공구한</span>
+          <span className="brand"><BrandMark /></span>
         </span>
 
         <div className="auth-card">

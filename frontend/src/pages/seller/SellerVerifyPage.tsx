@@ -8,6 +8,7 @@ import { useIsSeller, useSessionStore } from '@/features/auth/sessionStore'
 import { SiteFooter } from '@/app/layouts/SiteFooter'
 import { toMessage } from '@/shared/api/errors'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
+import { BrandMark } from '@/shared/ui/BrandMark'
 import { Button } from '@/shared/ui/Button'
 import { FieldRow, TextField } from '@/shared/ui/Field'
 import { Panel } from '@/shared/ui/Panel'
@@ -84,7 +85,7 @@ export default function SellerVerifyPage() {
     <>
       <header className="gnb">
         <div className="inner">
-          <span className="brand">공구한</span>
+          <span className="brand"><BrandMark /></span>
           <span className="badge">판매자센터</span>
         </div>
       </header>
