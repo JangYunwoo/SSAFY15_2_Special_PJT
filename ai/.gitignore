@@ -9,3 +9,4 @@ htmlcov/
 .coverage
 test_images/
 *.pt
+local_app.py
