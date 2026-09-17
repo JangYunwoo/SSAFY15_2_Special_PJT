@@ -37,27 +37,15 @@ export default function MyPage() {
           </div>
         </div>
 
-        <div className="split">
-          <div>
-            <QueryBoundary query={profile}>
-              {(user) => <ProfilePanel key={user.id} user={user} />}
-            </QueryBoundary>
+        <QueryBoundary query={profile}>
+          {(user) => <ProfilePanel key={user.id} user={user} />}
+        </QueryBoundary>
 
-            <Panel className="mt16" title="배송지" description="공동구매 상품을 받을 주소">
-              <QueryBoundary query={addresses}>
-                {(items) => <AddressList items={items} />}
-              </QueryBoundary>
-            </Panel>
-          </div>
-
-          <aside>
-            <Panel title="안내" description="계정과 배송지">
-              <DataRow label="이메일 변경">불가 · 고객센터 문의</DataRow>
-              <DataRow label="기본 배송지">결제 화면에서 먼저 선택됩니다</DataRow>
-              <DataRow label="삭제 시">기본을 지우면 다음 배송지가 기본이 됩니다</DataRow>
-            </Panel>
-          </aside>
-        </div>
+        <Panel className="mt16" title="배송지" description="공동구매 상품을 받을 주소">
+          <QueryBoundary query={addresses}>
+            {(items) => <AddressList items={items} />}
+          </QueryBoundary>
+        </Panel>
       </section>
     </main>
   )

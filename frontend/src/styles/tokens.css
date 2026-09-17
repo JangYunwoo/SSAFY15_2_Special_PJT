@@ -94,6 +94,12 @@
   --max:1000px;
   /* 컨테이너 좌우 안쪽 여백 */
   --gutter:24px;
+  /* 색이 슬며시 넘어가는 속도. 버튼 등 누를 수 있는 것에 씁니다. */
+  --t-color:background-color .18s ease, color .18s ease, border-color .18s ease;
+  /* 헤더 아래 그림자 */
+  --shadow-bar:0 1px 6px rgba(0,0,0,.08);
+  /* 카드·패널 모서리 둥글기. 버튼(--btn-radius)보다 한 단계 큽니다. */
+  --radius-box:12px;
   /* 버튼 모서리 둥글기 */
   --btn-radius:10px;
   /*
