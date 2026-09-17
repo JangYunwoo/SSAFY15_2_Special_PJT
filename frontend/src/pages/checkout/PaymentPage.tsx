@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router'
 
@@ -119,8 +119,20 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
   const selectAsset = (assetId: string) => {
     setCryptoAssetId(assetId)
     setQuote(null)
-    if (payment !== null) issueQuote.mutate({ paymentId: payment.paymentId, assetId })
   }
+
+  // 슬롯 선점(prepare)에는 cryptoAssetId 가, Quote 에는 paymentId 가 필요합니다.
+  // 자산을 고르는 시점에는 아직 결제가 없으므로, 결제가 준비된 뒤에 Quote 를 발급합니다.
+  // 같은 (결제, 자산) 조합으로 두 번 요청하지 않도록 마지막 요청을 기억합니다.
+  const issuedFor = useRef<string | null>(null)
+  const issueQuoteMutate = issueQuote.mutate
+  useEffect(() => {
+    if (method !== 'CRYPTO' || payment === null || cryptoAssetId === null) return
+    const key = `${payment.paymentId}:${cryptoAssetId}`
+    if (issuedFor.current === key) return
+    issuedFor.current = key
+    issueQuoteMutate({ paymentId: payment.paymentId, assetId: cryptoAssetId })
+  }, [method, payment, cryptoAssetId, issueQuoteMutate])
 
   const canSubmit =
     payment !== null &&
@@ -206,7 +218,9 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
                   quote={quote}
                   isQuoteLoading={issueQuote.isPending}
                   onQuoteExpired={() => {
-                    if (cryptoAssetId !== null) selectAsset(cryptoAssetId)
+                    // 만료되면 같은 자산으로 다시 고정합니다.
+                    issuedFor.current = null
+                    setQuote(null)
                   }}
                 />
               ),
@@ -220,6 +234,11 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
           {slot.error !== null && (
             <p className="ai-hint" role="alert">
               {toMessage(slot.error)}
+            </p>
+          )}
+          {issueQuote.isError && (
+            <p className="ai-hint" role="alert">
+              {toMessage(issueQuote.error)}
             </p>
           )}
           {approve.isError && (

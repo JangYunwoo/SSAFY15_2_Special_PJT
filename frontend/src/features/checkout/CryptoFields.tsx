@@ -46,8 +46,8 @@ export function CryptoFields({
           onAssetChange(event.target.value)
         }}
         options={(assets.data ?? []).map((asset) => ({
-          value: asset.id,
-          label: `${asset.symbol} · ${asset.name}`,
+          value: asset.assetId,
+          label: `${asset.symbol} · ${asset.chainName}`,
         }))}
       />
 

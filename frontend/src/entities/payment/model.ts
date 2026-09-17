@@ -74,10 +74,12 @@ export interface KakaoPayApproveRequest {
 /* ---------- CRYP-01 ~ CRYP-04 ---------- */
 
 export interface CryptoAsset {
-  id: Id
+  assetId: Id
   symbol: string
-  name: string
   chainId: number
+  chainName: string
+  tokenContract: string
+  decimals: number
   requiredConfirmations: number
 }
 

@@ -63,8 +63,9 @@ export const paymentApi = {
   cryptoAssets: () => api.get<CryptoAsset[]>('/crypto/assets'),
 
   /** CRYP-02 환율·Buffer 적용 Quote 생성 */
-  cryptoQuote: (paymentId: Id, cryptoAssetId: Id) =>
-    api.post<CryptoQuote>(`/payments/${paymentId}/crypto/quote`, { cryptoAssetId }),
+  // 본문 키는 assetId 입니다. PAY-01(prepare)만 cryptoAssetId 를 씁니다.
+  cryptoQuote: (paymentId: Id, assetId: Id) =>
+    api.post<CryptoQuote>(`/payments/${paymentId}/crypto/quote`, { assetId }),
 
   /** CRYP-03 트랜잭션 해시 등록 */
   submitCryptoTx: (paymentId: Id, body: CryptoTransactionRequest) =>
