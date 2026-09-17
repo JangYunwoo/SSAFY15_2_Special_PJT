@@ -550,8 +550,8 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .gallery .thumb .lens{display:none;}
 @media(hover:hover) and (pointer:fine){
   .gallery .thumb .lens{
-    display:block;position:absolute;z-index:1;
-    width:180px;height:180px;overflow:hidden;
+    /* 크기는 GroupBuyGallery 의 LENS 가 인라인으로 지정합니다 */
+    display:block;position:absolute;z-index:1;overflow:hidden;
     background:var(--fill);border:1px solid var(--line-strong);
     box-shadow:0 2px 8px 2px rgba(60,64,67,.18);
     /* 창이 커서를 가로채면 mousemove 가 끊겨 따라오지 못합니다. */
