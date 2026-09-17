@@ -748,8 +748,12 @@ select.input{
 /* 양 끝은 막대 끝에 붙으므로 글자도 바깥쪽으로 정렬합니다 */
 .track-labels > li:first-child{text-align:left;}
 .track-labels > li:last-child{text-align:right;}
-.track-labels > li.on{color:var(--ink2);}
-.track-labels > li.now{color:var(--brand-text);font-weight:700;}
+/*
+ * 지나온 단계는 채워진 막대와 같은 색으로 둡니다. 어디까지 왔는지는 채움이
+ * 끝나는 자리가 이미 말해주므로, 현재 단계를 굵게 세워 따로 표시하지
+ * 않습니다. 굵기까지 쓰면 같은 정보를 세 번 말하게 됩니다.
+ */
+.track-labels > li.on{color:var(--brand-text);}
 
 .track-bar{height:6px;border-radius:999px;background:var(--fill);overflow:hidden;}
 .track-bar > span{

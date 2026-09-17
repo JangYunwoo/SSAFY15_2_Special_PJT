@@ -26,7 +26,8 @@ export function Timeline({ steps }: { steps: readonly TimelineStep[] }) {
         {steps.map((step) => (
           <li
             key={step.label}
-            className={cx(step.state !== 'todo' && 'on', step.state === 'now' && 'now')}
+            /* 현재 단계는 aria-current 로만 표시합니다. 보이는 구분은 막대가 합니다 */
+            className={cx(step.state !== 'todo' && 'on')}
             aria-current={step.state === 'now' ? 'step' : undefined}
           >
             {step.label}
