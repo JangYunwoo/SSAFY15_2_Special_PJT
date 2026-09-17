@@ -23,6 +23,13 @@ button,input,select,textarea{font:inherit;color:inherit;}
  * 레이아웃들이 header/main/footer 를 #root 바로 아래에 두므로 여기서 묶습니다.
  */
 #root{min-height:100vh;display:flex;flex-direction:column;}
+/*
+ * flex 안에서는 margin:0 auto 가 "남는 공간을 먹으라" 는 뜻이 되어 늘어나기를
+ * 끕니다. 그러면 .hero 처럼 안에 글자뿐인 블록이 내용 크기로 쪼그라듭니다.
+ * width:100% 를 줘서 먼저 폭을 채우게 하고, max-width 로 자른 뒤 auto 여백이
+ * 가운데로 보내는 원래 동작을 되살립니다.
+ */
+#root > *{width:100%;}
 #root > main{flex:1 0 auto;}
 
 .wrap{max-width:var(--max);margin:0 auto;padding:0 var(--gutter);}
