@@ -2,11 +2,14 @@ package com.gongguhan.domain.refund.service;
 
 import com.gongguhan.domain.account.entity.User;
 import com.gongguhan.domain.account.repository.UserRepository;
+import com.gongguhan.domain.escrow.service.EscrowService;
 import com.gongguhan.domain.payment.common.entity.Payment;
 import com.gongguhan.domain.payment.common.repository.PaymentRepository;
 import com.gongguhan.domain.refund.entity.Refund;
 import com.gongguhan.domain.refund.entity.RefundMethod;
 import com.gongguhan.domain.refund.entity.RefundReason;
+import com.gongguhan.domain.refund.entity.RefundStatus;
+import com.gongguhan.domain.refund.port.ParticipationRefundPort;
 import com.gongguhan.domain.refund.service.RefundLedgerService.OpenResult;
 import com.gongguhan.domain.payment.card.service.SsafyApiLogService;
 import com.gongguhan.domain.payment.crypto.service.CryptoRefundService;
@@ -76,6 +79,8 @@ public class RefundOrchestrationService {
     private final SsafyTransferClient transferClient;
     private final SsafyApiLogService ssafyApiLogService;
     private final CryptoRefundService cryptoRefundService;
+    private final EscrowService escrowService;
+    private final ParticipationRefundPort participationRefundPort;
     private final PolicyService policyService;
     private final List<RefundPort> refundPorts;
 
@@ -85,6 +90,8 @@ public class RefundOrchestrationService {
                                       SsafyTransferClient transferClient,
                                       SsafyApiLogService ssafyApiLogService,
                                       CryptoRefundService cryptoRefundService,
+                                      EscrowService escrowService,
+                                      ParticipationRefundPort participationRefundPort,
                                       PolicyService policyService,
                                       List<RefundPort> refundPorts) {
         this.ledgerService = ledgerService;
@@ -93,6 +100,8 @@ public class RefundOrchestrationService {
         this.transferClient = transferClient;
         this.ssafyApiLogService = ssafyApiLogService;
         this.cryptoRefundService = cryptoRefundService;
+        this.escrowService = escrowService;
+        this.participationRefundPort = participationRefundPort;
         this.policyService = policyService;
         this.refundPorts = refundPorts;
     }
@@ -172,17 +181,59 @@ public class RefundOrchestrationService {
     private Refund execute(Refund refund, Payment payment) {
         Long refundId = refund.getRefundId();
         try {
-            return switch (refund.getRefundMethod()) {
+            Refund executed = switch (refund.getRefundMethod()) {
                 case KAKAOPAY -> refundByPort(refund, payment);
                 case ACCOUNT_TRANSFER -> refundByTransfer(refund, payment);
                 case CRYPTO -> refundByCrypto(refund, payment);
                 case CARD_CANCEL -> ledgerService.fail(refundId,
                         "카드 취소는 카드 재입력이 필요해 자동 환불로 처리할 수 없습니다.");
             };
+            settleEscrow(executed);
+            return executed;
         } catch (BusinessException exception) {
             // 외부 연동 실패는 재처리 대상으로 남긴다. 사유를 그대로 적어 관리자가 판단한다.
             log.warn("환불 실행 실패 refundId={} reason={}", refundId, exception.getMessage());
             return ledgerService.fail(refundId, truncate(exception.getMessage()));
+        }
+    }
+
+    /**
+     * 송금이 끝난 만큼 에스크로 보관액을 줄입니다 (FR-ESC-05·08).
+     *
+     * <p>이 호출이 없으면 <b>돈은 나갔는데 장부는 보관 중</b>으로 남습니다. 보관 총액
+     * 불변식이 깨지고, 남은 금액을 정산으로 착각해 판매자에게 한 번 더 지급할 수 있습니다.
+     *
+     * <p>전액이면 {@code refundPartially} 가 알아서 {@code REFUNDED} 로 종료시킵니다.
+     * 부분 환불이면 {@code HELD} 로 남습니다 — 남은 금액은 판매자 정산 몫입니다.
+     *
+     * <p>입금 단위 환불(슬롯 만료·미매칭)은 참여 건이 없어 에스크로도 없으므로 건너뜁니다.
+     *
+     * <p><b>여기서 실패해도 예외를 올리지 않습니다.</b> 송금은 이미 끝났는데 예외를
+     * 올리면 호출 측이 환불 실패로 보고 재처리해 두 번 지급됩니다. 장부만 어긋난
+     * 상태이므로 ERROR 로 남겨 사람이 맞추게 합니다.
+     */
+    private void settleEscrow(Refund refund) {
+        if (refund.getStatus() != RefundStatus.COMPLETED || refund.getParticipationId() == null) {
+            return;
+        }
+        try {
+            escrowService.refundPartially(refund.getParticipationId(), refund.getAmount(),
+                    refund.getReasonType().name());
+        } catch (RuntimeException exception) {
+            log.error("환불 송금은 끝났으나 에스크로 정리에 실패했습니다. "
+                            + "장부를 직접 맞춰야 합니다. refundId={} participationId={} amount={} reason={}",
+                    refund.getRefundId(), refund.getParticipationId(), refund.getAmount(),
+                    exception.getMessage());
+        }
+
+        // 참여 취소로 시작된 환불은 여기서 끝난다. 반품 환불은 대상이 아니라 포트가
+        // 알아서 넘긴다 - 남은 수거·검수 단계를 건너뛰면 안 되기 때문이다.
+        try {
+            participationRefundPort.finishRefundingParticipation(refund.getParticipationId());
+        } catch (RuntimeException exception) {
+            log.error("환불 송금은 끝났으나 참여 상태를 종료하지 못했습니다. "
+                            + "refundId={} participationId={} reason={}",
+                    refund.getRefundId(), refund.getParticipationId(), exception.getMessage());
         }
     }
 

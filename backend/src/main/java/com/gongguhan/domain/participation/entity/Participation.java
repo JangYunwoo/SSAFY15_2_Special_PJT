@@ -310,8 +310,19 @@ public class Participation {
         status = STATUS_REFUNDING;
     }
 
+    /**
+     * 환불로 종료합니다.
+     *
+     * <p><b>활성 마커를 비웁니다.</b> {@code uk_participation_active(group_buy_id, user_id,
+     * active_marker)} 가 "한 사람이 한 공동구매에 유효 참여 하나" 를 보장하는데, 종료된
+     * 뒤에도 {@code 'Y'} 로 남으면 전액 환불받은 사람이 같은 공동구매에 다시 참여할 수
+     * 없습니다. MySQL 의 UNIQUE 는 NULL 끼리 충돌시키지 않으므로, 비우면 유일성 검사에서
+     * 빠집니다 - {@code payments.slot_marker}, {@code refunds.refund_marker} 와 같은
+     * 패턴입니다(스키마 주석: "활성 Y, 취소 시 NULL").
+     */
     public void markRefunded() {
         status = STATUS_REFUNDED;
         confirmHold = false;
+        activeMarker = null;
     }
 }

@@ -16,11 +16,14 @@ import com.gongguhan.domain.account.entity.User;
 import com.gongguhan.domain.account.repository.UserRepository;
 import com.gongguhan.domain.payment.card.service.SsafyApiLogService;
 import com.gongguhan.domain.payment.crypto.service.CryptoRefundService;
+import com.gongguhan.domain.escrow.service.EscrowService;
+import com.gongguhan.domain.refund.port.ParticipationRefundPort;
 import com.gongguhan.domain.payment.common.entity.Payment;
 import com.gongguhan.domain.payment.common.repository.PaymentRepository;
 import com.gongguhan.domain.refund.entity.Refund;
 import com.gongguhan.domain.refund.entity.RefundMethod;
 import com.gongguhan.domain.refund.entity.RefundReason;
+import com.gongguhan.domain.refund.entity.RefundStatus;
 import com.gongguhan.domain.refund.service.RefundLedgerService.OpenResult;
 import com.gongguhan.domain.returnrequest.port.RefundPort;
 import com.gongguhan.global.error.BusinessException;
@@ -61,6 +64,8 @@ class RefundOrchestrationServiceTest {
     private SsafyTransferClient transferClient;
     private SsafyApiLogService ssafyApiLogService;
     private CryptoRefundService cryptoRefundService;
+    private EscrowService escrowService;
+    private ParticipationRefundPort participationRefundPort;
     private PolicyService policyService;
     private RefundPort kakaoPort;
 
@@ -74,15 +79,35 @@ class RefundOrchestrationServiceTest {
         transferClient = mock(SsafyTransferClient.class);
         ssafyApiLogService = mock(SsafyApiLogService.class);
         cryptoRefundService = mock(CryptoRefundService.class);
+        escrowService = mock(EscrowService.class);
+        participationRefundPort = mock(ParticipationRefundPort.class);
         policyService = mock(PolicyService.class);
         kakaoPort = mock(RefundPort.class);
 
         when(ssafyApiLogService.generateInstitutionTransactionUniqueNo(anyString()))
                 .thenReturn(INSTITUTION_TX_NO);
 
+        // 실제 원장은 갱신된 Refund 를 돌려줍니다. 스터빙하지 않으면 mock 이 null 을
+        // 돌려줘 실제와 다르게 동작합니다 - 오케스트레이션이 그 반환값으로 후속 처리
+        // (에스크로 정리)를 하므로 여기서도 같은 계약을 지켜야 합니다.
+        Refund settled = mock(Refund.class);
+        when(settled.getStatus()).thenReturn(RefundStatus.COMPLETED);
+        when(settled.getParticipationId()).thenReturn(PARTICIPATION_ID);
+        when(settled.getAmount()).thenReturn(AMOUNT);
+        when(settled.getReasonType()).thenReturn(RefundReason.PARTICIPATION_CANCEL);
+        when(ledgerService.completeByCardCancel(anyLong(), any())).thenReturn(settled);
+        when(ledgerService.completeByAccountTransfer(anyLong(), anyString(), any()))
+                .thenReturn(settled);
+        when(ledgerService.completeByKakaoPay(anyLong(), anyString())).thenReturn(settled);
+        when(ledgerService.completeByCrypto(anyLong(), anyString(), any())).thenReturn(settled);
+
+        Refund failed = mock(Refund.class);
+        when(failed.getStatus()).thenReturn(RefundStatus.FAILED);
+        when(ledgerService.fail(anyLong(), anyString())).thenReturn(failed);
+
         service = new RefundOrchestrationService(ledgerService, paymentRepository, userRepository,
-                transferClient, ssafyApiLogService, cryptoRefundService, policyService,
-                List.of(kakaoPort));
+                transferClient, ssafyApiLogService, cryptoRefundService, escrowService,
+                participationRefundPort, policyService, List.of(kakaoPort));
     }
 
     // ------------------------------------------------------------------
@@ -387,6 +412,103 @@ class RefundOrchestrationServiceTest {
         verify(ledgerService).completeByCrypto(eq(REFUND_ID), eq(CRYPTO_TX_HASH), any());
         verify(transferClient, never()).transfer(anyString(), anyString(), anyString(),
                 anyString(), anyString(), anyString(), anyLong(), anyString(), anyString());
+    }
+
+    /**
+     * 돈이 나갔으면 장부에서도 빠져야 합니다. 이 호출이 없으면 에스크로가 보관 중으로
+     * 남아 보관 총액 불변식(FR-ESC-08)이 깨지고, 남은 금액을 정산으로 착각해 판매자에게
+     * 한 번 더 지급할 수 있습니다.
+     */
+    @Test
+    @DisplayName("송금이 끝나면 에스크로 보관액을 줄인다")
+    void settlesEscrowAfterSuccessfulRefund() {
+        Payment payment = payment("CRYPTO");
+        Refund refundRow = refund(RefundMethod.CRYPTO);
+        OpenResult opened = new OpenResult(refundRow, true);
+        CryptoRefundService.RefundTransfer transfer = new CryptoRefundService.RefundTransfer(
+                CRYPTO_TX_HASH, java.math.BigDecimal.ONE, java.math.BigDecimal.TEN, BUYER_WALLET);
+
+        when(paymentRepository.findByParticipationId(PARTICIPATION_ID))
+                .thenReturn(Optional.of(payment));
+        when(ledgerService.openForParticipation(eq(PARTICIPATION_ID), anyLong(), any(), any()))
+                .thenReturn(opened);
+        when(cryptoRefundService.isEnabled()).thenReturn(true);
+        when(cryptoRefundService.findBuyerWallet(PAYMENT_ID)).thenReturn(BUYER_WALLET);
+        when(cryptoRefundService.refundByPayment(eq(PAYMENT_ID), anyLong())).thenReturn(transfer);
+
+        service.refundParticipation(PARTICIPATION_ID, AMOUNT, RefundReason.PARTICIPATION_CANCEL);
+
+        verify(escrowService).refundPartially(eq(PARTICIPATION_ID), eq(AMOUNT), anyString());
+    }
+
+    /**
+     * 실패한 환불은 돈이 나가지 않았으므로 장부도 그대로 둡니다. 여기서 줄이면
+     * 보관액이 실제보다 적어져 판매자가 받을 돈이 사라집니다.
+     */
+    @Test
+    @DisplayName("환불이 실패하면 에스크로를 건드리지 않는다")
+    void keepsEscrowWhenRefundFails() {
+        Payment payment = payment("CRYPTO");
+        Refund refundRow = refund(RefundMethod.CRYPTO);
+        OpenResult opened = new OpenResult(refundRow, true);
+
+        when(paymentRepository.findByParticipationId(PARTICIPATION_ID))
+                .thenReturn(Optional.of(payment));
+        when(ledgerService.openForParticipation(eq(PARTICIPATION_ID), anyLong(), any(), any()))
+                .thenReturn(opened);
+        when(cryptoRefundService.isEnabled()).thenReturn(false);
+
+        service.refundParticipation(PARTICIPATION_ID, AMOUNT, RefundReason.PARTICIPATION_CANCEL);
+
+        verify(escrowService, never()).refundPartially(anyLong(), anyLong(), anyString());
+    }
+
+    /**
+     * 참여 취소로 시작된 환불은 송금이 끝나면 참여도 종료돼야 합니다. 안 그러면
+     * 화면에 '환불 중' 으로 영원히 남습니다.
+     */
+    @Test
+    @DisplayName("송금이 끝나면 참여 건을 종료 상태로 넘긴다")
+    void finishesParticipationAfterSuccessfulRefund() {
+        Payment payment = payment("CRYPTO");
+        Refund refundRow = refund(RefundMethod.CRYPTO);
+        OpenResult opened = new OpenResult(refundRow, true);
+        CryptoRefundService.RefundTransfer transfer = new CryptoRefundService.RefundTransfer(
+                CRYPTO_TX_HASH, java.math.BigDecimal.ONE, java.math.BigDecimal.TEN, BUYER_WALLET);
+
+        when(paymentRepository.findByParticipationId(PARTICIPATION_ID))
+                .thenReturn(Optional.of(payment));
+        when(ledgerService.openForParticipation(eq(PARTICIPATION_ID), anyLong(), any(), any()))
+                .thenReturn(opened);
+        when(cryptoRefundService.isEnabled()).thenReturn(true);
+        when(cryptoRefundService.findBuyerWallet(PAYMENT_ID)).thenReturn(BUYER_WALLET);
+        when(cryptoRefundService.refundByPayment(eq(PAYMENT_ID), anyLong())).thenReturn(transfer);
+
+        service.refundParticipation(PARTICIPATION_ID, AMOUNT, RefundReason.PARTICIPATION_CANCEL);
+
+        verify(participationRefundPort).finishRefundingParticipation(PARTICIPATION_ID);
+    }
+
+    /**
+     * 실패한 환불은 돈이 안 나갔으니 참여도 그대로 둡니다. 여기서 종료시키면
+     * 재처리(RFD-04) 대상이 사라집니다.
+     */
+    @Test
+    @DisplayName("환불이 실패하면 참여 상태를 건드리지 않는다")
+    void keepsParticipationWhenRefundFails() {
+        Payment payment = payment("CRYPTO");
+        Refund refundRow = refund(RefundMethod.CRYPTO);
+        OpenResult opened = new OpenResult(refundRow, true);
+
+        when(paymentRepository.findByParticipationId(PARTICIPATION_ID))
+                .thenReturn(Optional.of(payment));
+        when(ledgerService.openForParticipation(eq(PARTICIPATION_ID), anyLong(), any(), any()))
+                .thenReturn(opened);
+        when(cryptoRefundService.isEnabled()).thenReturn(false);
+
+        service.refundParticipation(PARTICIPATION_ID, AMOUNT, RefundReason.PARTICIPATION_CANCEL);
+
+        verify(participationRefundPort, never()).finishRefundingParticipation(anyLong());
     }
 
     /**
