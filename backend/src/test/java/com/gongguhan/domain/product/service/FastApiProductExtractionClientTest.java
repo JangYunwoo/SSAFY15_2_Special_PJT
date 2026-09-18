@@ -11,7 +11,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.client.RestClientException;
 
 class FastApiProductExtractionClientTest {
@@ -26,15 +25,13 @@ class FastApiProductExtractionClientTest {
     }
 
     @Test
-    void postsAllImagesAsMultipartAndMapsResponse() throws Exception {
+    void postsAllImageUrlsAsJsonAndMapsResponse() throws Exception {
         server = HttpServer.create(new InetSocketAddress(0), 0);
         server.createContext("/extract", exchange -> {
-            String request = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.ISO_8859_1);
-            assertThat(exchange.getRequestHeaders().getFirst("Content-Type")).startsWith("multipart/form-data");
-            // 올린 이미지 전체가 같은 파트명("images")으로 실려야 한다.
-            assertThat(request).contains("name=\"images\"")
-                    .contains("filename=\"main.jpg\"")
-                    .contains("filename=\"detail.png\"");
+            String request = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            assertThat(exchange.getRequestHeaders().getFirst("Content-Type")).startsWith("application/json");
+            assertThat(request).isEqualTo("{\"image_urls\":[\"https://images.example.com/main.jpg\","
+                    + "\"https://images.example.com/detail.png\"]}");
             respond(exchange, 200, """
                     {"status":"COMPLETED","fields":{"name":{"value":"키보드","confidence":0.95},
                     "category":{"value":"전자제품","confidence":0.88}},"warnings":[]}
@@ -44,8 +41,8 @@ class FastApiProductExtractionClientTest {
 
         var client = client(1_000);
         var response = client.extract(List.of(
-                new MockMultipartFile("images", "main.jpg", "image/jpeg", new byte[] {1, 2, 3}),
-                new MockMultipartFile("images", "detail.png", "image/png", new byte[] {4, 5, 6})));
+                "https://images.example.com/main.jpg",
+                "https://images.example.com/detail.png"));
 
         assertThat(response.fields().name().value()).isEqualTo("키보드");
         assertThat(response.fields().category().value()).isEqualTo("전자제품");
@@ -66,8 +63,8 @@ class FastApiProductExtractionClientTest {
 
         var client = client(50);
 
-        assertThrows(RestClientException.class, () -> client.extract(List.of(new MockMultipartFile(
-                "images", "main.jpg", "image/jpeg", new byte[] {1}))));
+        assertThrows(RestClientException.class, () -> client.extract(
+                List.of("https://images.example.com/main.jpg")));
     }
 
     private FastApiProductExtractionClient client(int timeoutMs) {
