@@ -64,10 +64,17 @@ Run Configuration에 `backend/.env`를 지정하거나 Environment variables에 
 
 ## AI 상품 정보 추출
 
-`POST /api/v1/sellers/products/ai-extraction`은 업로드된 첫 번째 이미지만 대표 이미지로 FastAPI에
-동기 전달한다. 기본 제한시간은 10초이며, 장애·시간 초과·빈 응답은 `FAILED`와 빈 필드로 변환해
-판매자가 수동 입력을 계속할 수 있게 한다. AI가 반환한 카테고리 문자열은 활성 DB 카테고리 이름과
-대조해 ID로 바꾸며, 매칭되지 않으면 해당 필드만 비우고 경고를 반환한다.
+`POST /api/v1/sellers/products/ai-extraction`은 업로드된 대표 이미지와 추가 이미지를 합쳐 최대
+5장까지 분석한다. 백엔드는 파일을 분석용 임시 S3 객체로 올리고, 공개 HTTPS URL 목록을
+`image_urls` JSON으로 FastAPI에 전달한다. FastAPI 응답이 성공이든 실패든 임시 객체는 즉시
+삭제되며 상품을 최종 등록할 때 이미지를 다시 영구 저장한다. 따라서 실제 AI 성공 경로에는
+`AWS_S3_BUCKET`과 Gemini가 읽을 수 있는 `AWS_S3_PUBLIC_BASE_URL`이 필요하다. 로컬 파일 저장소나
+HTTP MinIO URL은 수동 입력 폴백 검증에는 쓸 수 있지만 Gemini 성공 경로에는 쓸 수 없다.
+
+기본 제한시간은 10초이며, 저장소 장애·AI 장애·시간 초과·빈 응답은 `FAILED`와 빈 필드로 변환해
+판매자가 수동 입력을 계속할 수 있게 한다. 이미지 형식·장수 같은 사용자 입력 오류는 400으로
+반환한다. AI가 반환한 카테고리 ID를 우선 검증하고, ID가 없으면 활성 DB 카테고리 이름을 대조해
+ID로 바꾼다. 매칭되지 않으면 해당 필드만 비우고 경고를 반환한다.
 
 | 환경변수 | 설명 |
 | --- | --- |
