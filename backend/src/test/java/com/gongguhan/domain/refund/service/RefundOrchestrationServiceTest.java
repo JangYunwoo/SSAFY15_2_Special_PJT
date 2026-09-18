@@ -16,6 +16,7 @@ import com.gongguhan.domain.account.entity.User;
 import com.gongguhan.domain.account.repository.UserRepository;
 import com.gongguhan.domain.payment.card.service.SsafyApiLogService;
 import com.gongguhan.domain.payment.crypto.service.CryptoRefundService;
+import com.gongguhan.domain.admin.service.AuditLogService;
 import com.gongguhan.domain.escrow.service.EscrowService;
 import com.gongguhan.domain.refund.port.ParticipationRefundPort;
 import com.gongguhan.domain.payment.common.entity.Payment;
@@ -65,6 +66,7 @@ class RefundOrchestrationServiceTest {
     private SsafyApiLogService ssafyApiLogService;
     private CryptoRefundService cryptoRefundService;
     private EscrowService escrowService;
+    private AuditLogService auditLogService;
     private ParticipationRefundPort participationRefundPort;
     private PolicyService policyService;
     private RefundPort kakaoPort;
@@ -80,6 +82,7 @@ class RefundOrchestrationServiceTest {
         ssafyApiLogService = mock(SsafyApiLogService.class);
         cryptoRefundService = mock(CryptoRefundService.class);
         escrowService = mock(EscrowService.class);
+        auditLogService = mock(AuditLogService.class);
         participationRefundPort = mock(ParticipationRefundPort.class);
         policyService = mock(PolicyService.class);
         kakaoPort = mock(RefundPort.class);
@@ -107,7 +110,7 @@ class RefundOrchestrationServiceTest {
 
         service = new RefundOrchestrationService(ledgerService, paymentRepository, userRepository,
                 transferClient, ssafyApiLogService, cryptoRefundService, escrowService,
-                participationRefundPort, policyService, List.of(kakaoPort));
+                auditLogService, participationRefundPort, policyService, List.of(kakaoPort));
     }
 
     // ------------------------------------------------------------------

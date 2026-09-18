@@ -2,6 +2,7 @@ package com.gongguhan.domain.refund.service;
 
 import com.gongguhan.domain.account.entity.User;
 import com.gongguhan.domain.account.repository.UserRepository;
+import com.gongguhan.domain.admin.service.AuditLogService;
 import com.gongguhan.domain.escrow.service.EscrowService;
 import com.gongguhan.domain.payment.common.entity.Payment;
 import com.gongguhan.domain.payment.common.repository.PaymentRepository;
@@ -19,6 +20,7 @@ import com.gongguhan.global.error.ErrorCode;
 import com.gongguhan.global.policy.PolicyKey;
 import com.gongguhan.global.policy.PolicyService;
 import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -80,6 +82,7 @@ public class RefundOrchestrationService {
     private final SsafyApiLogService ssafyApiLogService;
     private final CryptoRefundService cryptoRefundService;
     private final EscrowService escrowService;
+    private final AuditLogService auditLogService;
     private final ParticipationRefundPort participationRefundPort;
     private final PolicyService policyService;
     private final List<RefundPort> refundPorts;
@@ -91,6 +94,7 @@ public class RefundOrchestrationService {
                                       SsafyApiLogService ssafyApiLogService,
                                       CryptoRefundService cryptoRefundService,
                                       EscrowService escrowService,
+                                      AuditLogService auditLogService,
                                       ParticipationRefundPort participationRefundPort,
                                       PolicyService policyService,
                                       List<RefundPort> refundPorts) {
@@ -101,6 +105,7 @@ public class RefundOrchestrationService {
         this.ssafyApiLogService = ssafyApiLogService;
         this.cryptoRefundService = cryptoRefundService;
         this.escrowService = escrowService;
+        this.auditLogService = auditLogService;
         this.participationRefundPort = participationRefundPort;
         this.policyService = policyService;
         this.refundPorts = refundPorts;
@@ -138,6 +143,25 @@ public class RefundOrchestrationService {
      * 기관거래고유번호는 매번 새로 채번합니다 — 같은 값을 다시 쓰면 금융망이 중복
      * 거래로 거부합니다(H1007).
      */
+    /**
+     * 관리자가 직접 재처리합니다 (RFD-04).
+     *
+     * <p>돈을 다시 내보내는 지점이라 <b>누가 눌렀는지</b>를 감사 로그에 남깁니다.
+     * 결과가 실패여도 시도는 기록합니다 - 이중 지급 의혹이 생겼을 때 "몇 번 눌렸나" 가
+     * 가장 먼저 필요한 정보입니다.
+     */
+    public Refund retry(Long adminId, Long refundId) {
+        Refund result = retry(refundId);
+        auditLogService.record(adminId, AuditLogService.TARGET_REFUND, refundId,
+                AuditLogService.ACTION_RETRY,
+                AuditLogService.values("status", RefundStatus.FAILED.name()),
+                AuditLogService.values("status", result.getStatus().name(),
+                        "amount", result.getAmount(),
+                        "refundMethod", result.getRefundMethod().name()));
+        return result;
+    }
+
+    /** 재처리 본체. 감사 로그가 필요 없는 내부 호출용입니다. */
     public Refund retry(Long refundId) {
         Refund refund = ledgerService.retry(refundId);
         Long participationId = refund.getParticipationId();
@@ -368,7 +392,7 @@ public class RefundOrchestrationService {
 
     /** 로그에 남길 요청 스냅샷. 계좌번호는 뒤 4자리만 남깁니다. */
     private Object sanitized(String withdrawalAccountNo, String depositAccountNo, long amount) {
-        return java.util.Map.of(
+        return Map.of(
                 "withdrawalAccountNo", mask(withdrawalAccountNo),
                 "depositAccountNo", mask(depositAccountNo),
                 "transactionBalance", String.valueOf(amount));

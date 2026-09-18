@@ -1,6 +1,7 @@
 package com.gongguhan.domain.penalty.service;
 
 import com.gongguhan.domain.account.entity.SellerProfile;
+import com.gongguhan.domain.admin.service.AuditLogService;
 import com.gongguhan.domain.account.repository.SellerProfileRepository;
 import com.gongguhan.domain.penalty.entity.SellerPenalty;
 import com.gongguhan.domain.penalty.event.SanctionLevel;
@@ -51,17 +52,20 @@ public class PenaltyService {
     private final SellerPenaltyRepository penaltyRepository;
     private final SellerProfileRepository sellerProfileRepository;
     private final PolicyService policyService;
+    private final AuditLogService auditLogService;
     private final ApplicationEventPublisher events;
     private final Clock clock;
 
     public PenaltyService(SellerPenaltyRepository penaltyRepository,
                           SellerProfileRepository sellerProfileRepository,
                           PolicyService policyService,
+                          AuditLogService auditLogService,
                           ApplicationEventPublisher events,
                           Clock clock) {
         this.penaltyRepository = penaltyRepository;
         this.sellerProfileRepository = sellerProfileRepository;
         this.policyService = policyService;
+        this.auditLogService = auditLogService;
         this.events = events;
         this.clock = clock;
     }
@@ -93,6 +97,13 @@ public class PenaltyService {
         log.info("위반 확정 penaltyId={} sellerId={} 누적={}/{} 판정={} 관리자={}",
                 penaltyId, penalty.getSellerId(), confirmedCount, limit, level, adminId);
 
+        auditLogService.record(adminId, AuditLogService.TARGET_SELLER_PENALTY, penaltyId,
+                AuditLogService.ACTION_CONFIRM,
+                AuditLogService.values("status", SellerPenalty.STATUS_CANDIDATE),
+                AuditLogService.values("status", penalty.getStatus(), "sellerId", penalty.getSellerId(),
+                        "confirmedCount", confirmedCount, "limit", limit,
+                        "level", level.name(), "memo", memo == null ? "" : memo));
+
         events.publishEvent(new SellerSanctionedEvent(
                 penalty.getSellerId(), penaltyId, level, confirmedCount,
                 penalty.getReasonType(), now));
@@ -109,6 +120,12 @@ public class PenaltyService {
     public SellerPenalty dismiss(Long adminId, Long penaltyId, String memo) {
         SellerPenalty penalty = load(penaltyId);
         penalty.dismiss(adminId, memo, LocalDateTime.now(clock));
+
+        auditLogService.record(adminId, AuditLogService.TARGET_SELLER_PENALTY, penaltyId,
+                AuditLogService.ACTION_DISMISS,
+                AuditLogService.values("status", SellerPenalty.STATUS_CANDIDATE),
+                AuditLogService.values("status", penalty.getStatus(), "sellerId", penalty.getSellerId(),
+                        "memo", memo == null ? "" : memo));
 
         log.info("위반 후보 기각 penaltyId={} sellerId={} 관리자={}",
                 penaltyId, penalty.getSellerId(), adminId);
@@ -130,6 +147,13 @@ public class PenaltyService {
         int limit = penaltyLimit();
         SellerProfile seller = loadSeller(penalty.getSellerId());
         seller.revokePenalty(limit);
+
+        auditLogService.record(adminId, AuditLogService.TARGET_SELLER_PENALTY, penaltyId,
+                AuditLogService.ACTION_REVOKE,
+                AuditLogService.values("status", SellerPenalty.STATUS_CONFIRMED),
+                AuditLogService.values("status", penalty.getStatus(), "sellerId", penalty.getSellerId(),
+                        "confirmedCount", confirmedCount(penalty.getSellerId()), "limit", limit,
+                        "sellerStatus", seller.getStatus(), "memo", memo == null ? "" : memo));
 
         log.info("위반 확정 취소 penaltyId={} sellerId={} 누적={}/{} 상태={} 관리자={}",
                 penaltyId, penalty.getSellerId(), confirmedCount(penalty.getSellerId()),

@@ -1,6 +1,7 @@
 package com.gongguhan.domain.settlement.service;
 
 import com.gongguhan.domain.account.entity.SellerProfile;
+import com.gongguhan.domain.admin.service.AuditLogService;
 import com.gongguhan.domain.account.entity.User;
 import com.gongguhan.domain.account.repository.SellerProfileRepository;
 import com.gongguhan.domain.account.repository.UserRepository;
@@ -53,6 +54,7 @@ public class SettlementTransferService {
 
     private final SettlementRecordService recordService;
     private final SellerProfileRepository sellerProfileRepository;
+    private final AuditLogService auditLogService;
     private final UserRepository userRepository;
     private final SsafyTransferClient transferClient;
     private final SsafyApiLogService ssafyApiLogService;
@@ -61,6 +63,7 @@ public class SettlementTransferService {
 
     public SettlementTransferService(SettlementRecordService recordService,
                                      SellerProfileRepository sellerProfileRepository,
+                                     AuditLogService auditLogService,
                                      UserRepository userRepository,
                                      SsafyTransferClient transferClient,
                                      SsafyApiLogService ssafyApiLogService,
@@ -68,6 +71,7 @@ public class SettlementTransferService {
                                      Clock clock) {
         this.recordService = recordService;
         this.sellerProfileRepository = sellerProfileRepository;
+        this.auditLogService = auditLogService;
         this.userRepository = userRepository;
         this.transferClient = transferClient;
         this.ssafyApiLogService = ssafyApiLogService;
@@ -83,6 +87,29 @@ public class SettlementTransferService {
      *
      * @return 처리된 정산. 실패해도 행은 남고 사유가 기록됩니다
      */
+    /**
+     * 관리자가 직접 실행합니다 (STL-04·07).
+     *
+     * <p>돈이 실제로 나가는 지점이라 <b>누가 눌렀는지</b>를 감사 로그에 남깁니다. 결과가
+     * 성공이든 실패든 시도 자체를 기록합니다 - 실패한 시도도 나중에 "왜 이 시각에
+     * 이체가 걸렸나" 를 되짚는 근거가 됩니다.
+     *
+     * <p>재시도 배치({@code SettlementTransferRetryScheduler})는 사람이 아니므로
+     * {@link #execute(Long)} 를 직접 부르고 감사 로그를 남기지 않습니다.
+     */
+    public Settlement execute(Long adminId, Long settlementId) {
+        Settlement result = execute(settlementId);
+        auditLogService.record(adminId, AuditLogService.TARGET_SETTLEMENT, settlementId,
+                AuditLogService.ACTION_TRANSFER,
+                AuditLogService.values("transferStatus", Settlement.TRANSFER_PENDING),
+                AuditLogService.values("transferStatus", result.getTransferStatus(),
+                        "status", result.getStatus(),
+                        "sellerId", result.getSellerId(),
+                        "amount", result.getSettlementAmount()));
+        return result;
+    }
+
+    /** 재시도 배치가 부르는 경로. 사람의 조작이 아니라 감사 로그를 남기지 않습니다. */
     public Settlement execute(Long settlementId) {
         Settlement settlement = recordService.loadExecutable(settlementId);
 
@@ -201,13 +228,30 @@ public class SettlementTransferService {
         return "*".repeat(accountNo.length() - 4) + accountNo.substring(accountNo.length() - 4);
     }
 
-    /** 보류 (STL-05). */
-    public Settlement hold(Long settlementId, String reason) {
-        return recordService.hold(settlementId, reason);
+    /**
+     * 보류 (STL-05).
+     *
+     * <p>판매자 지급을 늦추는 결정이라 사유와 함께 누가 눌렀는지 남깁니다.
+     */
+    public Settlement hold(Long adminId, Long settlementId, String reason) {
+        // 보류는 PENDING 에서만 됩니다(Settlement.hold 의 requireStatus). 그래서 이전
+        // 상태를 따로 읽지 않고 그 값으로 기록합니다.
+        Settlement result = recordService.hold(settlementId, reason);
+        auditLogService.record(adminId, AuditLogService.TARGET_SETTLEMENT, settlementId,
+                AuditLogService.ACTION_HOLD,
+                AuditLogService.values("status", Settlement.STATUS_PENDING),
+                AuditLogService.values("status", result.getStatus(), "reason", reason == null ? "" : reason));
+        return result;
     }
 
-    /** 보류 해제 (STL-06). */
-    public Settlement releaseHold(Long settlementId) {
-        return recordService.releaseHold(settlementId);
+    /** 보류 해제 (STL-06). 다시 실행 대기 상태가 됩니다. */
+    public Settlement releaseHold(Long adminId, Long settlementId) {
+        // 보류 해제는 HOLD 에서만 됩니다.
+        Settlement result = recordService.releaseHold(settlementId);
+        auditLogService.record(adminId, AuditLogService.TARGET_SETTLEMENT, settlementId,
+                AuditLogService.ACTION_RELEASE_HOLD,
+                AuditLogService.values("status", Settlement.STATUS_HOLD),
+                AuditLogService.values("status", result.getStatus()));
+        return result;
     }
 }

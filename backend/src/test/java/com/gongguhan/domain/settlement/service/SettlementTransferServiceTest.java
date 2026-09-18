@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import com.gongguhan.domain.account.entity.SellerProfile;
 import com.gongguhan.domain.account.entity.User;
 import com.gongguhan.domain.account.repository.SellerProfileRepository;
+import com.gongguhan.domain.admin.service.AuditLogService;
 import com.gongguhan.domain.account.repository.UserRepository;
 import com.gongguhan.domain.payment.card.service.SsafyApiLogService;
 import com.gongguhan.domain.refund.service.SsafyTransferClient;
@@ -40,6 +41,7 @@ import org.junit.jupiter.api.Test;
 class SettlementTransferServiceTest {
 
     private static final Long SETTLEMENT_ID = 15001L;
+    private static final Long ADMIN_ID = 9001L;
     private static final Long SELLER_ID = 201L;
     private static final long AMOUNT = 978_500L;
     private static final String PLATFORM_ACCOUNT = "0016174648358792";
@@ -51,6 +53,7 @@ class SettlementTransferServiceTest {
 
     private SettlementRecordService recordService;
     private SellerProfileRepository sellerProfileRepository;
+    private AuditLogService auditLogService;
     private UserRepository userRepository;
     private SsafyTransferClient transferClient;
     private SsafyApiLogService ssafyApiLogService;
@@ -62,6 +65,7 @@ class SettlementTransferServiceTest {
     void setUp() {
         recordService = mock(SettlementRecordService.class);
         sellerProfileRepository = mock(SellerProfileRepository.class);
+        auditLogService = mock(AuditLogService.class);
         userRepository = mock(UserRepository.class);
         transferClient = mock(SsafyTransferClient.class);
         ssafyApiLogService = mock(SsafyApiLogService.class);
@@ -71,8 +75,8 @@ class SettlementTransferServiceTest {
                 .thenReturn(INSTITUTION_TX_NO);
 
         service = new SettlementTransferService(recordService, sellerProfileRepository,
-                userRepository, transferClient, ssafyApiLogService, policyService,
-                Clock.fixed(NOW, ZoneOffset.UTC));
+                auditLogService, userRepository, transferClient, ssafyApiLogService,
+                policyService, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     // ------------------------------------------------------------------
@@ -331,11 +335,23 @@ class SettlementTransferServiceTest {
     @Test
     @DisplayName("보류와 보류 해제는 기록 서비스에 위임한다")
     void delegatesHoldOperations() {
-        service.hold(SETTLEMENT_ID, "반품 분쟁");
-        service.releaseHold(SETTLEMENT_ID);
+        // 실제 기록 서비스는 갱신된 정산을 돌려줍니다. null 을 돌려주는 mock 은 실제와
+        // 다르고, 반환값을 쓰는 후속 처리(감사 로그)를 통과시키지 못합니다.
+        Settlement held = mock(Settlement.class);
+        when(recordService.hold(SETTLEMENT_ID, "반품 분쟁")).thenReturn(held);
+        Settlement released = mock(Settlement.class);
+        when(recordService.releaseHold(SETTLEMENT_ID)).thenReturn(released);
+
+        service.hold(ADMIN_ID, SETTLEMENT_ID, "반품 분쟁");
+        service.releaseHold(ADMIN_ID, SETTLEMENT_ID);
 
         verify(recordService).hold(SETTLEMENT_ID, "반품 분쟁");
         verify(recordService).releaseHold(SETTLEMENT_ID);
+        // 판매자 지급을 늦추거나 푸는 결정이라 누가 눌렀는지 남아야 합니다.
+        verify(auditLogService).record(eq(ADMIN_ID), eq(AuditLogService.TARGET_SETTLEMENT),
+                eq(SETTLEMENT_ID), eq(AuditLogService.ACTION_HOLD), any(), any());
+        verify(auditLogService).record(eq(ADMIN_ID), eq(AuditLogService.TARGET_SETTLEMENT),
+                eq(SETTLEMENT_ID), eq(AuditLogService.ACTION_RELEASE_HOLD), any(), any());
     }
 
     /** 금액 계산이 바뀌지 않았음을 고정합니다. 명세서 12장 예시 값입니다. */

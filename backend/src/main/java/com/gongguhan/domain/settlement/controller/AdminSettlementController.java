@@ -17,6 +17,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -79,9 +80,10 @@ public class AdminSettlementController {
      */
     @PostMapping("/{settlementId}/execute")
     public ResponseEntity<ApiResponse<SettlementResponse>> execute(
+            @AuthenticationPrincipal Long adminId,
             @PathVariable Long settlementId,
             HttpServletRequest httpRequest) {
-        Settlement settlement = settlementTransferService.execute(settlementId);
+        Settlement settlement = settlementTransferService.execute(adminId, settlementId);
         return ResponseEntity.ok(ApiResponse.success(
                 SettlementResponse.from(settlement), TraceIdUtils.from(httpRequest)));
     }
@@ -89,10 +91,12 @@ public class AdminSettlementController {
     /** STL-05 분쟁 사유 정산 보류 (FR-STL-13). */
     @PostMapping("/{settlementId}/hold")
     public ResponseEntity<ApiResponse<SettlementResponse>> hold(
+            @AuthenticationPrincipal Long adminId,
             @PathVariable Long settlementId,
             @Valid @RequestBody SettlementHoldRequest request,
             HttpServletRequest httpRequest) {
-        Settlement settlement = settlementTransferService.hold(settlementId, request.reason());
+        Settlement settlement =
+                settlementTransferService.hold(adminId, settlementId, request.reason());
         return ResponseEntity.ok(ApiResponse.success(
                 SettlementResponse.from(settlement), TraceIdUtils.from(httpRequest)));
     }
@@ -100,9 +104,10 @@ public class AdminSettlementController {
     /** STL-06 정산 보류 해제 (FR-STL-13). 다시 실행 대기 상태가 됩니다. */
     @PostMapping("/{settlementId}/release-hold")
     public ResponseEntity<ApiResponse<SettlementResponse>> releaseHold(
+            @AuthenticationPrincipal Long adminId,
             @PathVariable Long settlementId,
             HttpServletRequest httpRequest) {
-        Settlement settlement = settlementTransferService.releaseHold(settlementId);
+        Settlement settlement = settlementTransferService.releaseHold(adminId, settlementId);
         return ResponseEntity.ok(ApiResponse.success(
                 SettlementResponse.from(settlement), TraceIdUtils.from(httpRequest)));
     }
@@ -117,9 +122,10 @@ public class AdminSettlementController {
      */
     @PostMapping("/{settlementId}/retry")
     public ResponseEntity<ApiResponse<SettlementResponse>> retry(
+            @AuthenticationPrincipal Long adminId,
             @PathVariable Long settlementId,
             HttpServletRequest httpRequest) {
-        Settlement settlement = settlementTransferService.execute(settlementId);
+        Settlement settlement = settlementTransferService.execute(adminId, settlementId);
         return ResponseEntity.ok(ApiResponse.success(
                 SettlementResponse.from(settlement), TraceIdUtils.from(httpRequest)));
     }

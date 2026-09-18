@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.gongguhan.domain.account.entity.SellerProfile;
+import com.gongguhan.domain.admin.service.AuditLogService;
 import com.gongguhan.domain.account.repository.SellerProfileRepository;
 import com.gongguhan.domain.penalty.entity.SellerPenalty;
 import com.gongguhan.domain.penalty.event.SanctionLevel;
@@ -54,6 +55,7 @@ class PenaltyServiceTest {
     private SellerPenaltyRepository penaltyRepository;
     private SellerProfileRepository sellerProfileRepository;
     private PolicyService policyService;
+    private AuditLogService auditLogService;
     private ApplicationEventPublisher events;
 
     private PenaltyService service;
@@ -63,12 +65,13 @@ class PenaltyServiceTest {
         penaltyRepository = mock(SellerPenaltyRepository.class);
         sellerProfileRepository = mock(SellerProfileRepository.class);
         policyService = mock(PolicyService.class);
+        auditLogService = mock(AuditLogService.class);
         events = mock(ApplicationEventPublisher.class);
 
         when(policyService.getInt(PolicyKey.PENALTY_LIMIT)).thenReturn(LIMIT);
 
         service = new PenaltyService(penaltyRepository, sellerProfileRepository,
-                policyService, events, Clock.fixed(NOW, ZoneOffset.UTC));
+                policyService, auditLogService, events, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     // ------------------------------------------------------------------
@@ -117,6 +120,37 @@ class PenaltyServiceTest {
         assertEquals(ADMIN_ID, penalty.getReviewedBy());
         assertEquals(MEMO, penalty.getMemo());
         assertEquals(SanctionLevel.WARNING, capturedEvent().level());
+    }
+
+    /**
+     * 확정은 판매자의 판매를 막는 결정입니다. 판매자가 이의를 제기했을 때 "누가 언제
+     * 무슨 근거로 확정했나" 를 답할 수 없으면 아무것도 증명하지 못합니다.
+     */
+    @Test
+    @DisplayName("확정은 감사 로그에 남는다")
+    void confirmIsAudited() {
+        SellerProfile seller = mock(SellerProfile.class);
+        given(candidate(), seller, 1L);
+
+        service.confirm(ADMIN_ID, PENALTY_ID, MEMO);
+
+        verify(auditLogService).record(eq(ADMIN_ID), eq(AuditLogService.TARGET_SELLER_PENALTY),
+                eq(PENALTY_ID), eq(AuditLogService.ACTION_CONFIRM), any(), any());
+    }
+
+    /** 확정을 되돌리는 것도 판매자 상태를 바꾸므로 기록이 필요합니다. */
+    @Test
+    @DisplayName("확정 취소는 감사 로그에 남는다")
+    void revokeIsAudited() {
+        SellerProfile seller = mock(SellerProfile.class);
+        SellerPenalty penalty = candidate();
+        penalty.confirm(ADMIN_ID, MEMO, NOW_LDT);
+        given(penalty, seller, 2L);
+
+        service.revoke(ADMIN_ID, PENALTY_ID, MEMO);
+
+        verify(auditLogService).record(eq(ADMIN_ID), eq(AuditLogService.TARGET_SELLER_PENALTY),
+                eq(PENALTY_ID), eq(AuditLogService.ACTION_REVOKE), any(), any());
     }
 
     @Test
