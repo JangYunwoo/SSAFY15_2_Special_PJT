@@ -12,6 +12,17 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# 인증키 / SSH 키 (절대 커밋 금지)
+*.pem
+*.key
+
+# SSAFY EC2 인프라 문서 (배포 안내 원본 — 로컬 전용)
+ufw 포트 설정하기.txt
+
+# 배포 시크릿: 실제 env 값과 서비스계정 키는 커밋 금지 (.example 템플릿만 커밋)
+deploy/env/*.env
+deploy/secrets/
+
 # Logs
 *.log
 

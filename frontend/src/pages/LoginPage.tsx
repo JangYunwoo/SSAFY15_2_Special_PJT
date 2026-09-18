@@ -8,6 +8,7 @@ import { toMessage } from '@/shared/api/errors'
 import type { SubmitHandlerEvent } from '@/shared/lib/dom'
 import { useBodyClass } from '@/shared/lib/hooks/useBodyClass'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
+import { BrandMark } from '@/shared/ui/BrandMark'
 import { Button } from '@/shared/ui/Button'
 import { TextField } from '@/shared/ui/Field'
 
@@ -51,9 +52,8 @@ export default function LoginPage() {
   return (
     <main className="wrap">
       <section className="auth">
-        {/* 로고가 나오면 이 자리를 <img> 로 바꾸면 됩니다 */}
         <span className="auth-mark">
-          <span className="brand">공구한</span>
+          <span className="brand"><BrandMark /></span>
         </span>
 
         <div className="auth-card">

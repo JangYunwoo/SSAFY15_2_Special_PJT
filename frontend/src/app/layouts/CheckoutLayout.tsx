@@ -1,5 +1,7 @@
 import { Link, Outlet } from 'react-router'
 
+import { BrandMark } from '@/shared/ui/BrandMark'
+
 import { SiteFooter } from './SiteFooter'
 
 /**
@@ -12,7 +14,7 @@ export function CheckoutLayout() {
       <header className="gnb">
         <div className="inner">
           <Link className="brand" to="/">
-            공구한
+            <BrandMark />
           </Link>
           <span className="head-label">· 공동구매 결제하기</span>
         </div>

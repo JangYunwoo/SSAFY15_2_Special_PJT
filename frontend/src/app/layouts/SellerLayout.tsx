@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet, ScrollRestoration } from 'react-router'
 
 import { cx } from '@/shared/lib/cx'
+import { BrandMark } from '@/shared/ui/BrandMark'
 
 import { SiteFooter } from './SiteFooter'
 
@@ -19,7 +20,7 @@ export function SellerLayout() {
       <header className="gnb">
         <div className="inner">
           <Link className="brand" to="/seller">
-            공구한
+            <BrandMark />
           </Link>
           <span className="badge">판매자센터</span>
           <div className="right">
@@ -28,7 +29,7 @@ export function SellerLayout() {
                 서비스 소개
               </NavLink>
             </nav>
-            <Link className="cta fill" to="/seller/products/new">
+            <Link className="cta" to="/seller/products/new">
               상품 등록하기
             </Link>
             {/*
@@ -36,7 +37,7 @@ export function SellerLayout() {
               계정은 하나뿐이고 판매자도 구매자로 계속 쓸 수 있습니다. 예전에는
               여기서 logout 을 불러 로그인 화면으로 튕겼습니다.
             */}
-            <Link className="cta" to="/">
+            <Link className="cta quiet" to="/">
               센터 나가기
             </Link>
           </div>

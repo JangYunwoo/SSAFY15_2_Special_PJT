@@ -16,6 +16,7 @@
 | [external/](./external) | SSAFY 교육용 금융망 API 연동 자료 (플로우, 인터페이스 예제) |
 | [market-research/](./market-research) | 시장조사 |
 | [performance/](./performance) | 성능 병목의 선정 이유, 최적화 설계, 전·후 측정값과 재현 방법 |
+| [infra/](./infra) | 서버/배포 아키텍처 설계서(EC2). 배포 실행 절차는 루트 [deploy/](../deploy) 참고 |
 | [team/](./team) | 백엔드 역할 분담. 브랜치/커밋/PR 규칙은 루트 [GIT_CONVENTION.md](../GIT_CONVENTION.md) 참고 |
 
 ## 학습 가이드

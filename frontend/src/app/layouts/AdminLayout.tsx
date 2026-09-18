@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, ScrollRestoration } from 'react-router'
 import { useAdminLogout } from '@/features/admin/useAdminAuth'
 import { useActor } from '@/features/auth/sessionStore'
 import { cx } from '@/shared/lib/cx'
+import { BrandMark } from '@/shared/ui/BrandMark'
 
 import { SiteFooter } from './SiteFooter'
 
@@ -32,7 +33,7 @@ export function AdminLayout() {
       <header className="gnb">
         <div className="inner">
           <Link className="brand" to="/admin">
-            공구한
+            <BrandMark />
           </Link>
           <span className="badge">관리자 콘솔</span>
           <div className="right">

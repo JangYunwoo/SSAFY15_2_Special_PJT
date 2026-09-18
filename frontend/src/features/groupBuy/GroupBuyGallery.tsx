@@ -13,8 +13,14 @@ const PLACEHOLDER_COUNT = 3
  */
 const ZOOM = 2.5
 
-/** 돋보기 창 한 변 (px). 사진 폭의 3분의 1쯤이라 주변 맥락이 남습니다. */
-const LENS = 180
+/*
+ * 돋보기 창 한 변 (px).
+ *
+ * 크기를 여기서만 정합니다. 예전에는 이 값과 CSS 의 width/height 가 따로
+ * 적혀 있었는데, 한쪽만 고치면 창은 커졌는데 확대된 사진은 엉뚱한 곳을
+ * 가리킵니다. 아래 계산이 모두 이 값을 쓰기 때문입니다.
+ */
+const LENS = 104
 
 interface GroupBuyGalleryProps {
   images: readonly string[]
@@ -81,7 +87,7 @@ export function GroupBuyGallery({ images, alt }: GroupBuyGalleryProps) {
           <div
             className="lens"
             aria-hidden="true"
-            style={{ left: lens.x - LENS / 2, top: lens.y - LENS / 2 }}
+            style={{ left: lens.x - LENS / 2, top: lens.y - LENS / 2, width: LENS, height: LENS }}
           >
             <img
               src={current}

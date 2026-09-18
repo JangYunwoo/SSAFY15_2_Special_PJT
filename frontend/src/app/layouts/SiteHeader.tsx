@@ -5,6 +5,7 @@ import { useLogout } from '@/features/auth/useAuthMutations'
 import { NotificationBell } from '@/features/notification/NotificationBell'
 import { BACKEND_FEATURES } from '@/shared/config/backendFeatures'
 import { cx } from '@/shared/lib/cx'
+import { BrandMark } from '@/shared/ui/BrandMark'
 
 /** 로그인 여부와 무관하게 보이는 메뉴 */
 const PUBLIC_NAV = [
@@ -36,7 +37,7 @@ export function SiteHeader() {
     <header className="gnb">
       <div className="inner">
         <Link className="brand" to="/">
-          공구한
+          <BrandMark />
         </Link>
         <div className="right">
           <nav aria-label="주요 메뉴">

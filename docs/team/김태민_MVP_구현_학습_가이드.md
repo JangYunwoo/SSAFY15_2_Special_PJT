@@ -192,17 +192,26 @@ AI는 입력 편의 기능이지 상품 등록의 필수 인프라가 아니다.
 
 따라서 다음과 같이 격리했다.
 
-1. 대표 이미지 한 장만 multipart로 AI 서버에 전달한다.
-2. 결과를 상품 폼의 필드와 confidence로 변환한다.
-3. 카테고리 이름은 DB의 실제 카테고리 ID로 매핑한다.
-4. 일부 값만 있으면 `PARTIAL`, 필수 값까지 있으면 `COMPLETED`다.
-5. 연결 실패·시간 초과·빈 결과는 예외로 상품 등록을 끝내지 않고 `FAILED`와 수동 입력 안내를 반환한다.
+1. 대표 이미지와 추가 이미지를 합쳐 최대 5장을 먼저 검증한다.
+2. 검증된 파일을 분석용 임시 S3 객체로 올린다.
+3. 임시 객체의 공개 HTTPS URL을 `image_urls` JSON으로 AI 서버에 전달한다.
+4. 결과를 상품 폼의 필드와 confidence로 변환한다.
+5. 카테고리 ID를 우선 검증하고, 없으면 이름을 DB의 실제 카테고리 ID로 매핑한다.
+6. 일부 값만 있으면 `PARTIAL`, 필수 값까지 있으면 `COMPLETED`다.
+7. 연결 실패·시간 초과·빈 결과는 상품 등록을 막지 않고 `FAILED`와 수동 입력 안내를 반환한다.
+8. 성공·실패와 관계없이 `finally`에서 분석용 S3 객체를 모두 삭제한다.
+
+임시 업로드를 상품 이미지로 재사용하지 않는 이유는 AI 제안을 본 사용자가 상품 등록을 취소하거나
+이미지를 교체할 수 있기 때문이다. 분석 요청만으로 영구 상품 이미지가 남으면 DB에는 상품이 없는데
+S3 비용과 개인정보 노출 가능성만 남는다. 반대로 AI 호출 전에 삭제하면 Gemini가 URL을 읽을 수
+없으므로, 동기 응답을 받은 뒤 정리한다.
 
 핵심 코드:
 
-- `AiExtractionService`: 실패 격리와 결과 정규화
+- `AiExtractionService`: 임시 업로드 수명주기, 실패 격리와 결과 정규화
 - `ProductExtractionClient`: 외부 AI 계약
-- `FastApiProductExtractionClient`: multipart HTTP 구현과 timeout
+- `FastApiProductExtractionClient`: `image_urls` JSON HTTP 구현과 timeout
+- `ProductImageStorage`: S3/로컬 저장 어댑터. AI 임시 객체도 같은 저장·삭제 계약을 사용
 - 프론트 `useAiExtraction`: 추출값을 폼에 제안하고 사용자가 최종 검수
 
 관련 테스트: `AiExtractionServiceTest`, `FastApiProductExtractionClientTest`, `AiExtractionIntegrationTest`

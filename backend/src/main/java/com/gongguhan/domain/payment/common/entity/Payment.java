@@ -19,6 +19,11 @@ public class Payment extends BaseTimeEntity {
     public static final String STATUS_EXPIRED = "EXPIRED";
     public static final String SLOT_MARKER_ACTIVE = "Y";
 
+    /** {@code payments.method} 값. CHECK 제약 주석과 같은 값이다. */
+    public static final String METHOD_CARD = "CARD";
+    public static final String METHOD_KAKAOPAY = "KAKAOPAY";
+    public static final String METHOD_CRYPTO = "CRYPTO";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "payment_id")

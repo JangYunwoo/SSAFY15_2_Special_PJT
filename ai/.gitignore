@@ -1,6 +1,14 @@
 venv/
 .venv/
 .env
+env
+
+# GCP 서비스계정 키(SA key) - 절대 커밋 금지 (비밀번호 취급)
+project-*.json
+*-service-account*.json
+gcp-sa.json
+*.pem
+*.key
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -9,3 +17,4 @@ htmlcov/
 .coverage
 test_images/
 *.pt
+local_app.py
