@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import type { CryptoQuote } from '@/entities/payment/model'
 import { paymentQueries } from '@/entities/payment/queries'
 import { isTxHash, isWalletAddress } from '@/features/checkout/cryptoInput'
+import { sendWithMetaMask, toMetaMaskMessage } from '@/features/checkout/metamask'
 import { clock, number, won } from '@/shared/lib/format'
 import { useCountdown } from '@/shared/lib/hooks/useCountdown'
 import { DataRow } from '@/shared/ui/DataRow'
@@ -32,6 +34,8 @@ export function CryptoFields({
   onQuoteExpired,
 }: CryptoFieldsProps) {
   const assets = useQuery(paymentQueries.cryptoAssets())
+  const [sending, setSending] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
 
   const walletTyped = walletAddress.trim() !== ''
   const hashTyped = txHash.trim() !== ''
@@ -54,6 +58,37 @@ export function CryptoFields({
       {quote !== null && <QuotePanel quote={quote} onExpired={onQuoteExpired} />}
       {quote === null && isQuoteLoading && (
         <p className="small muted mt16">환율 정보를 불러오는 중입니다.</p>
+      )}
+
+      {quote !== null && (
+        <button
+          type="button"
+          className="btn mt16"
+          disabled={sending}
+          onClick={() => {
+            setSendError(null)
+            setSending(true)
+            // 견적 값 그대로 보내고, 성공하면 아래 두 칸을 자동으로 채웁니다.
+            sendWithMetaMask(quote)
+              .then(({ from, txHash }) => {
+                onWalletChange(from)
+                onTxHashChange(txHash)
+              })
+              .catch((error: unknown) => {
+                setSendError(toMetaMaskMessage(error))
+              })
+              .finally(() => {
+                setSending(false)
+              })
+          }}
+        >
+          {sending ? 'MetaMask 확인 중…' : 'MetaMask로 송금하기'}
+        </button>
+      )}
+      {sendError !== null && (
+        <p className="ai-hint" role="alert">
+          {sendError}
+        </p>
       )}
 
       <TextField

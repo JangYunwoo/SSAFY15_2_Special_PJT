@@ -86,68 +86,25 @@ export interface CryptoAsset {
 /** CRYP-02 Quote */
 export interface CryptoQuote {
   quoteId: Id
+  paymentId: Id
   asset: string
   chainId: number
+  /** 이 토큰 컨트랙트로 transfer 를 호출합니다. */
+  tokenContract: string
   krwAmount: Krw
   marketRate: Decimal
   bufferRate: Decimal
   appliedRate: Decimal
   assetAmount: Decimal
+  /**
+   * 실제로 보낼 최소 단위 정수. 서버가 정한 값을 그대로 씁니다.
+   *
+   * assetAmount x 10^decimals 를 프론트에서 다시 계산하면 부동소수점 때문에
+   * 1 wei 어긋날 수 있고, 백엔드는 정확히 일치하는 입금만 통과시킵니다.
+   */
+  rawAmount: string
+  decimals: number
   depositAddress: string
   requiredConfirmations: number
   expiresAt: IsoDateTime
-}
-
-export interface CryptoTransactionRequest {
-  quoteId: Id
-  txHash: string
-  fromAddress: string
-}
-
-/**
- * CRYP-04 입금·컨펌 진행 단계 (백엔드 CryptoPaymentStatusResponse.phase).
- *
- * 해시를 등록해도 결제 완료가 아닙니다. 필요 컨펌 수에 도달해야 확정되므로
- * COMPLETED 나 FAILED 가 나올 때까지 상태를 조회해야 합니다.
- */
-export const CRYPTO_PHASE = [
-  /** 아직 송금하지 않았거나 해시를 보내지 않음 */
-  'AWAITING_TX',
-  /** 해시는 받았으나 노드가 아직 트랜잭션을 모름 */
-  'AWAITING_RECEIPT',
-  /** 영수증 확인됨. 컨펌 대기 중 */
-  'CONFIRMING',
-  /** 컨펌 충족 + 결제 확정 완료 */
-  'COMPLETED',
-  /** revert · 금액 불일치 · 슬롯 만료 등으로 종료 */
-  'FAILED',
-] as const
-export type CryptoPhase = (typeof CRYPTO_PHASE)[number]
-
-export const CRYPTO_PHASE_LABEL: Record<CryptoPhase, string> = {
-  AWAITING_TX: '송금 대기',
-  AWAITING_RECEIPT: '트랜잭션 확인 중',
-  CONFIRMING: '블록 컨펌 대기',
-  COMPLETED: '결제 완료',
-  FAILED: '결제 실패',
-}
-
-/** CRYP-04 입금·컨펌 상태 (백엔드 CryptoPaymentStatusResponse) */
-export interface CryptoStatus {
-  paymentId: Id
-  phase: CryptoPhase
-  paymentStatus: PaymentStatus
-  txHash: string | null
-  /** 체인 영수증 상태 (SUCCESS / REVERTED 등) */
-  receiptStatus: string | null
-  blockNumber: number | null
-  confirmations: number
-  requiredConfirmations: number
-  /** 실제로 들어온 수량 */
-  assetAmount: Decimal | null
-  rawAmount: Decimal | null
-  depositAddress: string | null
-  confirmedAt: IsoDateTime | null
-  /** FAILED 일 때만 채워집니다 */
-  failReason: string | null
 }
