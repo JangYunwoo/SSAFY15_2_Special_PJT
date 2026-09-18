@@ -17,8 +17,13 @@ public class FastApiProductExtractionClient implements ProductExtractionClient {
 
     public FastApiProductExtractionClient(AiExtractionProperties properties) {
         Duration timeout = Duration.ofMillis(properties.timeoutMs());
+        // AI(uvicorn)는 HTTP/1.1 전용이다. JDK HttpClient 기본값(HTTP/2)은 cleartext h2c 업그레이드를
+        // 시도하는데 uvicorn 이 이를 거부하면서 요청 본문 파싱이 깨져 422 가 난다. HTTP/1.1 로 고정한다.
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(
-                HttpClient.newBuilder().connectTimeout(timeout).build());
+                HttpClient.newBuilder()
+                        .version(HttpClient.Version.HTTP_1_1)
+                        .connectTimeout(timeout)
+                        .build());
         requestFactory.setReadTimeout(timeout);
         this.restClient = RestClient.builder()
                 .baseUrl(properties.baseUrl())
