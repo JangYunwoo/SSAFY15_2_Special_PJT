@@ -124,6 +124,41 @@ public class CryptoRefundService {
         return transfer(asset, toAddress, krwAmount);
     }
 
+    /**
+     * 들어온 수량 그대로 되돌려 보냅니다 (FR-PAY-26, FR-SLT-10).
+     *
+     * <p><b>환율을 적용하지 않습니다.</b> 참여 취소 환불은 Quote 로 원화 가치가 확정된
+     * 돈이라 환불 시점 환율로 환산하는 게 맞지만, 매칭되지 않은 입금은 <b>우리가 원화로
+     * 받아들인 적이 없습니다</b>. 환산하면 동의한 적 없는 환율 변동을 보낸 사람에게
+     * 지우게 되고, 환율이 움직인 만큼 플랫폼이 이득이나 손해를 봅니다. 받은 만큼
+     * 그대로 돌려주는 것이 유일하게 다툼의 여지가 없는 금액입니다.
+     *
+     * @param toAddress 입금을 보낸 지갑. 사용자 입력이 아니라 체인에 기록된 주소입니다
+     * @param rawAmount 들어온 최소 단위 수량. 체인 로그에서 읽은 값 그대로입니다
+     */
+    public RefundTransfer refundAsReceived(Long assetId, String toAddress, BigInteger rawAmount) {
+        CryptoAsset asset = cryptoAssetRepository.findById(assetId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR,
+                        "자산을 찾을 수 없습니다. assetId=" + assetId));
+        if (toAddress == null || toAddress.isBlank()) {
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR,
+                    "환불 수취 주소가 없습니다. asset=" + asset.getSymbol());
+        }
+        if (rawAmount == null || rawAmount.signum() <= 0) {
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR,
+                    "되돌려 보낼 수량이 0보다 커야 합니다. raw=" + rawAmount);
+        }
+
+        BigDecimal assetAmount = asset.toAssetAmount(rawAmount);
+        log.info("입금 원금 반환 수량={} raw={} to={}",
+                assetAmount.toPlainString(), rawAmount, toAddress);
+
+        String txHash = transferClient.transferToken(
+                asset.getTokenContract(), toAddress, rawAmount);
+        // 환율은 적용하지 않았으므로 기록용으로도 남기지 않습니다.
+        return new RefundTransfer(txHash, assetAmount, null, toAddress);
+    }
+
     private CryptoPayment loadPayment(Long paymentId) {
         return cryptoPaymentRepository.findById(paymentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND,

@@ -42,6 +42,7 @@ public class CryptoTxRecordService {
 
     private final CryptoPaymentRepository cryptoPaymentRepository;
     private final CryptoDepositRepository cryptoDepositRepository;
+    private final CryptoDepositRecorder depositRecorder;
     private final CryptoQuoteRepository cryptoQuoteRepository;
     private final PaymentRepository paymentRepository;
     private final UserAddressRepository userAddressRepository;
@@ -51,6 +52,7 @@ public class CryptoTxRecordService {
 
     public CryptoTxRecordService(CryptoPaymentRepository cryptoPaymentRepository,
                                   CryptoDepositRepository cryptoDepositRepository,
+                                  CryptoDepositRecorder depositRecorder,
                                   CryptoQuoteRepository cryptoQuoteRepository,
                                   PaymentRepository paymentRepository,
                                   UserAddressRepository userAddressRepository,
@@ -59,6 +61,7 @@ public class CryptoTxRecordService {
                                   Clock clock) {
         this.cryptoPaymentRepository = cryptoPaymentRepository;
         this.cryptoDepositRepository = cryptoDepositRepository;
+        this.depositRecorder = depositRecorder;
         this.cryptoQuoteRepository = cryptoQuoteRepository;
         this.paymentRepository = paymentRepository;
         this.userAddressRepository = userAddressRepository;
@@ -151,6 +154,21 @@ public class CryptoTxRecordService {
      *
      * @return 이 호출로 결제가 확정된 경우 true
      */
+    /**
+     * 입금을 환불 완료로 표시합니다 (FR-PAY-26).
+     *
+     * <p>온체인 송금은 호출 측이 트랜잭션 밖에서 끝낸 뒤 이 짧은 트랜잭션으로 기록만
+     * 합니다 - 이 클래스의 다른 메서드와 같은 이유입니다.
+     */
+    @Transactional
+    public void markDepositRefunded(Long depositId) {
+        CryptoDeposit deposit = cryptoDepositRepository.findById(depositId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND,
+                        "입금 건을 찾을 수 없습니다. depositId=" + depositId));
+        deposit.markRefunded();
+        cryptoDepositRepository.save(deposit);
+    }
+
     @Transactional
     public boolean refreshConfirmations(Long paymentId, long latestBlock) {
         CryptoPayment cryptoPayment = cryptoPaymentRepository.findById(paymentId).orElse(null);
@@ -271,8 +289,16 @@ public class CryptoTxRecordService {
         }
 
         // 정확히 맞는 게 없으면 미달·초과다. 어느 쪽인지 사유에 담아 되돌린다.
+        //
+        // 거부하기 전에 입금을 남긴다. 이 메서드는 @Transactional 안이라 예외를 던지면
+        // 롤백되므로, 같은 트랜잭션에 기록하면 사라진다. 그러면 돈은 우리 지갑에 있는데
+        // DB 에 흔적이 없어 누구에게 돌려줄지 알 수 없다(FR-PAY-26). 별도 빈의
+        // REQUIRES_NEW 트랜잭션이라 이 롤백에 휩쓸리지 않는다.
         ChainClient.TransferLog closest = fromBuyer.get(0);
         boolean underpaid = closest.rawAmount().compareTo(expected) < 0;
+        depositRecorder.recordMismatched(cryptoPayment, closest, receipt.blockNumber(),
+                underpaid ? CryptoDeposit.STATUS_UNDERPAID : CryptoDeposit.STATUS_OVERPAID);
+
         throw new BusinessException(ErrorCode.CRYPTO_AMOUNT_MISMATCH,
                 underpaid
                         ? "입금액이 견적보다 적습니다. 견적 금액 그대로 송금해야 합니다."

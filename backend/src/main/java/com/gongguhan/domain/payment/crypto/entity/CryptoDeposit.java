@@ -203,4 +203,8 @@ public class CryptoDeposit {
     public String getMemo() {
         return memo;
     }
+
+    public LocalDateTime getDetectedAt() {
+        return detectedAt;
+    }
 }

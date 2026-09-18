@@ -76,6 +76,7 @@ class CryptoTxRecordServiceTest {
 
     private CryptoPaymentRepository cryptoPaymentRepository;
     private CryptoDepositRepository cryptoDepositRepository;
+    private CryptoDepositRecorder depositRecorder;
     private CryptoQuoteRepository cryptoQuoteRepository;
     private PaymentRepository paymentRepository;
     private UserAddressRepository userAddressRepository;
@@ -95,6 +96,7 @@ class CryptoTxRecordServiceTest {
         // 여기서는 반환값을 쓰지 않아 null 이 되는 것만 막는다.
         when(cryptoPaymentRepository.save(any())).thenAnswer(call -> call.getArgument(0));
         cryptoDepositRepository = mock(CryptoDepositRepository.class);
+        depositRecorder = mock(CryptoDepositRecorder.class);
         cryptoQuoteRepository = mock(CryptoQuoteRepository.class);
         paymentRepository = mock(PaymentRepository.class);
         userAddressRepository = mock(UserAddressRepository.class);
@@ -103,7 +105,7 @@ class CryptoTxRecordServiceTest {
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
 
         service = new CryptoTxRecordService(cryptoPaymentRepository, cryptoDepositRepository,
-                cryptoQuoteRepository, paymentRepository, userAddressRepository,
+                depositRecorder, cryptoQuoteRepository, paymentRepository, userAddressRepository,
                 paymentService, groupBuySlotPort, clock);
     }
 
@@ -308,6 +310,41 @@ class CryptoTxRecordServiceTest {
                 successReceipt(BUYER_WALLET, RECEIVE_WALLET, extra, TOKEN), TX_BLOCK));
 
         assertEquals(ErrorCode.CRYPTO_AMOUNT_MISMATCH, e.getErrorCode());
+    }
+
+    /**
+     * 결제는 거부되지만 돈은 이미 우리 지갑에 들어와 있습니다. 여기서 남기지 않으면
+     * 누구에게 돌려줘야 하는지 알 수 없습니다(FR-PAY-26).
+     *
+     * <p>record 는 @Transactional 이라 예외를 던지면 롤백됩니다. 그래서 기록은 별도 빈의
+     * REQUIRES_NEW 트랜잭션이 맡습니다 - 이 테스트는 그 빈이 호출되는지만 봅니다.
+     */
+    @Test
+    @DisplayName("미달 입금도 관리자 환불 대상으로 기록한다")
+    void recordsUnderpaidDepositBeforeRejecting() {
+        Payment payment = processingPayment(600);
+        givenRecordable(payment);
+        BigInteger short1 = RAW_AMOUNT.subtract(BigInteger.ONE);
+
+        assertThrows(BusinessException.class, () -> record(payment,
+                successReceipt(BUYER_WALLET, RECEIVE_WALLET, short1, TOKEN), TX_BLOCK));
+
+        verify(depositRecorder).recordMismatched(any(), any(), anyLong(),
+                eq(CryptoDeposit.STATUS_UNDERPAID));
+    }
+
+    @Test
+    @DisplayName("초과 입금도 관리자 환불 대상으로 기록한다")
+    void recordsOverpaidDepositBeforeRejecting() {
+        Payment payment = processingPayment(600);
+        givenRecordable(payment);
+        BigInteger extra = RAW_AMOUNT.add(BigInteger.valueOf(1_000));
+
+        assertThrows(BusinessException.class, () -> record(payment,
+                successReceipt(BUYER_WALLET, RECEIVE_WALLET, extra, TOKEN), TX_BLOCK));
+
+        verify(depositRecorder).recordMismatched(any(), any(), anyLong(),
+                eq(CryptoDeposit.STATUS_OVERPAID));
     }
 
     @Test
