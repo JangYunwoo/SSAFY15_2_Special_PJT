@@ -27,6 +27,40 @@ services:
     volumes:
       - gongguhan-redis-data:/data
 
+  minio:
+    image: quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    container_name: gongguhan-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: gongguhan
+      MINIO_ROOT_PASSWORD: gongguhan-local-s3
+    command: server /data --console-address ":9001"
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - gongguhan-minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio-init:
+    image: quay.io/minio/mc@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
+    container_name: gongguhan-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - >-
+        mc alias set local http://minio:9000 gongguhan gongguhan-local-s3 &&
+        mc mb --ignore-existing local/gongguhan-local &&
+        mc anonymous set download local/gongguhan-local
+
 volumes:
   gongguhan-mysql-data:
   gongguhan-redis-data:
+  gongguhan-minio-data:
