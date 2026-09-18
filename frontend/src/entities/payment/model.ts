@@ -108,3 +108,57 @@ export interface CryptoQuote {
   requiredConfirmations: number
   expiresAt: IsoDateTime
 }
+export interface CryptoTransactionRequest {
+  quoteId: Id
+  txHash: string
+  fromAddress: string
+}
+
+/**
+ * CRYP-04 입금·컨펌 진행 단계 (백엔드 CryptoPaymentStatusResponse.phase).
+ *
+ * 해시를 등록해도 결제 완료가 아닙니다. 필요 컨펌 수에 도달해야 확정되므로
+ * COMPLETED 나 FAILED 가 나올 때까지 상태를 조회해야 합니다.
+ */
+export const CRYPTO_PHASE = [
+  /** 아직 송금하지 않았거나 해시를 보내지 않음 */
+  'AWAITING_TX',
+  /** 해시는 받았으나 노드가 아직 트랜잭션을 모름 */
+  'AWAITING_RECEIPT',
+  /** 영수증 확인됨. 컨펌 대기 중 */
+  'CONFIRMING',
+  /** 컨펌 충족 + 결제 확정 완료 */
+  'COMPLETED',
+  /** revert · 금액 불일치 · 슬롯 만료 등으로 종료 */
+  'FAILED',
+] as const
+export type CryptoPhase = (typeof CRYPTO_PHASE)[number]
+
+export const CRYPTO_PHASE_LABEL: Record<CryptoPhase, string> = {
+  AWAITING_TX: '송금 대기',
+  AWAITING_RECEIPT: '트랜잭션 확인 중',
+  CONFIRMING: '블록 컨펌 대기',
+  COMPLETED: '결제 완료',
+  FAILED: '결제 실패',
+}
+
+/** CRYP-04 입금·컨펌 상태 (백엔드 CryptoPaymentStatusResponse) */
+export interface CryptoStatus {
+  paymentId: Id
+  phase: CryptoPhase
+  paymentStatus: PaymentStatus
+  txHash: string | null
+  /** 체인 영수증 상태 (SUCCESS / REVERTED 등) */
+  receiptStatus: string | null
+  blockNumber: number | null
+  confirmations: number
+  requiredConfirmations: number
+  /** 실제로 들어온 수량 */
+  assetAmount: Decimal | null
+  rawAmount: Decimal | null
+  depositAddress: string | null
+  confirmedAt: IsoDateTime | null
+  /** FAILED 일 때만 채워집니다 */
+  failReason: string | null
+}
+
