@@ -1,0 +1,24 @@
+# 배포 프로파일.
+#
+# 기본값은 application.yml 이 가지고 있고, 여기서는 배포에서 달라야 하는 것만 덮어씁니다.
+
+springdoc:
+  # API 문서를 공개하지 않습니다. 엔드포인트 목록과 요청 형식이 그대로 노출되면
+  # 공격자가 무엇을 시도할지 고르기 쉬워집니다.
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+app:
+  slot-gate:
+    # 로컬 폴백을 끕니다. 인스턴스가 여러 대가 되면 각자의 메모리로 정원을 세게 되어
+    # 슬롯이 초과 발급됩니다. 배포에서는 Redis Lua 의 원자성을 씁니다.
+    local-fallback-enabled: false
+
+logging:
+  level:
+    # DEBUG 는 요청마다 로그가 쌓여 디스크를 빠르게 채우고, 파라미터가 섞여 나올 수
+    # 있습니다. 문제를 쫓을 때만 일시적으로 올리세요.
+    com.gongguhan: INFO
+    org.hibernate.SQL: WARN

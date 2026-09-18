@@ -1,0 +1,95 @@
+# 배포용 구성 (EC2 한 대)
+#
+#   nginx(frontend) :80  ─ 정적 파일 + /api/v1 프록시
+#   backend         :8080 (외부 비공개)
+#   mysql / redis         (외부 비공개)
+#
+# 실행:  docker compose -f docker-compose.prod.yml up -d --build
+#
+# 비밀값은 이 파일에 적지 않습니다. 같은 폴더의 .env 에서 읽어옵니다(.gitignore 대상).
+# .env.prod.example 을 복사해 값을 채우세요.
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: gongguhan-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      TZ: Asia/Seoul
+    # 포트를 열지 않습니다. 같은 compose 네트워크 안에서만 접근합니다.
+    # 외부에 열면 비밀번호 하나로 DB 전체가 인터넷에 노출됩니다.
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: gongguhan-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+    container_name: gongguhan-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      DB_USERNAME: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      JWT_SECRET: ${JWT_SECRET}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL}
+
+      # SSAFY 금융망
+      SSAFY_API_KEY: ${SSAFY_API_KEY}
+
+      # 코인 결제·환불
+      # 기본값(rpc-amoy.polygon.technology)은 일부 망에서 막힙니다. 반드시 지정하세요.
+      CRYPTO_RPC_URL: ${CRYPTO_RPC_URL}
+      CHAIN_REFUND_WALLET_PRIVATE_KEY: ${CHAIN_REFUND_WALLET_PRIVATE_KEY}
+
+      # 카카오페이
+      KAKAOPAY_SECRET_KEY: ${KAKAOPAY_SECRET_KEY}
+
+      # AI 상품 추출 (없으면 해당 기능만 비활성)
+      AI_EXTRACTION_BASE_URL: ${AI_EXTRACTION_BASE_URL:-}
+
+      # 이미지 업로드
+      AWS_REGION: ${AWS_REGION:-ap-northeast-2}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: gongguhan-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  mysql-data:
