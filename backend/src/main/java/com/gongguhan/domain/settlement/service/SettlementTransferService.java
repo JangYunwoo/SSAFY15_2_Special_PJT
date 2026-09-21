@@ -18,6 +18,8 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 정산 계좌이체 실행 (STL-04·07, FR-STL-01~05, 12).
@@ -97,6 +99,7 @@ public class SettlementTransferService {
      * <p>재시도 배치({@code SettlementTransferRetryScheduler})는 사람이 아니므로
      * {@link #execute(Long)} 를 직접 부르고 감사 로그를 남기지 않습니다.
      */
+    @Transactional(propagation = Propagation.NEVER)
     public Settlement execute(Long adminId, Long settlementId) {
         Settlement result = execute(settlementId);
         auditLogService.record(adminId, AuditLogService.TARGET_SETTLEMENT, settlementId,
@@ -110,6 +113,7 @@ public class SettlementTransferService {
     }
 
     /** 재시도 배치가 부르는 경로. 사람의 조작이 아니라 감사 로그를 남기지 않습니다. */
+    @Transactional(propagation = Propagation.NEVER)
     public Settlement execute(Long settlementId) {
         Settlement settlement = recordService.loadExecutable(settlementId);
 
@@ -153,6 +157,7 @@ public class SettlementTransferService {
         // 시도마다 새로 채번한다. 같은 번호를 다시 쓰면 금융망이 중복 거래로 거부한다.
         String institutionTxNo = ssafyApiLogService.generateInstitutionTransactionUniqueNo(
                 SsafyTransferClient.API_SERVICE_CODE);
+        recordService.assignTransferReference(settlementId, institutionTxNo);
 
         SsafyTransferClient.TransferResponse response;
         try {
@@ -161,7 +166,7 @@ public class SettlementTransferService {
                     policyService.getString(PolicyKey.SSAFY_FINTECH_APP_NO),
                     sellerUserKey, platformAccount, sellerAccount, amount,
                     WITHDRAWAL_SUMMARY, DEPOSIT_SUMMARY);
-        } catch (BusinessException exception) {
+        } catch (RuntimeException exception) {
             // 응답을 받지 못했다. 이체가 일어났는지 알 수 없으므로 자동 재시도에서 뺀다.
             recordLog(institutionTxNo, settlementId, platformAccount, sellerAccount, amount,
                     null, exception.getMessage(), null);

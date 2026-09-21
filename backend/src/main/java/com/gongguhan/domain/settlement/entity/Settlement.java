@@ -112,6 +112,24 @@ public class Settlement {
     @Column(name = "transfer_status", nullable = false, length = 20)
     private String transferStatus;
 
+    @org.hibernate.annotations.ColumnDefault("false")
+    @Column(name = "transfer_claimed", nullable = false)
+    private boolean transferClaimed;
+
+    public void claimTransfer() {
+        if (!isExecutable() || isTransferOutcomeUnknown()) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "이미 이체 중이거나 실행할 수 없는 정산입니다.");
+        }
+        transferClaimed = true;
+    }
+
+    public void assignTransferReference(String institutionTxNo) {
+        if (!transferClaimed || !STATUS_PENDING.equals(status)) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION);
+        }
+        this.institutionTxNo = institutionTxNo;
+    }
+
     @Column(name = "institution_tx_no", length = 20)
     private String institutionTxNo;
 
@@ -192,6 +210,9 @@ public class Settlement {
      * 회수 문제입니다.
      */
     public void hold(String reason) {
+        if (transferClaimed || isTransferOutcomeUnknown()) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "이체 중이거나 결과 불명인 정산은 보류할 수 없습니다.");
+        }
         requireStatus(STATUS_PENDING, "보류");
         this.status = STATUS_HOLD;
         this.transferFailReason = reason;
@@ -218,6 +239,7 @@ public class Settlement {
         this.depositTxNo = depositTxNo;
         this.transferredAt = transferredAt;
         this.transferStatus = TRANSFER_COMPLETED;
+        this.transferClaimed = false;
         this.status = STATUS_COMPLETED;
         this.transferFailReason = null;
     }
@@ -231,6 +253,7 @@ public class Settlement {
     public void failTransfer(String reason) {
         requireStatus(STATUS_PENDING, "이체 실패 처리");
         this.transferStatus = TRANSFER_FAILED;
+        this.transferClaimed = false;
         this.transferFailReason = reason;
     }
 
@@ -248,7 +271,7 @@ public class Settlement {
 
     /** 이체를 실행할 수 있는 상태인지. 보류·완료 건은 실행 대상이 아닙니다. */
     public boolean isExecutable() {
-        return STATUS_PENDING.equals(status);
+        return STATUS_PENDING.equals(status) && !transferClaimed;
     }
 
     /**

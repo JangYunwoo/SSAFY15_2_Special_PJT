@@ -188,10 +188,17 @@ public class SettlementRecordService {
         return settlement;
     }
 
-    /** 이체 실행 전 상태를 다시 확인해 잠급니다. 조회 시점과 실행 시점 사이의 변화를 막습니다. */
-    @Transactional(readOnly = true)
+    /** 금융망 호출 전에 실행권을 잠금 하에 기록하고 커밋한다. 단순 조회가 아니다. */
+    @Transactional
     public Settlement loadExecutable(Long settlementId) {
         Settlement settlement = load(settlementId);
+        validateExecutable(settlement);
+        settlement.claimTransfer();
+        return settlement;
+    }
+
+    private void validateExecutable(Settlement settlement) {
+        Long settlementId = settlement.getSettlementId();
         if (!settlement.isExecutable()) {
             throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
                     "실행할 수 없는 정산입니다. settlementId=%d status=%s"
@@ -202,11 +209,15 @@ public class SettlementRecordService {
                     "이전 이체 결과를 알 수 없습니다. 금융망 거래내역을 확인한 뒤 처리하세요. settlementId="
                             + settlementId);
         }
-        return settlement;
+    }
+
+    @Transactional
+    public void assignTransferReference(Long settlementId, String institutionTxNo) {
+        load(settlementId).assignTransferReference(institutionTxNo);
     }
 
     private Settlement load(Long settlementId) {
-        return settlementRepository.findById(settlementId)
+        return settlementRepository.findForUpdate(settlementId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND,
                         "정산 내역을 찾을 수 없습니다. settlementId=" + settlementId));
     }
