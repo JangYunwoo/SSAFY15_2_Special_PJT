@@ -10,6 +10,7 @@ import { CardFields } from '@/features/checkout/CardFields'
 import { EMPTY_CARD, isCardComplete, type CardInput } from '@/features/checkout/cardInput'
 import { useCheckoutStore } from '@/features/checkout/checkoutStore'
 import { CryptoFields } from '@/features/checkout/CryptoFields'
+import { createCryptoSubmission } from '@/features/checkout/cryptoSubmission'
 import { isTxHash, isWalletAddress } from '@/features/checkout/cryptoInput'
 import { CryptoWaiting } from '@/features/checkout/CryptoWaiting'
 import { OrderSummary } from '@/features/checkout/OrderSummary'
@@ -57,11 +58,13 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
   const [cryptoAssetId, setCryptoAssetId] = useState<string | null>(null)
   const [walletAddress, setWalletAddress] = useState('')
   const [txHash, setTxHash] = useState('')
+  const [cryptoSending, setCryptoSending] = useState(false)
   /** 해시를 등록한 뒤 입금 확인을 기다리는 결제. 코인 결제만 이 단계를 거칩니다. */
   const [awaitingPaymentId, setAwaitingPaymentId] = useState<string | null>(null)
   const now = useNow()
   const submission = useRef(false)
   const approvalKeys = useRef(new Map<string, string>())
+  const [submitSignedCrypto] = useState(() => createCryptoSubmission())
 
   const slot = usePaymentSlot({
     groupBuyId: groupBuy.id,
@@ -122,7 +125,7 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
        * CRYP-03. 해시를 등록해도 결제 완료가 아닙니다. 필요 컨펌 수에 도달해야
        * 확정되므로 완료 화면으로 바로 넘기지 않고 입금 확인 단계로 넘어갑니다.
        */
-      await paymentApi.submitCryptoTx(payment.paymentId, {
+      await submitSignedCrypto(payment.paymentId, {
         quoteId: quote.quoteId,
         txHash: txHash.trim(),
         fromAddress: walletAddress.trim(),
@@ -150,7 +153,7 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
     payment.method === method &&
     payment.status === 'PROCESSING' &&
     Date.parse(payment.slotExpiresAt) > now &&
-    !approve.isPending &&
+    !approve.isPending && !cryptoSending &&
     (method === 'CARD'
       ? isCardComplete(card)
       : method === 'KAKAOPAY'
@@ -211,9 +214,9 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
 
           <PaymentMethodPicker
             value={method}
-            disabled={approve.isPending}
+            disabled={approve.isPending || cryptoSending}
             onChange={(next) => {
-              if (submission.current) return
+              if (submission.current || cryptoSending) return
               setMethod(next)
               approve.reset()
             }}
@@ -227,6 +230,8 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
               ),
               CRYPTO: (
                 <CryptoFields
+                  disabled={approve.isPending}
+                  onSendingChange={setCryptoSending}
                   assetId={cryptoAssetId}
                   onAssetChange={selectAsset}
                   walletAddress={walletAddress}
@@ -236,7 +241,7 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
                   quote={quote}
                   isQuoteLoading={issueQuote.isFetching}
                   onQuoteExpired={() => {
-                    if (payment !== null && !submission.current && !issueQuote.isFetching) void issueQuote.refetch()
+                    if (payment !== null && !submission.current && !cryptoSending && !issueQuote.isFetching) void issueQuote.refetch()
                   }}
                 />
               ),

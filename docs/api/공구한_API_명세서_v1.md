@@ -403,6 +403,7 @@ AI 서버가 응답하지 않으면 모집률 기반 순서로 자동 대체한�
 | CRYP-02 | POST | `/payments/{paymentId}/crypto/quote` | 환율·Buffer 적용 Quote 생성 | USER | FR-PAY-21~25, 28~30, IR-03 |
 | CRYP-03 | POST | `/payments/{paymentId}/crypto/transactions` | 사용자가 제출한 트랜잭션 해시 등록 | USER | FR-PAY-26, 31, IR-04 |
 | CRYP-04 | GET | `/payments/{paymentId}/crypto/status` | 입금·컨펌·매칭 상태 조회 | USER | FR-PAY-25~26, IR-04 |
+| CRYP-05 | POST | `/payments/{paymentId}/crypto/wallet-challenge` | 송신 지갑 소유권 증명 메시지 발급 | USER | C03 보안 보완 |
 
 ### 카드 승인 요청
 
@@ -471,6 +472,16 @@ AI 서버가 응답하지 않으면 모집률 기반 순서로 자동 대체한�
   "expiresAt": "2026-09-03T01:40:00Z"
 }
 ```
+
+### 코인 송신 지갑 소유권 증명 (C03)
+
+CRYP-03 전 CRYP-05에 `quoteId`, `fromAddress`(0x+40자리), `txHash`(0x+64자리)를 POST한다. 응답 data는 `challengeId`, `message`, `expiresAt`, `chainId`다. message는 서버가 생성한 nonce와 도메인/용도, 로그인 사용자, 결제·견적·체인·송신 지갑·거래 해시·만료를 포함한다. 만료는 5분, 슬롯 만료, 견적 만료 중 가장 이른 시각이다.
+
+프런트는 선택한 MetaMask 계정과 체인을 확인한 다음, message를 UTF-8 hex로 바꾸어 `personal_sign(messageHex, fromAddress)`한다. 서버에 개인키를 전송하지 않는다. CRYP-03 본문은 기존 세 필드에 `challengeId`, `signature`(0x+130자리)를 추가하며 두 값은 필수다. 서명은 새로운 송금이나 토큰 권한 승인이 아니라 이미 송금한 거래를 해당 사용자 결제에 귀속시키는 증명이다.
+
+서버는 EIP-191 표준 서명 복구로 송신 지갑 소유권을 검증하고, 기존 체인 영수증의 송신자/수신자/금액/토큰 대조도 계속 수행한다. nonce 소비와 거래 기록은 같은 트랜잭션이다. 실패하면 nonce도 롤백된다. 동일 서명·동일 본문 재전송은 이미 기록된 정확히 같은 거래의 상태만 반환하고 RPC/결제를 재실행하지 않는다. 다른 사용자·결제·견적·주소·해시·변조 서명은 403, 누락/형식 오류/미소비 증명 만료는 400이다. 종료된 결제·견적에 대한 기존 409 계약은 유지한다.
+
+서명 없는 예전 클라이언트와 호환되지 않으므로 V20 마이그레이션 및 프런트/백엔드를 함께 적용한다. 거래소가 관리하는 출금 주소나 스마트컨트랙트 지갑(EIP-1271)은 현재 지원하지 않는다. MetaMask EOA의 송신 계정으로 서명할 수 있는 거래만 등록한다. 전송 해시만 복사해서 결제하는 이전 방식은 의도적으로 차단한다.
 
 ## 7. 참여·구매확정·이의제기 API
 

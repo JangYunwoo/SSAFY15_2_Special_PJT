@@ -112,6 +112,16 @@ export interface CryptoTransactionRequest {
   quoteId: Id
   txHash: string
   fromAddress: string
+  challengeId: string
+  signature: string
+}
+
+export type CryptoWalletChallengeRequest = Pick<CryptoTransactionRequest, 'quoteId' | 'txHash' | 'fromAddress'>
+export interface CryptoWalletChallenge {
+  challengeId: string
+  message: string
+  expiresAt: IsoDateTime
+  chainId: number
 }
 
 /**

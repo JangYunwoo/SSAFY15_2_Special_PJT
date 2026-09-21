@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import type { CryptoQuote } from '@/entities/payment/model'
@@ -20,6 +20,8 @@ interface CryptoFieldsProps {
   quote: CryptoQuote | null
   isQuoteLoading: boolean
   onQuoteExpired: () => void
+  disabled?: boolean
+  onSendingChange?: (sending: boolean) => void
 }
 
 export function CryptoFields({
@@ -32,10 +34,13 @@ export function CryptoFields({
   quote,
   isQuoteLoading,
   onQuoteExpired,
+  disabled = false,
+  onSendingChange,
 }: CryptoFieldsProps) {
   const assets = useQuery(paymentQueries.cryptoAssets())
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
+  const sendingRef = useRef(false)
 
   const walletTyped = walletAddress.trim() !== ''
   const hashTyped = txHash.trim() !== ''
@@ -46,6 +51,7 @@ export function CryptoFields({
         label="결제할 코인"
         placeholder="자산 선택"
         value={assetId ?? ''}
+        disabled={disabled || sending}
         onChange={(event) => {
           onAssetChange(event.target.value)
         }}
@@ -64,10 +70,13 @@ export function CryptoFields({
         <button
           type="button"
           className="btn mt16"
-          disabled={sending}
+          disabled={disabled || sending}
           onClick={() => {
+            if (sendingRef.current || disabled) return
+            sendingRef.current = true
             setSendError(null)
             setSending(true)
+            onSendingChange?.(true)
             // 견적 값 그대로 보내고, 성공하면 아래 두 칸을 자동으로 채웁니다.
             sendWithMetaMask(quote)
               .then(({ from, txHash }) => {
@@ -79,6 +88,8 @@ export function CryptoFields({
               })
               .finally(() => {
                 setSending(false)
+                sendingRef.current = false
+                onSendingChange?.(false)
               })
           }}
         >
@@ -97,10 +108,11 @@ export function CryptoFields({
         placeholder="0x71A...92F"
         autoComplete="off"
         value={walletAddress}
+        disabled={disabled || sending}
         onChange={(event) => {
           onWalletChange(event.target.value)
         }}
-        hint="0x 로 시작하는 40자리 주소"
+        hint="MetaMask에서 직접 서명할 수 있는 본인 지갑만 가능합니다. 거래소 출금은 지원하지 않으며 결제하기에서 소유권 서명을 확인합니다."
         error={
           walletTyped && !isWalletAddress(walletAddress)
             ? '주소 형식이 올바르지 않습니다.'
@@ -114,6 +126,7 @@ export function CryptoFields({
         placeholder="0x 로 시작하는 64자리"
         autoComplete="off"
         value={txHash}
+        disabled={disabled || sending}
         onChange={(event) => {
           onTxHashChange(event.target.value)
         }}

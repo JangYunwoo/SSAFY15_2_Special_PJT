@@ -7,6 +7,8 @@ import type {
   CryptoQuote,
   CryptoStatus,
   CryptoTransactionRequest,
+  CryptoWalletChallenge,
+  CryptoWalletChallengeRequest,
   KakaoPayApproveRequest,
   KakaoPayReady,
   Payment,
@@ -68,9 +70,12 @@ export const paymentApi = {
     api.post<CryptoQuote>(`/payments/${paymentId}/crypto/quote`, { assetId }),
 
   /** CRYP-03 트랜잭션 해시 등록 */
+  cryptoWalletChallenge: (paymentId: Id, body: CryptoWalletChallengeRequest) =>
+    api.post<CryptoWalletChallenge>(`/payments/${paymentId}/crypto/wallet-challenge`, body),
+
   submitCryptoTx: (paymentId: Id, body: CryptoTransactionRequest) =>
     api.post<CryptoStatus>(`/payments/${paymentId}/crypto/transactions`, body, {
-      idempotencyKey: newIdempotencyKey(),
+      idempotencyKey: body.challengeId,
     }),
 
   /** CRYP-04 */

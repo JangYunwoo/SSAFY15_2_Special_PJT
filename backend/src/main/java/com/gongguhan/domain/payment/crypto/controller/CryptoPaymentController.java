@@ -5,6 +5,9 @@ import com.gongguhan.domain.payment.crypto.dto.CryptoPaymentStatusResponse;
 import com.gongguhan.domain.payment.crypto.dto.CryptoQuoteRequest;
 import com.gongguhan.domain.payment.crypto.dto.CryptoQuoteResponse;
 import com.gongguhan.domain.payment.crypto.dto.CryptoTxSubmitRequest;
+import com.gongguhan.domain.payment.crypto.dto.CryptoWalletChallengeRequest;
+import com.gongguhan.domain.payment.crypto.dto.CryptoWalletChallengeResponse;
+import com.gongguhan.domain.payment.crypto.service.CryptoWalletProofService;
 import com.gongguhan.domain.payment.crypto.service.CryptoQuoteService;
 import com.gongguhan.domain.payment.crypto.service.CryptoTxVerificationService;
 import com.gongguhan.global.common.ApiResponse;
@@ -38,11 +41,22 @@ public class CryptoPaymentController {
 
     private final CryptoQuoteService cryptoQuoteService;
     private final CryptoTxVerificationService cryptoTxVerificationService;
+    private final CryptoWalletProofService walletProofService;
 
     public CryptoPaymentController(CryptoQuoteService cryptoQuoteService,
-                                    CryptoTxVerificationService cryptoTxVerificationService) {
+                                    CryptoTxVerificationService cryptoTxVerificationService,
+                                    CryptoWalletProofService walletProofService) {
         this.cryptoQuoteService = cryptoQuoteService;
         this.cryptoTxVerificationService = cryptoTxVerificationService;
+        this.walletProofService = walletProofService;
+    }
+
+    @PostMapping("/payments/{paymentId}/crypto/wallet-challenge")
+    public ResponseEntity<ApiResponse<CryptoWalletChallengeResponse>> walletChallenge(
+            @AuthenticationPrincipal Long userId, @PathVariable Long paymentId,
+            @Valid @RequestBody CryptoWalletChallengeRequest request, HttpServletRequest httpRequest) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(
+                walletProofService.issue(userId, paymentId, request), TraceIdUtils.from(httpRequest)));
     }
 
     /** CRYP-01 지원 디지털 자산 목록. */
