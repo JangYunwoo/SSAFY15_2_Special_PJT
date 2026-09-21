@@ -106,6 +106,8 @@ class RefundOrchestrationServiceTest {
         Refund failed = mock(Refund.class);
         when(failed.getStatus()).thenReturn(RefundStatus.FAILED);
         when(ledgerService.fail(anyLong(), anyString())).thenReturn(failed);
+        when(ledgerService.failRejected(anyLong(), anyString())).thenReturn(failed);
+        when(ledgerService.tryClaimExecution(anyLong(), org.mockito.ArgumentMatchers.nullable(String.class))).thenReturn(true);
 
         service = new RefundOrchestrationService(ledgerService, paymentRepository, userRepository,
                 transferClient, ssafyApiLogService, cryptoRefundService, auditLogService,
@@ -198,6 +200,28 @@ class RefundOrchestrationServiceTest {
         verify(transferClient, never()).transfer(anyString(), anyString(), anyString(),
                 anyString(), anyString(), anyString(), anyLong(), anyString(), anyString());
         verify(kakaoPort, never()).refund(any());
+    }
+
+    @Test
+    @DisplayName("실행권 패자는 오래된 생성 결과를 가져도 목적지나 승자의 상태를 변경하지 않는다")
+    void staleCreatorDoesNotMutateWinningRefund() {
+        Refund pending = givenTransferable();
+        when(pending.getStatus()).thenReturn(RefundStatus.PROCESSING);
+        when(ledgerService.tryClaimExecution(REFUND_ID, null)).thenReturn(false);
+        when(ledgerService.get(REFUND_ID)).thenReturn(pending);
+
+        Refund result = service.refundParticipation(
+                PARTICIPATION_ID, AMOUNT, RefundReason.RECRUIT_FAILED);
+
+        assertEquals(pending, result);
+        verify(userRepository, never()).findById(anyLong());
+        verify(policyService, never()).getString(any());
+        verify(ledgerService, never()).assignAccount(anyLong(), anyString());
+        verify(ledgerService, never()).assignWalletAddress(anyLong(), anyString());
+        verify(ledgerService, never()).fail(anyLong(), anyString());
+        verify(ledgerService, never()).failRejected(anyLong(), anyString());
+        verify(transferClient, never()).transfer(anyString(), anyString(), anyString(),
+                anyString(), anyString(), anyString(), anyLong(), anyString(), anyString());
     }
 
     // ------------------------------------------------------------------
@@ -297,7 +321,7 @@ class RefundOrchestrationServiceTest {
 
         verify(transferClient, never()).transfer(anyString(), anyString(), anyString(),
                 anyString(), anyString(), anyString(), anyLong(), anyString(), anyString());
-        verify(ledgerService).fail(eq(REFUND_ID), anyString());
+        verify(ledgerService).failRejected(eq(REFUND_ID), anyString());
     }
 
     @Test
@@ -317,7 +341,7 @@ class RefundOrchestrationServiceTest {
 
         verify(transferClient, never()).transfer(anyString(), anyString(), anyString(),
                 anyString(), anyString(), anyString(), anyLong(), anyString(), anyString());
-        verify(ledgerService).fail(eq(REFUND_ID), anyString());
+        verify(ledgerService).failRejected(eq(REFUND_ID), anyString());
     }
 
     /**
@@ -380,7 +404,7 @@ class RefundOrchestrationServiceTest {
 
         service.refundParticipation(PARTICIPATION_ID, AMOUNT, RefundReason.RECRUIT_FAILED);
 
-        verify(ledgerService).fail(eq(REFUND_ID), anyString());
+        verify(ledgerService).failRejected(eq(REFUND_ID), anyString());
     }
 
     // ------------------------------------------------------------------
@@ -535,7 +559,7 @@ class RefundOrchestrationServiceTest {
 
         service.refundParticipation(PARTICIPATION_ID, AMOUNT, RefundReason.RECRUIT_FAILED);
 
-        verify(ledgerService).fail(eq(REFUND_ID), anyString());
+        verify(ledgerService).failRejected(eq(REFUND_ID), anyString());
         verify(cryptoRefundService, never()).refundByPayment(anyLong(), anyLong());
     }
 

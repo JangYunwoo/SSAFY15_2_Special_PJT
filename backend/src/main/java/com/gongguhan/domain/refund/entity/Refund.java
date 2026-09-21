@@ -137,6 +137,12 @@ public class Refund {
         executionClaimed = false;
     }
 
+    public void recordInstitutionTransaction(String correlationId) {
+        requireProcessing();
+        if (!executionClaimed) { throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION); }
+        institutionTxNo = correlationId;
+    }
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -388,6 +394,8 @@ public class Refund {
     public boolean isProcessing() {
         return status == RefundStatus.PROCESSING;
     }
+
+    public boolean isExecutionClaimed() { return executionClaimed; }
 
     public boolean isCompleted() {
         return status == RefundStatus.COMPLETED;

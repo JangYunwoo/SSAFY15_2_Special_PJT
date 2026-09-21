@@ -232,6 +232,23 @@ public class RefundLedgerService {
         locked(refundId).claimExecution(correlationId);
     }
 
+    /** 복구 스캔과 최초 요청이 경쟁해도 패자는 진행 중인 원장을 FAILED로 덮지 않는다. */
+    @Transactional
+    public boolean tryClaimExecution(Long refundId, String correlationId) {
+        Refund refund = locked(refundId);
+        if (!refund.isProcessing() || refund.isExecutionClaimed()) { return false; }
+        refund.claimExecution(correlationId);
+        return true;
+    }
+
+    @Transactional(readOnly = true)
+    public Refund get(Long refundId) { return load(refundId); }
+
+    @Transactional
+    public void recordInstitutionTransaction(Long refundId, String correlationId) {
+        locked(refundId).recordInstitutionTransaction(correlationId);
+    }
+
     @Transactional
     public void releaseUnsentOrRejectedExecution(Long refundId) {
         locked(refundId).releaseUnsentOrRejectedExecution();
