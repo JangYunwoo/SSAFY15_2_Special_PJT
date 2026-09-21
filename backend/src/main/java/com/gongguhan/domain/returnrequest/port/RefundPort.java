@@ -10,6 +10,10 @@ public interface RefundPort {
 
     RefundResult refund(RefundCommand command);
 
+    /**
+     * @param returnId 반품 환불의 추적 ID. 일반 참여 취소·모집 실패 환불은 null이다.
+     *                 결제수단 어댑터는 이를 모든 환불의 필수 조건으로 요구하지 않는다.
+     */
     record RefundCommand(
             String idempotencyKey,
             Long returnId,

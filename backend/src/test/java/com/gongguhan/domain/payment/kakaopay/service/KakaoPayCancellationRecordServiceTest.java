@@ -40,6 +40,25 @@ class KakaoPayCancellationRecordServiceTest {
     }
 
     @Test
+    void participationCancellationDoesNotRequireReturnId() {
+        var preparation = service.prepare(new RefundCommand(
+                "refund-10", null, 50L, "KAKAOPAY", 54_000));
+        assertThat(preparation.outcome())
+                .isEqualTo(KakaoPayCancellationRecordService.Preparation.Outcome.INVOKE);
+        assertThat(preparation.cancellation().getRequestedAmount()).isEqualTo(54_000);
+        assertThat(preparation.cancellation().getTid()).isEqualTo("T123");
+    }
+
+    @Test
+    void participationCancellationStillRejectsExcessAmount() {
+        assertThatThrownBy(() -> service.prepare(new RefundCommand(
+                "refund-10", null, 50L, "KAKAOPAY", 54_001)))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getMessage())
+                                .contains("원 결제 금액을 초과"));
+    }
+
+    @Test
     void newRequestPersistsPendingBeforeProviderCall() {
         when(cancellationRepository.findForUpdate("RETURN-40")).thenReturn(Optional.empty());
 
@@ -85,6 +104,30 @@ class KakaoPayCancellationRecordServiceTest {
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getErrorCode())
                                 .isEqualTo(ErrorCode.VALIDATION_ERROR));
+    }
+
+    @Test
+    void missingReturnIdDoesNotBypassRequiredRequestFields() {
+        for (RefundCommand invalid : java.util.List.of(
+                new RefundCommand("", null, 50L, "KAKAOPAY", 1000),
+                new RefundCommand(null, null, 50L, "KAKAOPAY", 1000),
+                new RefundCommand("x".repeat(65), null, 50L, "KAKAOPAY", 1000),
+                new RefundCommand("key", null, null, "KAKAOPAY", 1000),
+                new RefundCommand("key", null, 50L, "CARD", 1000),
+                new RefundCommand("key", null, 50L, "KAKAOPAY", 0),
+                new RefundCommand("key", null, 50L, "KAKAOPAY", -1))) {
+            assertThatThrownBy(() -> service.prepare(invalid))
+                    .isInstanceOfSatisfying(BusinessException.class, error ->
+                            assertThat(error.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
+        }
+    }
+
+    @Test
+    void missingReturnIdDoesNotPermitUnapprovedPayment() {
+        when(paymentRepository.findById(50L)).thenReturn(Optional.of(KakaoPayPayment.forPayment(50L)));
+        assertThatThrownBy(() -> service.prepare(new RefundCommand("refund-10", null, 50L, "KAKAOPAY", 1000)))
+                .isInstanceOfSatisfying(BusinessException.class, error ->
+                        assertThat(error.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATE_TRANSITION));
     }
 
     private RefundCommand command() {

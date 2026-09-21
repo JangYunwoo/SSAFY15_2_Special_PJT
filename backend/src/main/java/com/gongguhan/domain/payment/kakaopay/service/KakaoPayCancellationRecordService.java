@@ -95,8 +95,10 @@ public class KakaoPayCancellationRecordService {
     }
 
     private void validate(RefundCommand command) {
+        // returnId는 반품 추적용이다. 일반 참여 취소·모집 실패 환불에는 없다.
+        // 취소 대상은 승인된 paymentId/TID, 금액, 요청 키로 검증한다.
         if (!"KAKAOPAY".equals(command.paymentMethod()) || command.paymentId() == null
-                || command.returnId() == null || command.amount() <= 0
+                || command.amount() <= 0
                 || command.idempotencyKey() == null || command.idempotencyKey().isBlank()
                 || command.idempotencyKey().length() > 64) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR,
