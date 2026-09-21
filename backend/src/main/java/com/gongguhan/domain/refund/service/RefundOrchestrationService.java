@@ -23,6 +23,8 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 환불 실행 오케스트레이션 (S15P21B205-109).
@@ -45,7 +47,8 @@ import org.springframework.stereotype.Service;
  *
  * <h2>트랜잭션 경계</h2>
  *
- * <p>이 클래스에는 {@code @Transactional} 이 없습니다. 외부 송금은 수 초가 걸리는데
+ * <p>클래스 전체에 트랜잭션을 적용하지 않습니다. 취소 의도 예약은 호출자의 트랜잭션에만
+ * 참여하고, 예약 후 외부 실행은 트랜잭션이 없는 상태만 허용합니다. 외부 송금은 수 초가 걸리는데
  * DB 트랜잭션 안에서 부르면 커넥션과 잠금이 그만큼 묶입니다. 원장 쓰기는
  * {@link RefundLedgerService} 의 짧은 트랜잭션이 담당합니다. 코인 결제 검증에서
  * {@code CryptoTxVerificationService} / {@code CryptoTxRecordService} 를 나눈 것과
@@ -129,6 +132,28 @@ public class RefundOrchestrationService {
         if (opened.created()) {
             finalizeIfParticipationCompleted(refund);
         }
+        return refund;
+    }
+
+    /** 참여 취소의 상태·인원 변경 트랜잭션에 원장 생성을 합류시킨다. 외부 호출은 없다. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public OpenResult reserveParticipationCancellation(Long participationId, long amount, String paymentMethod) {
+        RefundMethod method = METHOD_CARD.equals(paymentMethod) ? RefundMethod.CARD_CANCEL : resolveMethod(paymentMethod);
+        return ledgerService.openForParticipation(participationId, amount, RefundReason.PARTICIPATION_CANCEL, method);
+    }
+
+    /** 원장을 새로 예약한 요청만 커밋 후 실행한다. 외부 호출 중 DB 트랜잭션을 열지 않는다. */
+    @Transactional(propagation = Propagation.NEVER)
+    public Refund executeParticipationCancellation(Long participationId, OpenResult opened,
+                                                  String cardNumber, String cvc) {
+        if (!opened.created()) {
+            return opened.refund();
+        }
+        Payment payment = loadPayment(participationId);
+        Refund refund = opened.refund().getRefundMethod() == RefundMethod.CARD_CANCEL
+                ? executeCardCancel(opened.refund(), payment, cardNumber, cvc)
+                : executeIfCreated(opened, payment);
+        finalizeIfParticipationCompleted(refund);
         return refund;
     }
 

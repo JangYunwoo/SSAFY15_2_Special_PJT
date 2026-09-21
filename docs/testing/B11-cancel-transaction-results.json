@@ -1,0 +1,14 @@
+{
+  "issue": "S15P21B205-177",
+  "bug": "B11",
+  "baseCommit": "d3eaa50c1ef994bece20b377093492f51d899ec5",
+  "finalRetestedBaseCommit": "e6ae9a11a3b900795caca508b52277761596e5e7",
+  "before": {"tests": 8, "passed": 2, "failures": 6},
+  "afterTargeted": {"tests": 10, "passed": 10, "failures": 0},
+  "afterBackendRegression": {"suites": 92, "tests": 583, "passed": 580, "failures": 0, "errors": 0, "skipped": 3},
+  "environment": "Local Windows, JDK 21, Spring Boot/JPA/H2, mocked financial provider and Redis boundary",
+  "externalFinancialCalls": false,
+  "productionDeployment": false,
+  "performanceBenchmark": false,
+  "limitations": ["H2 concurrency is not MySQL concurrency certification", "Redis 2 and S3 1 tests skipped", "Crash recovery and ambiguous provider outcomes require separate work"]
+}
