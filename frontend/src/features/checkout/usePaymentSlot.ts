@@ -46,6 +46,7 @@ export function usePaymentSlot({
   cryptoAssetId = null,
 }: Args): Slot {
   const setPaymentId = useCheckoutStore((state) => state.setPaymentId)
+  const hasRequiredAsset = method !== 'CRYPTO' || (cryptoAssetId?.trim().length ?? 0) > 0
 
   const idempotencyKeys = useRef(new Map<string, string>())
 
@@ -64,13 +65,17 @@ export function usePaymentSlot({
     queryFn: () => {
       // enabled 로 막아두지만 타입을 좁히려면 여기서도 확인해야 합니다.
       if (addressId === null) throw new Error('배송지가 선택되지 않았습니다.')
+      // enabled=false여도 수동 재조회는 queryFn을 실행할 수 있으므로 함께 방어한다.
+      if (method === 'CRYPTO' && (cryptoAssetId?.trim().length ?? 0) === 0) {
+        throw new Error('결제할 디지털 자산을 먼저 선택해 주세요.')
+      }
       return paymentApi.prepare(
         groupBuyId,
         { method, addressId, cryptoAssetId },
         idempotencyKeyFor(`${groupBuyId}:${method}:${cryptoAssetId ?? '-'}:${addressId}`),
       )
     },
-    enabled: addressId !== null,
+    enabled: addressId !== null && hasRequiredAsset,
     // 슬롯은 한 번 잡으면 다시 요청하지 않습니다. 만료는 타이머가 알려줍니다.
     staleTime: Infinity,
     gcTime: 0,
