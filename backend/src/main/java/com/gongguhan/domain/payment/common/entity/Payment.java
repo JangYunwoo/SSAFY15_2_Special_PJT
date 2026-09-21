@@ -74,6 +74,25 @@ public class Payment extends BaseTimeEntity {
     @Column(name = "fail_reason", length = 255)
     private String failReason;
 
+    @Column(name = "card_approval_status", length = 20)
+    private String cardApprovalStatus;
+
+    @Column(name = "card_institution_tx_no", length = 20)
+    private String cardInstitutionTxNo;
+
+    /** 결제 행 잠금 안에서 변경하고 외부 승인 전에 커밋하는 실행권. */
+    public void beginCardApproval(String institutionTxNo) {
+        cardApprovalStatus = "PROCESSING";
+        cardInstitutionTxNo = institutionTxNo;
+    }
+
+    public void recordCardApprovalOutcome(String outcome) { cardApprovalStatus = outcome; }
+    public String getCardApprovalStatus() { return cardApprovalStatus; }
+    public boolean hasUnresolvedCardApproval() {
+        return "PROCESSING".equals(cardApprovalStatus) || "UNKNOWN".equals(cardApprovalStatus);
+    }
+    public boolean isCardApprovalInFlight() { return "PROCESSING".equals(cardApprovalStatus); }
+
     protected Payment() {
     }
 
@@ -98,6 +117,7 @@ public class Payment extends BaseTimeEntity {
     }
 
     public void markPaid(Long participationId, LocalDateTime approvedAt) {
+        if (isCardApprovalInFlight()) { cardApprovalStatus = "COMPLETED"; }
         this.participationId = participationId;
         this.status = STATUS_PAID;
         this.slotMarker = null;

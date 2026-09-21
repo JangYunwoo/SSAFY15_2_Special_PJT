@@ -19,6 +19,8 @@ import java.time.LocalDateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -28,10 +30,8 @@ import tools.jackson.databind.ObjectMapper;
  * SsafyCardApiClient})은 DB 트랜잭션 밖에서 하고, 승인 성공 후 짧은 트랜잭션에서
  * {@link PaymentService#completePayment}로 확정한다.
  *
- * <p><b>S15P21B205-63(SSAFY 회원 연동) 선행 의존.</b> {@code users.ssafy_user_key}가
- * 채워져 있어야 이 API가 실제로 동작한다. 지금은 그 티켓이 미구현이라 항상
- * {@link ErrorCode#SSAFY_MEMBER_NOT_LINKED}로 실패한다 - 코드는 완결돼 있고,
- * -63이 들어오면 별도 변경 없이 정상 동작한다.
+ * <p>SSAFY 회원 연동이 필요하다. 외부 호출 전에 별도 트랜잭션으로 실행권을 기록하며,
+ * 결과 불명은 기관거래고유번호로 대조할 때까지 재승인하지 않는다.
  */
 @Service
 public class CardPaymentService {
@@ -51,6 +51,7 @@ public class CardPaymentService {
     private final SsafyApiLogService ssafyApiLogService;
     private final ObjectMapper objectMapper;
     private final Clock clock;
+    private final CardApprovalRecordService approvalRecords;
 
     public CardPaymentService(PaymentRepository paymentRepository,
                                UserRepository userRepository,
@@ -61,7 +62,7 @@ public class CardPaymentService {
                                SsafyCardApiClient ssafyCardApiClient,
                                SsafyApiLogService ssafyApiLogService,
                                ObjectMapper objectMapper,
-                               Clock clock) {
+                               Clock clock, CardApprovalRecordService approvalRecords) {
         this.paymentRepository = paymentRepository;
         this.userRepository = userRepository;
         this.userAddressRepository = userAddressRepository;
@@ -72,8 +73,10 @@ public class CardPaymentService {
         this.ssafyApiLogService = ssafyApiLogService;
         this.objectMapper = objectMapper;
         this.clock = clock;
+        this.approvalRecords = approvalRecords;
     }
 
+    @Transactional(propagation = Propagation.NEVER)
     public void approve(Long userId, Long paymentId, CardApproveRequest request) {
         Payment payment = paymentRepository.findByPaymentIdAndUserId(paymentId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_ACCESS_DENIED));
@@ -90,29 +93,42 @@ public class CardPaymentService {
         String fintechAppNo = policyService.getString(PolicyKey.SSAFY_FINTECH_APP_NO);
         String institutionTxNo = ssafyApiLogService.generateInstitutionTransactionUniqueNo(API_SERVICE_CODE);
 
-        // 외부 호출은 DB 트랜잭션 밖에서 수행한다(원자성 규칙 5번).
-        SsafyCardApiClient.SsafyCardTransactionResponse response = ssafyCardApiClient.createCreditCardTransaction(
-                institutionTxNo, institutionCode, fintechAppNo, user.getSsafyUserKey(),
-                request.cardNumber(), request.cvc(), merchantId, payment.getKrwAmount());
+        // 별도 트랜잭션으로 실행권을 먼저 커밋한다. 외부 호출 중 DB 잠금은 유지하지 않는다.
+        approvalRecords.claim(userId, paymentId, institutionTxNo);
+        try {
+            // 외부 호출은 DB 트랜잭션 밖에서 수행한다(원자성 규칙 5번).
+            SsafyCardApiClient.SsafyCardTransactionResponse response = ssafyCardApiClient.createCreditCardTransaction(
+                    institutionTxNo, institutionCode, fintechAppNo, user.getSsafyUserKey(),
+                    request.cardNumber(), request.cvc(), merchantId, payment.getKrwAmount());
 
-        ssafyApiLogService.record(API_SERVICE_CODE, institutionTxNo, TARGET_TYPE_PAYMENT, paymentId,
-                new SanitizedRequestSnapshot(API_SERVICE_CODE, merchantId, payment.getKrwAmount()),
-                response.header().responseCode(), response.header().responseMessage(), response);
+            ssafyApiLogService.record(API_SERVICE_CODE, institutionTxNo, TARGET_TYPE_PAYMENT, paymentId,
+                    new SanitizedRequestSnapshot(API_SERVICE_CODE, merchantId, payment.getKrwAmount()),
+                    response.header().responseCode(), response.header().responseMessage(), response);
 
-        if (!response.isSuccess()) {
-            log.warn("SSAFY 카드 승인 실패 paymentId={} responseCode={}", paymentId, response.header().responseCode());
-            paymentService.failPayment(paymentId, response.header().responseCode());
-            throw new BusinessException(ErrorCode.EXTERNAL_PAYMENT_ERROR, response.header().responseMessage());
+            if (!response.isSuccess()) {
+                log.warn("SSAFY 카드 승인 실패 paymentId={} responseCode={}", paymentId, response.header().responseCode());
+                approvalRecords.recordOutcome(paymentId, "FAILED");
+                paymentService.failPayment(paymentId, response.header().responseCode());
+                throw new BusinessException(ErrorCode.EXTERNAL_PAYMENT_ERROR, response.header().responseMessage());
+            }
+
+            cardPaymentRepository.save(buildCardPayment(payment, user, request, response.rec(), institutionTxNo));
+
+            UserAddress address = userAddressRepository.findById(payment.getAddressId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "배송지를 찾을 수 없습니다."));
+            // 원자성 규칙 6번 - 승인 성공 후 짧은 트랜잭션에서 참여·에스크로를 함께 확정한다.
+            paymentService.completePayment(paymentId, new PaymentService.ParticipationSnapshot(
+                    address.getRecipientName(), address.getRecipientPhone(),
+                    address.getZipcode(), address.getAddress1(), address.getAddress2()));
+        } catch (RuntimeException exception) {
+            // 결과 기록이 실패해도 먼저 커밋한 PROCESSING 실행권이 재승인을 차단한다.
+            try {
+                approvalRecords.recordOutcome(paymentId, "UNKNOWN");
+            } catch (RuntimeException recordFailure) {
+                exception.addSuppressed(recordFailure);
+            }
+            throw exception;
         }
-
-        cardPaymentRepository.save(buildCardPayment(payment, user, request, response.rec(), institutionTxNo));
-
-        UserAddress address = userAddressRepository.findById(payment.getAddressId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "배송지를 찾을 수 없습니다."));
-        // 원자성 규칙 6번 - 승인 성공 후 짧은 트랜잭션에서 참여·에스크로를 함께 확정한다.
-        paymentService.completePayment(paymentId, new PaymentService.ParticipationSnapshot(
-                address.getRecipientName(), address.getRecipientPhone(),
-                address.getZipcode(), address.getAddress1(), address.getAddress2()));
     }
 
     private void validateApprovable(Payment payment) {

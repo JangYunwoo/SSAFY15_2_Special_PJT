@@ -192,6 +192,7 @@ public class PaymentService {
         if (!payment.isProcessing()) {
             throw new BusinessException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
         }
+        rejectUnresolvedCardApproval(payment);
 
         groupBuySlotPort.release(payment.getGroupBuyId());
         groupBuySlotGate.release(payment.getGroupBuyId());
@@ -220,6 +221,7 @@ public class PaymentService {
         if (payment == null || !payment.isProcessing() || !payment.isExpired(LocalDateTime.now(clock))) {
             return;
         }
+        if (payment.hasUnresolvedCardApproval()) return;
 
         groupBuySlotPort.release(payment.getGroupBuyId());
         groupBuySlotGate.release(payment.getGroupBuyId());
@@ -240,6 +242,7 @@ public class PaymentService {
         if (!payment.isProcessing()) {
             return;
         }
+        if (payment.hasUnresolvedCardApproval()) return;
 
         groupBuySlotPort.release(payment.getGroupBuyId());
         groupBuySlotGate.release(payment.getGroupBuyId());
@@ -268,7 +271,11 @@ public class PaymentService {
         if (!payment.isProcessing()) {
             throw new BusinessException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
         }
-        if (payment.isExpired(LocalDateTime.now(clock))) {
+        if ("UNKNOWN".equals(payment.getCardApprovalStatus())) {
+            throw new BusinessException(ErrorCode.PAYMENT_ALREADY_PROCESSED,
+                    "카드 승인 결과 대조가 필요한 결제입니다.");
+        }
+        if (payment.isExpired(LocalDateTime.now(clock)) && !payment.isCardApprovalInFlight()) {
             throw new BusinessException(ErrorCode.PAYMENT_SLOT_EXPIRED);
         }
 
@@ -380,9 +387,17 @@ public class PaymentService {
         if (!payment.isProcessing()) {
             throw new BusinessException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
         }
+        rejectUnresolvedCardApproval(payment);
         groupBuySlotPort.release(payment.getGroupBuyId());
         groupBuySlotGate.release(payment.getGroupBuyId());
         payment.markFailed(reason);
+    }
+
+    private void rejectUnresolvedCardApproval(Payment payment) {
+        if (payment.hasUnresolvedCardApproval()) {
+            throw new BusinessException(ErrorCode.PAYMENT_ALREADY_PROCESSED,
+                    "카드 승인 중이거나 결과 확인이 필요한 결제는 슬롯을 해제할 수 없습니다.");
+        }
     }
 
     public record ApprovalContext(
