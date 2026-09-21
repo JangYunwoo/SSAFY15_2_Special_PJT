@@ -90,8 +90,8 @@ class PenaltyServiceTest {
      * 다른 mock 을 스터빙하면 {@code UnfinishedStubbingException} 이 납니다.
      */
     private SellerPenalty given(SellerPenalty penalty, SellerProfile seller, long confirmedCount) {
-        when(penaltyRepository.findById(PENALTY_ID)).thenReturn(Optional.of(penalty));
-        when(sellerProfileRepository.findById(SELLER_ID)).thenReturn(Optional.of(seller));
+        when(penaltyRepository.findForUpdate(PENALTY_ID)).thenReturn(Optional.of(penalty));
+        when(sellerProfileRepository.findForUpdate(SELLER_ID)).thenReturn(Optional.of(seller));
         when(penaltyRepository.countBySellerIdAndStatus(SELLER_ID, SellerPenalty.STATUS_CONFIRMED))
                 .thenReturn(confirmedCount);
         return penalty;
@@ -225,12 +225,12 @@ class PenaltyServiceTest {
     @DisplayName("기각은 누적을 건드리지 않고 알림도 보내지 않는다")
     void dismissDoesNotTouchSellerOrNotify() {
         SellerPenalty penalty = candidate();
-        when(penaltyRepository.findById(PENALTY_ID)).thenReturn(Optional.of(penalty));
+        when(penaltyRepository.findForUpdate(PENALTY_ID)).thenReturn(Optional.of(penalty));
 
         service.dismiss(ADMIN_ID, PENALTY_ID, "택배사 지연으로 확인");
 
         assertEquals(SellerPenalty.STATUS_DISMISSED, penalty.getStatus());
-        verify(sellerProfileRepository, never()).findById(anyLong());
+        verify(sellerProfileRepository, never()).findForUpdate(anyLong());
         verify(events, never()).publishEvent(any(SellerSanctionedEvent.class));
     }
 
@@ -282,7 +282,7 @@ class PenaltyServiceTest {
     @Test
     @DisplayName("없는 위반 기록은 404")
     void missingPenaltyIsNotFound() {
-        when(penaltyRepository.findById(PENALTY_ID)).thenReturn(Optional.empty());
+        when(penaltyRepository.findForUpdate(PENALTY_ID)).thenReturn(Optional.empty());
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> service.confirm(ADMIN_ID, PENALTY_ID, MEMO));
@@ -293,8 +293,8 @@ class PenaltyServiceTest {
     @Test
     @DisplayName("판매자 프로필이 없으면 확정하지 않는다")
     void missingSellerIsNotFound() {
-        when(penaltyRepository.findById(PENALTY_ID)).thenReturn(Optional.of(candidate()));
-        when(sellerProfileRepository.findById(SELLER_ID)).thenReturn(Optional.empty());
+        when(penaltyRepository.findForUpdate(PENALTY_ID)).thenReturn(Optional.of(candidate()));
+        when(sellerProfileRepository.findForUpdate(SELLER_ID)).thenReturn(Optional.empty());
 
         assertThrows(BusinessException.class, () -> service.confirm(ADMIN_ID, PENALTY_ID, MEMO));
         verify(events, never()).publishEvent(any(SellerSanctionedEvent.class));

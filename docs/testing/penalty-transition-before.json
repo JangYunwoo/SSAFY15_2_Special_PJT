@@ -1,0 +1,17 @@
+{
+  "base": "8902037",
+  "suite": "PenaltyTransitionConcurrencyIntegrationTest",
+  "tests": 6,
+  "failures": 6,
+  "errors": 0,
+  "environment": "Java 21 / Spring / real JPA transactions / H2 MySQL mode",
+  "cases": [
+    "Two confirmations lose one increment",
+    "Two revocations lose one decrement",
+    "Dismiss overwrites a concurrently confirmed penalty",
+    "Duplicate revocation succeeds twice",
+    "Profile edit overwrites concurrent suspension",
+    "Confirmation overwrites concurrent profile edit"
+  ],
+  "scope": "No deployment writes or financial provider calls"
+}
