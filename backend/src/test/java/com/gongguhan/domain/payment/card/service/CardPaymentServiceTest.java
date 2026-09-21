@@ -66,7 +66,7 @@ class CardPaymentServiceTest {
         cardPaymentService = new CardPaymentService(
                 paymentRepository, userRepository, userAddressRepository, cardPaymentRepository,
                 paymentService, policyService, ssafyCardApiClient, ssafyApiLogService,
-                new ObjectMapper(), clock);
+                new ObjectMapper(), clock, mock(CardApprovalRecordService.class));
     }
 
     private CardApproveRequest request() {
