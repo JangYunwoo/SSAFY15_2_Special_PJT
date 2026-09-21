@@ -7,6 +7,7 @@ import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
+import java.util.UUID;
 import javax.crypto.SecretKey;
 import org.springframework.stereotype.Component;
 
@@ -67,6 +68,8 @@ public class JwtTokenProvider {
             Long userId, String role, boolean isSeller, String tokenType, long expireSeconds) {
         Instant now = Instant.now();
         return Jwts.builder()
+                // JWT 날짜 정밀도는 초 단위다. 같은 초에 발급해도 폐기 대상과 새 토큰을 구별한다.
+                .id(UUID.randomUUID().toString())
                 .subject(String.valueOf(userId))
                 .claim("role", role)
                 .claim("isSeller", isSeller)

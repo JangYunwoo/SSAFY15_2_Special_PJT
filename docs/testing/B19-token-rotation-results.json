@@ -1,0 +1,12 @@
+{
+  "issue": "S15P21B205-179",
+  "bug": "B19",
+  "baseCommit": "a0cc722ff9ecad580fd54437d5232e3fab493e70",
+  "beforeRotation": {"tests": 4, "passed": 2, "failures": 2},
+  "afterTargeted": {"rotationTests": 6, "adapterTests": 3, "jwtTests": 2, "passed": 11, "failures": 0},
+  "afterBackendRegression": {"suites": 95, "tests": 609, "passed": 606, "failures": 0, "errors": 0, "skipped": 3},
+  "realRedisVerified": false,
+  "productionDeployment": false,
+  "performanceBenchmark": false,
+  "limitations": ["Redis commands modeled with in-memory atomic set", "Real Redis multi-process/failover testing remains", "Consumed-token response loss may require login again", "Whole token-family logout is not implemented"]
+}

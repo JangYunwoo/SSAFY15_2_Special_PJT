@@ -57,8 +57,11 @@ public class TokenService {
                 : userActor(subjectId);
         boolean isSeller = actor.isSeller();
 
-        // 로테이션: 쓰인 리프레시 토큰을 남은 만료시간만큼 폐기한다.
-        denylist.revoke(refreshToken, remaining(claims));
+        // The earlier lookup is only a fast rejection. Exactly one concurrent caller
+        // may consume the old token; an unconditional revoke here permits two winners.
+        if (!denylist.tryConsume(refreshToken, remaining(claims))) {
+            throw new BusinessException(ErrorCode.AUTHENTICATION_REQUIRED);
+        }
 
         String accessToken = jwtTokenProvider.createAccessToken(subjectId, role, isSeller);
         String newRefreshToken = jwtTokenProvider.createRefreshToken(subjectId, role, isSeller);
