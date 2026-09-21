@@ -1123,7 +1123,11 @@ footer.foot-min .inner{
 @media(max-width:620px){
   .cards,.how,.points{grid-template-columns:1fr;}
   .card-carousel-item{flex-basis:86%;}
-  .gnb .inner{height:60px;}
+  /* 메뉴를 숨기거나 잘라내지 않고 필요한 높이로 줄바꿈한다. */
+  .gnb .inner{height:auto;min-height:60px;flex-wrap:wrap;gap:12px;padding-top:12px;padding-bottom:12px;}
+  .gnb .brand{flex-shrink:0;}
+  .gnb .right{min-width:0;flex:1 1 300px;flex-wrap:wrap;gap:12px;}
+  .gnb .right nav{min-width:0;flex:1 1 220px;flex-wrap:wrap;row-gap:12px;}
   /* 헤더가 76px 에서 60px 로 줄어드는 만큼 로고도 같은 비율로 줄입니다 */
   .gnb .brand img{height:22px;}
   .gnb nav{gap:12px;font-size:11px;}
