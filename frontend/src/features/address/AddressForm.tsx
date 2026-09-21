@@ -9,6 +9,7 @@ import { queryKeys } from '@/shared/api/queryKeys'
 import type { SubmitHandlerEvent } from '@/shared/lib/dom'
 import { Button } from '@/shared/ui/Button'
 import { PhoneField } from '@/shared/ui/PhoneField'
+import { AddressFields } from '@/features/address/AddressFields'
 import { FieldRow, SelectField, TextField } from '@/shared/ui/Field'
 
 interface FormState {
@@ -108,16 +109,10 @@ export function AddressForm({ address, onDone, onCancel }: AddressFormProps) {
         />
       </FieldRow>
 
-      <TextField
-        label="우편번호"
-        required
-        inputMode="numeric"
-        maxLength={5}
-        value={form.zipcode}
-        onChange={set('zipcode')}
+      <AddressFields
+        value={form}
+        onChange={(next) => { setForm((current) => ({ ...current, ...next })) }}
       />
-      <TextField label="기본 주소" required value={form.address1} onChange={set('address1')} />
-      <TextField label="상세 주소" value={form.address2} onChange={set('address2')} />
 
       <SelectField
         label="배송 요청사항"

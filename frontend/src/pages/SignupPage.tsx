@@ -20,6 +20,7 @@ import { Button } from '@/shared/ui/Button'
 import { FieldRow, TextField } from '@/shared/ui/Field'
 import { Panel } from '@/shared/ui/Panel'
 import { PhoneField } from '@/shared/ui/PhoneField'
+import { AddressFields } from '@/features/address/AddressFields'
 
 interface FormState {
   email: string
@@ -188,27 +189,14 @@ export default function SignupPage() {
                 error={fieldError('defaultAddress.recipientPhone')}
               />
             </FieldRow>
-            <TextField
-              label="우편번호"
-              required
-              inputMode="numeric"
-              maxLength={5}
-              value={form.zipcode}
-              onChange={set('zipcode')}
-              error={fieldError('defaultAddress.zipcode')}
-            />
-            <TextField
-              label="기본 주소"
-              required
-              value={form.address1}
-              onChange={set('address1')}
-              error={fieldError('defaultAddress.address1')}
-            />
-            <TextField
-              label="상세 주소"
-              value={form.address2}
-              onChange={set('address2')}
-              error={fieldError('defaultAddress.address2')}
+            <AddressFields
+              value={form}
+              onChange={(next) => { setForm((current) => ({ ...current, ...next })) }}
+              errors={{
+                zipcode: fieldError('defaultAddress.zipcode'),
+                address1: fieldError('defaultAddress.address1'),
+                address2: fieldError('defaultAddress.address2'),
+              }}
             />
           </Panel>
 
