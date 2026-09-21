@@ -89,6 +89,24 @@ public class KakaoPayRecordService {
         return response;
     }
 
+    /** 저장된 nonce 검증과 슬롯 종료·state 소비를 같은 짧은 트랜잭션에서 수행한다. */
+    @Transactional
+    public void endCallback(Long userId, KakaoPayStateSigner.StateClaims claims, String reason) {
+        KakaoPayPayment detail = repository.findForUpdate(claims.paymentId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND,
+                        "카카오페이 결제 준비 정보를 찾을 수 없습니다."));
+        detail.verifyReady(claims.nonce());
+        LocalDateTime now = LocalDateTime.now(clock);
+        if (!detail.hasReusableReady(now)
+                || !now.isBefore(LocalDateTime.ofEpochSecond(
+                        claims.expiresAtEpochSecond(), 0, java.time.ZoneOffset.UTC))) {
+            throw new BusinessException(ErrorCode.PAYMENT_SLOT_EXPIRED);
+        }
+        // 기존 승인 완료와 같은 상세 행 → 결제 행 잠금 순서로 처리한다.
+        paymentService.abortPayment(userId, claims.paymentId(), METHOD_KAKAOPAY, reason);
+        detail.consumeCallbackState(now);
+    }
+
     public record ReusableReady(
             String tid,
             String nextRedirectPcUrl,

@@ -112,14 +112,25 @@ public class KakaoPayService {
         return recordService.complete(userId, claims, approved);
     }
 
-    public void cancelFlow(Long userId, Long paymentId) {
-        paymentService.abortPayment(
-                userId, paymentId, METHOD_KAKAOPAY, "KAKAOPAY_USER_CANCELLED");
+    public void cancelFlow(Long userId, Long paymentId, String state) {
+        recordService.endCallback(userId, verifyCallback(userId, paymentId, state),
+                "KAKAOPAY_USER_CANCELLED");
     }
 
-    public void failFlow(Long userId, Long paymentId) {
-        paymentService.abortPayment(
-                userId, paymentId, METHOD_KAKAOPAY, "KAKAOPAY_AUTH_FAILED");
+    public void failFlow(Long userId, Long paymentId, String state) {
+        recordService.endCallback(userId, verifyCallback(userId, paymentId, state),
+                "KAKAOPAY_AUTH_FAILED");
+    }
+
+    private KakaoPayStateSigner.StateClaims verifyCallback(Long userId, Long paymentId, String state) {
+        if (state == null || state.isBlank()) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+        KakaoPayStateSigner.StateClaims claims = stateSigner.verify(state);
+        if (!paymentId.equals(claims.paymentId()) || !userId.equals(claims.userId())) {
+            throw new BusinessException(ErrorCode.RESOURCE_ACCESS_DENIED);
+        }
+        return claims;
     }
 
     private KakaoPayReadyResponse response(Long paymentId, String tid, String redirectUrl,

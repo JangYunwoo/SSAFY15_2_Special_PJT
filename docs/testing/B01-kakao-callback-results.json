@@ -1,0 +1,18 @@
+{
+  "bug": "B01",
+  "jira": "S15P21B205-175",
+  "baseCommit": "0e32ee78c8167a7d13f6bee357bd4b8131562019",
+  "before": {
+    "backendBoundary": { "tests": 14, "failures": 14 },
+    "frontendCallbackBody": { "tests": 2, "failures": 2 }
+  },
+  "after": {
+    "backendBoundary": { "tests": 20, "failures": 0 },
+    "backendJpaIntegration": { "tests": 7, "failures": 0 },
+    "backendFull": { "suites": 90, "tests": 566, "passed": 563, "failures": 0, "errors": 0, "skipped": 3 },
+    "frontendFull": { "suites": 10, "tests": 70, "failures": 0 },
+    "frontendBuildAndTypecheck": "passed",
+    "frontendLint": "passed"
+  },
+  "limits": ["Redis integration 2 skipped", "S3 integration 1 skipped", "No deployment or new provider payment performed", "Not a performance benchmark"]
+}
