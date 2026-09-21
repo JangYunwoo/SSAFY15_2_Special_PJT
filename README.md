@@ -1,7 +1,8 @@
 # 공구한 (Gongguhan)
 
 여러 명이 모여 한 상품을 공동구매하는 플랫폼. 카드/카카오페이/디지털 자산(코인) 3가지
-결제수단을 지원하고, 코인 결제는 에스크로로 대금을 보호한다.
+결제수단을 지원하고, 코인 결제는 에스크로로 대금을 보호한다. 상품 이미지 분석과
+사용자 행동 기반 개인화 추천을 통해 상품 등록과 탐색을 돕는다.
 
 ## 기술 스택
 
@@ -9,6 +10,7 @@
 | --- | --- |
 | 프론트엔드 | React 19, Vite |
 | 백엔드 | Java 21, Spring Boot 4.1.1, Spring Data JPA, QueryDSL, Spring Security + JWT |
+| AI | Python 3.12, FastAPI, Gemini(Vertex AI), pandas, scikit-learn |
 | DB | MySQL 8.0 (Flyway 마이그레이션) |
 | 캐시 | Redis 7 |
 | 객체 저장소 | AWS S3, MinIO(로컬 통합 테스트) |
@@ -22,7 +24,9 @@
 S15P21B205/
 ├── backend/     # Spring Boot 백엔드 (실행 방법은 backend/README.md)
 ├── frontend/    # React 프론트엔드 (실행 방법은 frontend/README.md)
+├── ai/          # 상품 이미지 분석·개인화 추천 FastAPI (실행 방법은 ai/README.md)
 ├── docs/        # 요구사항/API/DB/외부연동/팀 문서 (docs/README.md가 색인)
+├── deploy/      # Docker Compose 기반 배포 설정
 ├── docker-compose.yml   # 로컬 개발용 MySQL, Redis, MinIO
 ├── README.md
 ├── CLAUDE.md            # AI 에이전트 작업 지침
@@ -36,12 +40,30 @@ S15P21B205/
 # 1. 인프라(MySQL, Redis, MinIO) 기동
 docker compose up -d
 
-# 2. 백엔드
+# 2. AI 서버 (새 터미널, Windows Git Bash)
+cd ai
+source venv/Scripts/activate
+pip install -r requirements.txt
+uvicorn app:app --reload --port 8000
+
+# 3. 백엔드 (새 터미널, 루트에서 실행)
 cd backend && ./gradlew bootRun
 
-# 3. 프론트엔드
+# 4. 프론트엔드 (새 터미널, 루트에서 실행)
 cd frontend && npm install && npm run dev
 ```
+
+### 개인화 추천 로컬 검증
+
+로컬 목업 데이터로 사용자별 추천 순위 변화를 확인하려면 백엔드를 다음과 같이 기동한다.
+
+```bash
+cd backend
+RECOMMENDATION_SEED_ENABLED=true ./gradlew bootRun
+```
+
+테스트 계정·비밀번호와 추천 실험 방법은 [`backend/README.md`](./backend/README.md),
+알고리즘 구조는 [`ai/recommendation_poc/README.md`](./ai/recommendation_poc/README.md)를 참고한다.
 
 ### S3 호환 저장소 통합 테스트
 
