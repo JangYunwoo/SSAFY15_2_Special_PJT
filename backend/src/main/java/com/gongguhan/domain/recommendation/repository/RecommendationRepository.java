@@ -2,6 +2,8 @@ package com.gongguhan.domain.recommendation.repository;
 
 import com.gongguhan.domain.groupbuy.dto.GroupBuySummaryResponse;
 import com.gongguhan.domain.recommendation.dto.RecommendationEventItem;
+import com.gongguhan.global.error.BusinessException;
+import com.gongguhan.global.error.ErrorCode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -19,6 +21,8 @@ import java.util.stream.Collectors;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public class RecommendationRepository {
@@ -112,6 +116,7 @@ public class RecommendationRepository {
                 .findFirst();
     }
 
+    @Transactional(propagation = Propagation.MANDATORY)
     public void saveEvents(
             long userId,
             String sessionId,
@@ -127,6 +132,16 @@ public class RecommendationRepository {
                        ended_at = NULL,
                        end_reason = NULL
                 """, Map.of("sessionId", sessionId, "userId", userId, "now", timestamp(now)));
+
+        // 사전 SELECT만으로는 두 사용자의 동시 최초 생성이 모두 통과할 수 있다.
+        // upsert가 확보한 행을 현재 읽기로 재확인한다. 불일치는 upsert까지 함께 롤백한다.
+        Long ownerId = jdbcTemplate.queryForObject("""
+                SELECT user_id FROM recommendation_sessions
+                 WHERE session_id = :sessionId FOR UPDATE
+                """, Map.of("sessionId", sessionId), Long.class);
+        if (ownerId == null || ownerId.longValue() != userId) {
+            throw new BusinessException(ErrorCode.RESOURCE_ACCESS_DENIED);
+        }
 
         String sql = """
                 INSERT INTO recommendation_events
