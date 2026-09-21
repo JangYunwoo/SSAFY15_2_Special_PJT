@@ -13,6 +13,7 @@ import { Button } from '@/shared/ui/Button'
 import { FieldRow, TextField } from '@/shared/ui/Field'
 import { Panel } from '@/shared/ui/Panel'
 import { PhoneField } from '@/shared/ui/PhoneField'
+import { AddressFields } from '@/features/address/AddressFields'
 
 type Step = 'account' | 'profile'
 
@@ -169,16 +170,15 @@ export default function SellerVerifyPage() {
                     />
                     <TextField label="예금주" required value={accountHolder} onChange={on(setAccountHolder)} />
                   </FieldRow>
-                  <TextField
-                    label="반품 우편번호"
-                    required
-                    inputMode="numeric"
-                    maxLength={5}
-                    value={zipcode}
-                    onChange={on(setZipcode)}
+                  <AddressFields
+                    prefix="반품 "
+                    value={{ zipcode, address1, address2 }}
+                    onChange={(next) => {
+                      setZipcode(next.zipcode)
+                      setAddress1(next.address1)
+                      setAddress2(next.address2)
+                    }}
                   />
-                  <TextField label="반품 기본주소" required value={address1} onChange={on(setAddress1)} />
-                  <TextField label="반품 상세주소" value={address2} onChange={on(setAddress2)} />
                   {createProfile.isError && (
                     <p className="ai-hint mt16" role="alert">
                       {toMessage(createProfile.error)}

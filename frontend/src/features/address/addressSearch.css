@@ -1,0 +1,15 @@
+/* 주소 검색 팝업에만 적용. 기존 토큰·버튼·입력 스타일은 유지한다. */
+.postcode-dialog {
+  width: min(480px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--btn-radius);
+  background: var(--surface);
+  color: var(--ink);
+  overflow: auto;
+}
+.postcode-dialog::backdrop { background: rgb(0 0 0 / 35%); }
+.postcode-dialog .sec-head { margin-bottom: 16px; }
+.postcode-search-frame { width: 100%; height: min(480px, calc(100dvh - 150px)); min-height: 280px; }
