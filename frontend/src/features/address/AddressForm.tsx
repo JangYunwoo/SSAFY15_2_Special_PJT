@@ -8,6 +8,7 @@ import { toMessage } from '@/shared/api/errors'
 import { queryKeys } from '@/shared/api/queryKeys'
 import type { SubmitHandlerEvent } from '@/shared/lib/dom'
 import { Button } from '@/shared/ui/Button'
+import { PhoneField } from '@/shared/ui/PhoneField'
 import { FieldRow, SelectField, TextField } from '@/shared/ui/Field'
 
 interface FormState {
@@ -97,13 +98,13 @@ export function AddressForm({ address, onDone, onCancel }: AddressFormProps) {
           value={form.recipientName}
           onChange={set('recipientName')}
         />
-        <TextField
+        <PhoneField
           label="받는 분 연락처"
           required
           inputMode="numeric"
           placeholder="010-0000-0000"
           value={form.recipientPhone}
-          onChange={set('recipientPhone')}
+          onValueChange={(digits) => { setForm((current) => ({ ...current, recipientPhone: digits })) }}
         />
       </FieldRow>
 

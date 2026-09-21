@@ -19,6 +19,7 @@ import { BrandMark } from '@/shared/ui/BrandMark'
 import { Button } from '@/shared/ui/Button'
 import { FieldRow, TextField } from '@/shared/ui/Field'
 import { Panel } from '@/shared/ui/Panel'
+import { PhoneField } from '@/shared/ui/PhoneField'
 
 interface FormState {
   email: string
@@ -156,13 +157,13 @@ export default function SignupPage() {
                 onChange={set('nickname')}
                 error={fieldError('nickname')}
               />
-              <TextField
+              <PhoneField
                 label="휴대폰 번호"
                 required
                 inputMode="numeric"
                 placeholder="010-0000-0000"
                 value={form.phone}
-                onChange={set('phone')}
+                onValueChange={(digits) => { setForm((current) => ({ ...current, phone: digits })) }}
                 error={fieldError('phone')}
               />
             </FieldRow>
@@ -177,13 +178,13 @@ export default function SignupPage() {
                 onChange={set('recipientName')}
                 error={fieldError('defaultAddress.recipientName')}
               />
-              <TextField
+              <PhoneField
                 label="받는 분 연락처"
                 required
                 inputMode="numeric"
                 placeholder="010-0000-0000"
                 value={form.recipientPhone}
-                onChange={set('recipientPhone')}
+                onValueChange={(digits) => { setForm((current) => ({ ...current, recipientPhone: digits })) }}
                 error={fieldError('defaultAddress.recipientPhone')}
               />
             </FieldRow>

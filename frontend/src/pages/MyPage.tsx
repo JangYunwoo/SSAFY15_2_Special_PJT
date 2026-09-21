@@ -18,6 +18,7 @@ import { Button } from '@/shared/ui/Button'
 import { DataRow } from '@/shared/ui/DataRow'
 import { FieldRow, TextField } from '@/shared/ui/Field'
 import { Panel } from '@/shared/ui/Panel'
+import { PhoneField } from '@/shared/ui/PhoneField'
 import { StateChip } from '@/shared/ui/StateChip'
 import { EmptyState, QueryBoundary } from '@/shared/ui/states'
 
@@ -73,7 +74,7 @@ function ProfilePanel({ user }: { user: UserProfile }) {
     },
   })
 
-  const changed = nickname !== user.nickname || phoneNumber !== user.phone
+  const changed = nickname !== user.nickname || phoneNumber.replace(/\D/g, '') !== user.phone.replace(/\D/g, '')
   const isReady = nickname.trim() !== '' && phoneNumber.replace(/\D/g, '').length >= 10 && changed
 
   const submit = (event: SubmitHandlerEvent) => {
@@ -98,15 +99,13 @@ function ProfilePanel({ user }: { user: UserProfile }) {
               setNickname(event.target.value)
             }}
           />
-          <TextField
+          <PhoneField
             label="휴대폰 번호"
             required
             inputMode="numeric"
             placeholder="010-0000-0000"
             value={phoneNumber}
-            onChange={(event) => {
-              setPhoneNumber(event.target.value)
-            }}
+            onValueChange={setPhoneNumber}
           />
         </FieldRow>
 
