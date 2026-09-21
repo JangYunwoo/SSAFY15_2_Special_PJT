@@ -350,7 +350,7 @@ CREATE TABLE recommendation_sessions (
     CONSTRAINT fk_recommendation_sessions_user
         FOREIGN KEY (user_id) REFERENCES users (user_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
-  COMMENT = '개인화 추천 행동 세션. 시연 환경에서 1초 무활동도 종료 세션으로 해석';
+  COMMENT = '개인화 추천 행동 세션. 시연은 1초, 운영 전환 시 30분 무활동을 종료로 해석 예정';
 
 CREATE TABLE recommendation_events (
     event_id             BIGINT        NOT NULL AUTO_INCREMENT,

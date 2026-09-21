@@ -64,6 +64,8 @@ RECOMMENDATION_SEED_ENABLED=true ./gradlew bootRun
 
 테스트 계정·비밀번호와 추천 실험 방법은 [`backend/README.md`](./backend/README.md),
 알고리즘 구조는 [`ai/recommendation_poc/README.md`](./ai/recommendation_poc/README.md)를 참고한다.
+추천 세션은 시연 편의를 위해 1초 무활동 시 반영하며, 운영 전환 시에는
+30분 기준으로 조정할 예정이다.
 
 ### S3 호환 저장소 통합 테스트
 

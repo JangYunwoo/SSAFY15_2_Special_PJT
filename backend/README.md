@@ -104,6 +104,9 @@ RECOMMENDATION_SEED_ENABLED=true
 `ON DUPLICATE KEY UPDATE`로 넣으므로 백엔드를 다시 실행해도 중복 생성되지 않는다.
 운영 프로필에서는 이 컴포넌트가 로드되지 않으며 기본값도 `false`다.
 
+추천 세션의 무활동 판정은 시연에서 추천 순위 변화를 빠르게 확인하도록
+1초로 설정했다. 운영 전환 시에는 30분으로 조정할 예정이다.
+
 ## API 기본 경로
 
 `server.servlet.context-path=/api/v1`이 설정되어 있으므로, 컨트롤러의 `@RequestMapping`은
