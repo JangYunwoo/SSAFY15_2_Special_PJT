@@ -1,0 +1,13 @@
+{
+  "issue": "S15P21B205-180",
+  "bug": "B21",
+  "baseCommit": "248b4a806f5e69c08b4bcbf9b2519947fbec274c",
+  "before": {"tests": 6, "passed": 2, "failures": 4},
+  "afterTargeted": {"tests": 6, "passed": 6, "failures": 0},
+  "afterBackendRegression": {"suites": 96, "tests": 615, "passed": 612, "failures": 0, "errors": 0, "skipped": 3},
+  "scope": "Real MVC/exception handler with mocked refund services; wrong methods invoke neither service",
+  "productionDeployment": false,
+  "externalFinancialCalls": false,
+  "performanceBenchmark": false,
+  "limitations": ["Representative route rather than every API", "Security chain covered separately by B20", "Redis 2 and S3 1 tests skipped"]
+}

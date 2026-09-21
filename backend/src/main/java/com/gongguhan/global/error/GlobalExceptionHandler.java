@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -82,6 +83,16 @@ public class GlobalExceptionHandler {
                 ErrorCode.RESOURCE_NOT_FOUND.getDefaultMessage(),
                 List.of());
         return ResponseEntity.status(ErrorCode.RESOURCE_NOT_FOUND.getStatus())
+                .body(ApiResponse.error(error, TraceIdUtils.from(request)));
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMethodNotAllowed(
+            HttpRequestMethodNotSupportedException e, HttpServletRequest request) {
+        ErrorCode code = ErrorCode.METHOD_NOT_ALLOWED;
+        ApiError error = new ApiError(code.name(), code.getDefaultMessage(), List.of());
+        // Allow 헤더를 보존한다. GET을 POST로 변환하거나 금융 업무를 실행하지 않는다.
+        return ResponseEntity.status(code.getStatus()).headers(e.getHeaders())
                 .body(ApiResponse.error(error, TraceIdUtils.from(request)));
     }
 
