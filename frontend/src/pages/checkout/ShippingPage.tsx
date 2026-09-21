@@ -9,6 +9,7 @@ import type { GroupBuyDetail } from '@/entities/groupBuy/model'
 import { groupBuyQueries } from '@/entities/groupBuy/queries'
 import { useCheckoutStore } from '@/features/checkout/checkoutStore'
 import { OrderSummary } from '@/features/checkout/OrderSummary'
+import { initialShipping } from '@/features/checkout/shippingSelection'
 import { groupBuyNo, phone, won } from '@/shared/lib/format'
 import type { SubmitHandlerEvent } from '@/shared/lib/dom'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
@@ -43,7 +44,7 @@ export default function ShippingPage() {
               <div>
                 <OrderItem groupBuy={detail} />
                 <QueryBoundary query={addresses}>
-                  {(list) => <ShippingForm groupBuyId={groupBuyId} addresses={list} />}
+                  {(list) => <ShippingForm key={groupBuyId} groupBuyId={groupBuyId} addresses={list} />}
                 </QueryBoundary>
               </div>
               <aside className="sticky">
@@ -88,13 +89,14 @@ function ShippingForm({
   const navigate = useNavigate()
   const setShipping = useCheckoutStore((state) => state.setShipping)
 
-  const defaultAddress = addresses.find((item) => item.isDefault) ?? addresses[0]
-  const [addressId, setAddressId] = useState(defaultAddress?.id ?? '')
-  const [deliveryRequest, setDeliveryRequest] = useState('')
+  const [initial] = useState(() => initialShipping(groupBuyId, addresses, useCheckoutStore.getState()))
+  const [addressId, setAddressId] = useState(initial.addressId)
+  const [deliveryRequest, setDeliveryRequest] = useState(initial.deliveryRequest)
+  const validAddress = addresses.some((address) => address.id === addressId)
 
   const submit = (event: SubmitHandlerEvent) => {
     event.preventDefault()
-    if (!addressId) return
+    if (!validAddress) return
     setShipping({ addressId, deliveryRequest: deliveryRequest || null })
     void navigate(`/checkout/${groupBuyId}/payment`)
   }
@@ -115,6 +117,7 @@ function ShippingForm({
     <form className="panel mt16" onSubmit={submit}>
       <h3>배송지 선택</h3>
       <p className="sub">등록된 배송지 중에서 고릅니다</p>
+      {!validAddress && <p role="alert">이전에 선택한 배송지를 사용할 수 없습니다. 배송지를 다시 선택해 주세요.</p>}
 
       <RadioGroup
         legend="배송지"
@@ -140,10 +143,11 @@ function ShippingForm({
         onChange={(event) => {
           setDeliveryRequest(event.target.value)
         }}
-        options={DELIVERY_REQUESTS.map((request) => ({ value: request, label: request }))}
+        options={[...new Set([...DELIVERY_REQUESTS, ...(deliveryRequest ? [deliveryRequest] : [])])]
+          .map((request) => ({ value: request, label: request }))}
       />
 
-      <Button type="submit" block className="mt24" disabled={!addressId}>
+      <Button type="submit" block className="mt24" disabled={!validAddress}>
         결제수단 선택하기
       </Button>
     </form>

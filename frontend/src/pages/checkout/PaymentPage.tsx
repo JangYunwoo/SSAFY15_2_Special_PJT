@@ -49,6 +49,8 @@ export default function PaymentPage() {
 function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
   const navigate = useNavigate()
   const addressId = useCheckoutStore((state) => state.addressId)
+  const checkoutGroupBuyId = useCheckoutStore((state) => state.groupBuyId)
+  const selectedAddressId = checkoutGroupBuyId === groupBuy.id ? addressId : null
 
   const [method, setMethod] = useState<PaymentMethod | null>(null)
   const [card, setCard] = useState<CardInput>(EMPTY_CARD)
@@ -63,7 +65,7 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
 
   const slot = usePaymentSlot({
     groupBuyId: groupBuy.id,
-    addressId,
+    addressId: selectedAddressId,
     method,
     cryptoAssetId: method === 'CRYPTO' ? cryptoAssetId : null,
   })
@@ -159,7 +161,7 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
   // 서버가 확정한 1인 결제금액을 그대로 씁니다 (GRP-01/02 personalPaymentAmount).
   const total = groupBuy.personalPaymentAmount
 
-  if (addressId === null) {
+  if (selectedAddressId === null) {
     return (
       <div className="panel">
         <h3>배송지를 먼저 선택해 주세요</h3>
