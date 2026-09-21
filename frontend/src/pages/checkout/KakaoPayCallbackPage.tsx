@@ -44,13 +44,13 @@ export default function KakaoPayCallbackPage({ result }: Props) {
         }
 
         if (result === 'cancel') {
-          await paymentApi.kakaoCancelFlow(paymentId)
+          await paymentApi.kakaoCancelFlow(paymentId, state)
           setViewState('cancelled')
           setMessage('카카오페이 결제를 취소했습니다. 선점한 참여 자리도 반납했습니다.')
           return
         }
 
-        await paymentApi.kakaoFailFlow(paymentId)
+        await paymentApi.kakaoFailFlow(paymentId, state)
         setViewState('failed')
         setMessage('카카오페이 인증을 완료하지 못했습니다. 다시 결제해 주세요.')
       } catch (error) {

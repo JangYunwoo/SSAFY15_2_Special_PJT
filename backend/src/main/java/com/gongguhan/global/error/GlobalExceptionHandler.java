@@ -10,6 +10,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -27,6 +28,15 @@ public class GlobalExceptionHandler {
         ApiError error = new ApiError(errorCode.name(), e.getMessage(), List.of());
         return ResponseEntity.status(errorCode.getStatus())
                 .body(ApiResponse.error(error, TraceIdUtils.from(request)));
+    }
+
+    /** 누락/잘못된 JSON은 400으로 처리하며 요청 본문·토큰을 로그에 복사하지 않는다. */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnreadableBody(
+            HttpMessageNotReadableException e, HttpServletRequest request) {
+        ApiError error = new ApiError(ErrorCode.VALIDATION_ERROR.name(),
+                "올바른 JSON 요청 본문이 필요합니다.", List.of());
+        return ResponseEntity.badRequest().body(ApiResponse.error(error, TraceIdUtils.from(request)));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

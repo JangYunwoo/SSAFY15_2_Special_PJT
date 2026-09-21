@@ -52,12 +52,12 @@ export const paymentApi = {
     api.post<Payment>('/payments/kakaopay/approve', body, { idempotencyKey }),
 
   /** KAKA-03 사용자 결제 취소 복귀 */
-  kakaoCancelFlow: (paymentId: Id) =>
-    api.post<NoContent>(`/payments/${paymentId}/kakaopay/cancel-flow`),
+  kakaoCancelFlow: (paymentId: Id, state: string) =>
+    api.post<NoContent>(`/payments/${paymentId}/kakaopay/cancel-flow`, { state }),
 
   /** KAKA-04 결제 실패 복귀 */
-  kakaoFailFlow: (paymentId: Id) =>
-    api.post<NoContent>(`/payments/${paymentId}/kakaopay/fail-flow`),
+  kakaoFailFlow: (paymentId: Id, state: string) =>
+    api.post<NoContent>(`/payments/${paymentId}/kakaopay/fail-flow`, { state }),
 
   /** CRYP-01 */
   cryptoAssets: () => api.get<CryptoAsset[]>('/crypto/assets'),
