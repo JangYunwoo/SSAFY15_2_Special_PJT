@@ -8,11 +8,18 @@ from fastapi import FastAPI, HTTPException
 from google.genai.errors import ClientError
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from analysis_schema import ProductAnalysis
-from gemini_analyze import MIME_TYPES, analyze_images_urls
+try:
+    from .analysis_schema import ProductAnalysis
+    from .gemini_analyze import MIME_TYPES, analyze_images_urls
+    from .recommendation_api import router as recommendation_router
+except ImportError:
+    from analysis_schema import ProductAnalysis
+    from gemini_analyze import MIME_TYPES, analyze_images_urls
+    from recommendation_api import router as recommendation_router
 
 logger = logging.getLogger(__name__)
-app = FastAPI(title="공구한 AI 상품 이미지 URL 분석 API")
+app = FastAPI(title="공구한 AI 서비스")
+app.include_router(recommendation_router)
 
 
 class ImageUrlRequest(BaseModel):

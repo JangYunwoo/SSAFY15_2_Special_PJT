@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router'
 
@@ -7,6 +8,7 @@ import type { GroupBuyDetail } from '@/entities/groupBuy/model'
 import { groupBuyQueries } from '@/entities/groupBuy/queries'
 import { useIsSignedIn } from '@/features/auth/sessionStore'
 import { GroupBuyGallery } from '@/features/groupBuy/GroupBuyGallery'
+import { recordRecommendationEvents } from '@/features/recommendation/tracking'
 import { POLICY_DEFAULTS } from '@/shared/config/policy'
 import { date, number, percent, remaining, won } from '@/shared/lib/format'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
@@ -36,6 +38,17 @@ function DetailView({ detail }: { detail: GroupBuyDetail }) {
   // 서버가 확정한 1인 결제금액을 그대로 씁니다 (GRP-02 personalPaymentAmount).
   const totalAmount = detail.personalPaymentAmount
   const isJoinable = detail.status === 'RECRUITING' && detail.paidCount < detail.targetCount
+
+  useEffect(() => {
+    if (!isSignedIn) return
+    void recordRecommendationEvents([
+      {
+        groupBuyId: detail.id,
+        eventType: 'DETAIL_VIEW',
+        source: 'GROUP_BUY_DETAIL',
+      },
+    ])
+  }, [detail.id, isSignedIn])
 
   const join = () => {
     if (!isSignedIn) {

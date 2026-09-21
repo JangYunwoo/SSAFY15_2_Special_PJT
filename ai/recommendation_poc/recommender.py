@@ -8,7 +8,12 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 
-EVENT_WEIGHTS = {"IMPRESSION": 0.0, "CLICK": 1.0, "DETAIL_VIEW": 2.0, "PURCHASE": 4.0}
+EVENT_WEIGHTS = {
+    "IMPRESSION": 0.0,
+    "CLICK": 1.0,
+    "DETAIL_VIEW": 2.0,
+    "PURCHASE": 4.0,
+}
 FEATURE_COLUMNS = [
     "brand_affinity",
     "category_affinity",
@@ -16,6 +21,13 @@ FEATURE_COLUMNS = [
     "discount_rate",
     "deadline_urgency",
 ]
+FALLBACK_WEIGHTS = {
+    "brand_affinity": 0.38,
+    "category_affinity": 0.30,
+    "recruitment_rate": 0.14,
+    "discount_rate": 0.08,
+    "deadline_urgency": 0.10,
+}
 
 
 @dataclass
@@ -24,6 +36,7 @@ class RecommendationResult:
     feature_weights: pd.DataFrame
     brand_preferences: pd.DataFrame
     category_preferences: pd.DataFrame
+    model_type: str
 
 
 @dataclass
@@ -32,111 +45,201 @@ class UserPreferenceProfile:
     category_preferences: pd.DataFrame
 
 
-def add_derived_features(products: pd.DataFrame, now: pd.Timestamp) -> pd.DataFrame:
-    result = products.copy()
-    result["recruit_end_at"] = pd.to_datetime(result["recruit_end_at"])
-    result["recruitment_rate"] = (
-        result["current_participants"] / result["target_participants"]
-    ).clip(0, 1)
-    result["discount_rate"] = (
-        (result["price"] - result["product_price"]) / result["price"]
-    ).clip(0, 1)
-    remaining_hours = (result["recruit_end_at"] - now).dt.total_seconds() / 3600
-    result["deadline_urgency"] = (1 - remaining_hours.clip(0, 168) / 168).clip(0, 1)
-    return result
+def _normalized(scores: dict[object, float]) -> dict[object, float]:
+    maximum = max(scores.values(), default=0.0)
+    if maximum <= 0:
+        return {}
+    return {key: value / maximum for key, value in scores.items()}
 
 
-def build_user_profile(
-    products: pd.DataFrame, events: pd.DataFrame, user_id: int
-) -> UserPreferenceProfile:
-    """반응 이력이 있는 브랜드와 카테고리만 행 형태로 만든다."""
-    history = events.loc[events["user_id"] == user_id].merge(
-        products[["group_buy_id", "brand", "category_id", "category_name"]],
-        on="group_buy_id",
-        how="left",
-    )
+def build_user_profile(events: pd.DataFrame, user_id: int, now: pd.Timestamp) -> UserPreferenceProfile:
+    """현재 시점 이전의 행동만으로 사용자 브랜드·카테고리 선호를 계산한다."""
+    history = events.loc[
+        (events["user_id"] == user_id) & events["event_type"].isin(EVENT_WEIGHTS)
+    ].copy()
+    if history.empty:
+        return UserPreferenceProfile(
+            pd.DataFrame(columns=["user_id", "brand", "affinity"]),
+            pd.DataFrame(columns=["user_id", "category_id", "affinity"]),
+        )
+
+    occurred_at = pd.to_datetime(history["occurred_at"], utc=True)
+    reference = pd.Timestamp(now)
+    if reference.tzinfo is None:
+        reference = reference.tz_localize("UTC")
+    age_hours = ((reference - occurred_at).dt.total_seconds() / 3600).clip(lower=0)
     history["event_score"] = history["event_type"].map(EVENT_WEIGHTS).fillna(0.0)
-    occurred_at = pd.to_datetime(history["occurred_at"])
-    reference_time = pd.Timestamp("2026-09-07T12:00:00")
-    age_hours = (
-        (reference_time - occurred_at).dt.total_seconds() / 3600
-    ).clip(lower=0)
-    history["event_score"] *= 0.5 ** (age_hours / 6)
-    brand = history.groupby("brand", as_index=False)["event_score"].sum()
-    category = history.groupby(
-        ["category_id", "category_name"], as_index=False
-    )["event_score"].sum()
+    history["event_score"] *= 0.5 ** (age_hours / (24 * 14))
 
+    brand = (
+        history.dropna(subset=["brand"])
+        .groupby("brand", as_index=False)["event_score"]
+        .sum()
+    )
+    category = (
+        history.dropna(subset=["category_id"])
+        .groupby("category_id", as_index=False)["event_score"]
+        .sum()
+    )
     brand = brand.loc[brand["event_score"] > 0].copy()
     category = category.loc[category["event_score"] > 0].copy()
     brand["affinity"] = brand["event_score"] / max(brand["event_score"].max(), 1.0)
-    category["affinity"] = category["event_score"] / max(
-        category["event_score"].max(), 1.0
-    )
+    category["affinity"] = category["event_score"] / max(category["event_score"].max(), 1.0)
     brand.insert(0, "user_id", user_id)
     category.insert(0, "user_id", user_id)
     return UserPreferenceProfile(
-        brand_preferences=brand[["user_id", "brand", "affinity"]].sort_values(
+        brand[["user_id", "brand", "affinity"]].sort_values("affinity", ascending=False),
+        category[["user_id", "category_id", "affinity"]].sort_values(
             "affinity", ascending=False
         ),
-        category_preferences=category[
-            ["user_id", "category_id", "category_name", "affinity"]
-        ].sort_values("affinity", ascending=False),
     )
 
 
-def _user_item_features(products: pd.DataFrame, events: pd.DataFrame, user_id: int) -> pd.DataFrame:
-    profile = build_user_profile(products, events, user_id)
-    brand = profile.brand_preferences.set_index("brand")["affinity"]
-    category = profile.category_preferences.set_index("category_id")["affinity"]
-    result = products.copy()
-    result["brand_affinity"] = result["brand"].map(brand).fillna(0.0)
-    result["category_affinity"] = result["category_id"].map(category).fillna(0.0)
-    return result
+def _training_rows(events: pd.DataFrame) -> pd.DataFrame:
+    """각 행동 직전의 선호도만 사용해 정답 유출을 막은 학습 행을 만든다."""
+    rows: list[dict[str, float | int]] = []
+    ordered = events.loc[events["event_type"].isin(EVENT_WEIGHTS)].copy()
+    if ordered.empty:
+        return pd.DataFrame(columns=[*FEATURE_COLUMNS, "engaged"])
+    ordered["occurred_at"] = pd.to_datetime(ordered["occurred_at"], utc=True)
+    ordered = ordered.sort_values(["user_id", "occurred_at"])
+
+    for _, user_events in ordered.groupby("user_id", sort=False):
+        brand_scores: dict[object, float] = {}
+        category_scores: dict[object, float] = {}
+        for event in user_events.itertuples(index=False):
+            brand_affinity = _normalized(brand_scores).get(event.brand, 0.0)
+            category_affinity = _normalized(category_scores).get(event.category_id, 0.0)
+            rows.append(
+                {
+                    "brand_affinity": brand_affinity,
+                    "category_affinity": category_affinity,
+                    "recruitment_rate": float(event.recruitment_rate),
+                    "discount_rate": float(event.discount_rate),
+                    "deadline_urgency": float(event.deadline_urgency),
+                    "engaged": int(event.event_type != "IMPRESSION"),
+                }
+            )
+            score = EVENT_WEIGHTS[event.event_type]
+            if score > 0:
+                if event.brand is not None:
+                    brand_scores[event.brand] = brand_scores.get(event.brand, 0.0) + score
+                if event.category_id is not None:
+                    category_scores[event.category_id] = (
+                        category_scores.get(event.category_id, 0.0) + score
+                    )
+    return pd.DataFrame(rows)
 
 
-def train_model(products: pd.DataFrame, events: pd.DataFrame) -> Pipeline:
-    """클릭·상세조회·구매 여부로 추천 특성의 가중치를 학습한다."""
-    rows = []
-    for user_id in events["user_id"].unique():
-        user_events = events.loc[events["user_id"] == user_id]
-        features = _user_item_features(products, events, int(user_id))
-        training = user_events.merge(
-            features[["group_buy_id", *FEATURE_COLUMNS]], on="group_buy_id", how="left"
-        )
-        training["engaged"] = (training["event_type"] != "IMPRESSION").astype(int)
-        rows.append(training)
-
-    dataset = pd.concat(rows, ignore_index=True)
-    model = Pipeline([
-        ("scale", StandardScaler()),
-        ("model", LogisticRegression(max_iter=1000, random_state=42)),
-    ])
+def train_model(events: pd.DataFrame) -> Pipeline | None:
+    dataset = _training_rows(events)
+    if len(dataset) < 20 or dataset["engaged"].nunique() < 2:
+        return None
+    model = Pipeline(
+        [
+            ("scale", StandardScaler()),
+            (
+                "model",
+                LogisticRegression(
+                    max_iter=1000,
+                    random_state=42,
+                    class_weight="balanced",
+                ),
+            ),
+        ]
+    )
     model.fit(dataset[FEATURE_COLUMNS], dataset["engaged"])
     return model
 
 
-def recommend(products: pd.DataFrame, events: pd.DataFrame, user_id: int, limit: int = 10) -> RecommendationResult:
-    prepared = add_derived_features(products, pd.Timestamp("2026-09-07T12:00:00"))
-    profile = build_user_profile(prepared, events, user_id)
-    candidates = _user_item_features(prepared, events, user_id)
-    candidates = candidates.loc[candidates["status"] == "RECRUITING"].copy()
-    model = train_model(prepared, events)
-    candidates["score"] = model.predict_proba(candidates[FEATURE_COLUMNS])[:, 1]
+def recommend(
+    candidates: pd.DataFrame,
+    events: pd.DataFrame,
+    user_id: int,
+    limit: int = 10,
+    now: pd.Timestamp | None = None,
+) -> RecommendationResult:
+    now = pd.Timestamp.now(tz="UTC") if now is None else pd.Timestamp(now)
+    if now.tzinfo is None:
+        now = now.tz_localize("UTC")
+    candidates = candidates.copy()
+    if "recruitment_rate" not in candidates:
+        candidates["recruitment_rate"] = (
+            candidates["current_participants"] / candidates["target_participants"]
+        ).clip(0, 1)
+    if "discount_rate" not in candidates:
+        candidates["discount_rate"] = (
+            (candidates["price"] - candidates["product_price"]) / candidates["price"]
+        ).clip(0, 1)
+    if "deadline_urgency" not in candidates:
+        end_at = pd.to_datetime(candidates["recruit_end_at"], utc=True)
+        remaining_hours = (end_at - now).dt.total_seconds() / 3600
+        candidates["deadline_urgency"] = (1 - remaining_hours.clip(0, 168) / 168).clip(0, 1)
+    if "status" in candidates:
+        candidates = candidates.loc[candidates["status"] == "RECRUITING"].copy()
 
-    purchased_ids = set(events.loc[
-        (events["user_id"] == user_id) & (events["event_type"] == "PURCHASE"),
-        "group_buy_id",
-    ])
-    candidates.loc[candidates["group_buy_id"].isin(purchased_ids), "score"] *= 0.05
+    events = events.copy()
+    event_features = [
+        "product_id",
+        "brand",
+        "category_id",
+        "recruitment_rate",
+        "discount_rate",
+        "deadline_urgency",
+    ]
+    missing = [column for column in event_features if column not in events]
+    if missing and not events.empty:
+        events = events.merge(
+            candidates[["group_buy_id", *missing]], on="group_buy_id", how="left"
+        )
+    profile = build_user_profile(events, user_id, now)
+    brand_map = profile.brand_preferences.set_index("brand")["affinity"].to_dict()
+    category_map = profile.category_preferences.set_index("category_id")["affinity"].to_dict()
 
-    weights = pd.DataFrame({
-        "feature": FEATURE_COLUMNS,
-        "weight": model.named_steps["model"].coef_[0],
-    })
+    ranked = candidates.copy()
+    ranked["brand_affinity"] = ranked["brand"].map(brand_map).fillna(0.0)
+    ranked["category_affinity"] = ranked["category_id"].map(category_map).fillna(0.0)
+    model = train_model(events)
+    if model is None:
+        ranked["score"] = sum(
+            ranked[feature] * weight for feature, weight in FALLBACK_WEIGHTS.items()
+        )
+        weights = FALLBACK_WEIGHTS
+        model_type = "HEURISTIC_FALLBACK"
+    else:
+        ranked["score"] = model.predict_proba(ranked[FEATURE_COLUMNS])[:, 1]
+        weights = dict(zip(FEATURE_COLUMNS, model.named_steps["model"].coef_[0], strict=True))
+        model_type = "LOGISTIC_REGRESSION"
+
+    purchases = events.loc[
+        (events["user_id"] == user_id) & (events["event_type"] == "PURCHASE")
+    ].copy()
+    if not purchases.empty:
+        purchases["occurred_at"] = pd.to_datetime(purchases["occurred_at"], utc=True)
+        recent_product_ids = set(
+            purchases.loc[
+                purchases["occurred_at"] >= now - pd.Timedelta(days=30), "product_id"
+            ]
+        )
+        ranked.loc[ranked["product_id"].isin(recent_product_ids), "score"] *= 0.05
+
+    def reason(row: pd.Series) -> str:
+        if row["brand_affinity"] >= 0.5:
+            return "선호 브랜드와 비슷해요"
+        if row["category_affinity"] >= 0.5:
+            return "자주 본 카테고리예요"
+        if row["deadline_urgency"] >= 0.7:
+            return "마감이 가까워요"
+        return "현재 참여가 활발해요"
+
+    ranked["reason"] = ranked.apply(reason, axis=1)
+    weight_frame = pd.DataFrame(
+        {"feature": list(weights.keys()), "weight": list(weights.values())}
+    )
     return RecommendationResult(
-        items=candidates.sort_values("score", ascending=False).head(limit),
-        feature_weights=weights,
-        brand_preferences=profile.brand_preferences,
-        category_preferences=profile.category_preferences,
+        ranked.sort_values(["score", "group_buy_id"], ascending=[False, False]).head(limit),
+        weight_frame,
+        profile.brand_preferences,
+        profile.category_preferences,
+        model_type,
     )

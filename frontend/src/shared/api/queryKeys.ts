@@ -17,6 +17,10 @@ export const queryKeys = {
     list: (params: unknown) => ['group-buys', 'list', params] as const,
     detail: (id: string) => ['group-buys', 'detail', id] as const,
   },
+  recommendations: {
+    all: ['recommendations'] as const,
+    list: (size: number) => ['recommendations', 'group-buys', size] as const,
+  },
   sellerGroupBuys: {
     all: ['seller', 'group-buys'] as const,
     list: (params: unknown) => ['seller', 'group-buys', 'list', params] as const,
