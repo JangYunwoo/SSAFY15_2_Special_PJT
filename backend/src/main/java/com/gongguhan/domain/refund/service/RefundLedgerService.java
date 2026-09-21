@@ -252,6 +252,12 @@ public class RefundLedgerService {
     @Transactional(readOnly = true)
     public Refund get(Long refundId) { return load(refundId); }
 
+    /** 결과 불명/진행/완료 원장을 우선 대조해 새 송신과 불필요한 환율 조회를 막는다. */
+    @Transactional(readOnly = true)
+    public java.util.Optional<Refund> findDepositRefund(Long depositId) {
+        return refundRepository.findActiveByDepositId(depositId);
+    }
+
     @Transactional
     public void recordInstitutionTransaction(Long refundId, String correlationId) {
         locked(refundId).recordInstitutionTransaction(correlationId);

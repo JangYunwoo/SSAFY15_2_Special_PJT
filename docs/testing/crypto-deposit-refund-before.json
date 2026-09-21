@@ -1,0 +1,16 @@
+{
+  "issue": "S15P21B205-213",
+  "baseline": "de1d116",
+  "environment": "Java 21 / Spring JPA / H2 MySQL mode / mocked CryptoRefundService",
+  "liveChainCalls": 0,
+  "test": "CryptoDepositRefundSafetyIntegrationTest.ambiguousResponseThenSecondAdminRequestMustNotSendAgain",
+  "timestampUtc": "2026-09-21T08:20:48.526Z",
+  "scenario": "Same unmatched deposit refunded twice; mocked chain throws EXTERNAL_SERVICE_UNAVAILABLE on both calls",
+  "result": "FAILED",
+  "tests": 1,
+  "failures": 1,
+  "firstRefundId": 1,
+  "secondRefundId": 2,
+  "assertion": "expected: 1L but was: 2L",
+  "note": "Original baseline failure preserved separately from subsequent passing reports. IDs are isolated H2 test rows, not deployment trades."
+}

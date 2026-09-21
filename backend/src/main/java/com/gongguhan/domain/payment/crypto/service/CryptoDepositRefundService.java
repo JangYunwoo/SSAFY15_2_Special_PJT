@@ -92,67 +92,69 @@ public class CryptoDepositRefundService {
     }
 
     /**
-     * 입금을 보낸 지갑으로 되돌려 보냅니다.
-     *
-     * <p>원장 개시가 {@code created = false} 면 송금하지 않습니다. 개시는 멱등이라 같은
-     * 요청이 두 번 오면 기존 행이 돌아오는데, 그걸 구분하지 않으면 원장은 한 건인데
-     * 토큰이 두 번 나갑니다. 동시 요청 중 INSERT 에 성공하는 쪽은
-     * {@code uk_refunds_active_deposit} 덕에 정확히 하나입니다.
-     *
-     * @return 원장 행. 실패해도 행은 남고 사유가 기록돼 재처리(RFD-04) 대상이 됩니다
+     * 입금 원금 반환. 공통 원장의 실행권을 송신 전에 커밋하며 결과 불명은 다시 보내지 않는다.
+     * 기존 COMPLETED 원장은 자금 이동 없이 입금 상태만 복구한다.
      */
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.NEVER)
     public Refund refund(Long depositId) {
         CryptoDeposit deposit = cryptoDepositRepository.findById(depositId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND,
                         "입금 건을 찾을 수 없습니다. depositId=" + depositId));
 
+        Refund existing = ledgerService.findDepositRefund(depositId).orElse(null);
+        if (existing != null && existing.isCompleted()) {
+            return finalizeDeposit(depositId, existing);
+        }
         if (!REFUNDABLE_STATUSES.contains(deposit.getStatus())) {
             throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
-                    "돌려보낼 수 있는 입금이 아닙니다. depositId=%d status=%s"
-                            .formatted(depositId, deposit.getStatus()));
+                    "돌려보낼 수 있는 입금이 아닙니다. depositId=" + depositId);
+        }
+        if (existing != null && (!existing.isProcessing() || existing.isExecutionClaimed())) {
+            return existing;
         }
 
         CryptoAsset asset = findAsset(deposit);
         BigInteger rawAmount = new BigInteger(deposit.getRawAmount());
+        OpenResult opened = existing == null
+                ? ledgerService.openForUnmatchedDeposit(depositId,
+                    krwReference(asset, deposit.getAssetAmount()), deposit.getFromAddress())
+                : new OpenResult(existing, false);
+        Refund refund = opened.refund();
+        if (refund.isCompleted()) { return finalizeDeposit(depositId, refund); }
+        if (!opened.created() && (!refund.isProcessing() || refund.isExecutionClaimed())) { return refund; }
 
-        // 원장의 amount 는 원화 단위입니다. 실제로 보내는 양은 받은 수량 그대로이고,
-        // 이 값은 "그때 얼마짜리였는지" 를 나중에 되짚기 위한 참고값입니다.
-        long krwReference = krwReference(asset, deposit.getAssetAmount());
-
-        OpenResult opened = ledgerService.openForUnmatchedDeposit(
-                depositId, krwReference, deposit.getFromAddress());
-        if (!opened.created()) {
-            log.info("이미 진행 중이거나 완료된 입금 환불이라 송금을 건너뜁니다. depositId={} refundId={}",
-                    depositId, opened.refund().getRefundId());
-            return opened.refund();
-        }
-
-        Long refundId = opened.refund().getRefundId();
+        Long refundId = refund.getRefundId();
+        if (!ledgerService.tryClaimExecution(refundId, null)) { return ledgerService.get(refundId); }
         if (!cryptoRefundService.isEnabled()) {
-            return ledgerService.fail(refundId,
-                    "환불 지갑 개인키가 설정되지 않아 코인 환불을 보낼 수 없습니다.");
+            return ledgerService.failRejected(refundId,
+                    "환불 지갑이 설정되지 않아 코인 환불을 보낼 수 없습니다.");
         }
 
+        Refund completed;
         try {
             CryptoRefundService.RefundTransfer transfer = cryptoRefundService.refundAsReceived(
                     asset.getAssetId(), deposit.getFromAddress(), rawAmount);
-            Refund completed = ledgerService.completeByCrypto(
-                    refundId, transfer.txHash(), transfer.assetAmount());
-            recordService.markDepositRefunded(depositId);
-
-            log.info("입금 환불 완료 depositId={} refundId={} txHash={} 수량={}",
-                    depositId, refundId, transfer.txHash(), transfer.assetAmount().toPlainString());
-            return completed;
-        } catch (BusinessException exception) {
-            if (exception.getErrorCode() == ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE) {
-                // 송금이 이미 나갔을 수 있습니다. 자동 재시도하면 두 번 지급됩니다.
-                return ledgerService.fail(refundId,
-                        "송금 결과를 확인하지 못했습니다. 체인에서 확인한 뒤 재처리하세요.");
-            }
-            log.warn("입금 환불 실패 depositId={} refundId={} reason={}",
-                    depositId, refundId, exception.getMessage());
-            return ledgerService.fail(refundId, exception.getMessage());
+            completed = ledgerService.completeByCrypto(refundId, transfer.txHash(), transfer.assetAmount());
+        } catch (RuntimeException exception) {
+            // 어댑터는 미송신과 전송 후 타임아웃을 같은 오류로 보고한다. 확정 거절로 추정하지 않는다.
+            Refund current = ledgerService.get(refundId);
+            if (current != null && current.isCompleted()) { return finalizeDeposit(depositId, current); }
+            log.warn("입금 환불 결과 대조 필요 depositId={} refundId={}", depositId, refundId);
+            return ledgerService.fail(refundId,
+                    "송금 결과를 확인하지 못했습니다. 체인에서 확인한 뒤 재처리하세요.");
         }
+        return finalizeDeposit(depositId, completed);
+    }
+
+    private Refund finalizeDeposit(Long depositId, Refund completed) {
+        try {
+            recordService.markDepositRefunded(depositId);
+        } catch (RuntimeException exception) {
+            // 외부 성공 원장을 FAILED로 되돌리지 않는다. 같은 관리자 요청으로 기록만 재시도한다.
+            log.error("입금 환불 종결 기록 재처리 필요 depositId={} refundId={}",
+                    depositId, completed.getRefundId(), exception);
+        }
+        return completed;
     }
 
     /**
