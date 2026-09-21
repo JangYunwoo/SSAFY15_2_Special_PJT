@@ -4,6 +4,7 @@ import com.gongguhan.domain.refund.entity.Refund;
 import com.gongguhan.domain.refund.entity.RefundStatus;
 import java.util.List;
 import java.util.Optional;
+import java.util.Collection;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -20,6 +21,8 @@ import org.springframework.data.repository.query.Param;
  * 쓰고 되짚는 데 필요한 만큼만 가집니다.
  */
 public interface RefundRepository extends JpaRepository<Refund, Long> {
+    /** 결제 이력 한 페이지의 참여 환불을 한 번에 읽는다. */
+    List<Refund> findByParticipationIdIn(Collection<Long> participationIds);
 
     @Query("""
             SELECT r.refundId FROM Refund r

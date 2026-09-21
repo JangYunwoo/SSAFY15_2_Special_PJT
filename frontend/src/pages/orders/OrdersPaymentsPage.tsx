@@ -5,6 +5,7 @@ import { displayFor } from '@/entities/statusDisplay'
 import type { PaymentHistoryItem } from '@/entities/payment/model'
 import { paymentQueries } from '@/entities/payment/queries'
 import { OrdersTabs } from '@/features/orders/OrdersTabs'
+import { PaymentRefundSummary } from '@/features/orders/PaymentRefundSummary'
 import { clock, groupBuyNo, won } from '@/shared/lib/format'
 import { usePageParam } from '@/shared/lib/hooks/usePageParam'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
@@ -88,6 +89,7 @@ function PaymentTable({ items }: { items: readonly PaymentHistoryItem[] }) {
               <td>{PAYMENT_METHOD_LABEL[item.method]}</td>
               <td>
                 <StateChip tone={display.tone}>{display.label}</StateChip>
+                <PaymentRefundSummary payment={item} />
               </td>
               <td className="num">{won(item.amount.totalAmount)}</td>
               <td className="num">

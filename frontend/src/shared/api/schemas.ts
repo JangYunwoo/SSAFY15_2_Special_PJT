@@ -141,6 +141,10 @@ export const paymentSchema = z.object({
   }),
   slotExpiresAt: isoDateTime,
   remainingSeconds: z.number(),
+  refund: z.object({
+    status: z.enum(['NONE', 'PROCESSING', 'COMPLETED', 'FAILED', 'UNKNOWN']),
+    completedAmount: z.number().nonnegative(),
+  }).optional(),
 })
 
 export const cryptoStatusSchema = z.object({

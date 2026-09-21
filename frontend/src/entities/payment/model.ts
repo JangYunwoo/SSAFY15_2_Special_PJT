@@ -36,11 +36,13 @@ export interface Payment {
 /**
  * PAY-04 결제 이력.
  *
- * 백엔드는 전용 DTO 없이 PAY-01/02 와 같은 PaymentResponse 를 페이지로 돌려줍니다
- * (PaymentService.listHistory). 그래서 목록에 있으면 좋을 상품명과 결제 시각이
- * 응답에 없습니다. 백엔드에 추가를 요청해 둔 상태입니다.
+ * 원승인 필드와 참여 환불 원장 요약을 함께 반환합니다.
+ * PAID는 승인 이력이고 refund는 현재 반환 상태이므로 둘을 구분합니다.
  */
-export type PaymentHistoryItem = Payment
+export interface PaymentHistoryItem extends Payment {
+  /** 구 배포본과 함께 쓸 때 필드가 없을 수 있다. 없는 값을 환불 없음으로 단정하지 않는다. */
+  refund?: { status: 'NONE' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'UNKNOWN'; completedAmount: Krw }
+}
 
 export type PaymentHistoryParams = PageParams
 
