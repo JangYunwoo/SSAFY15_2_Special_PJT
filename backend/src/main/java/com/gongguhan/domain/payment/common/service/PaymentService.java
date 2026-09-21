@@ -17,6 +17,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
@@ -86,10 +87,13 @@ public class PaymentService {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public PaymentResponse prepare(Long userId, Long groupBuyId, PaymentPrepareRequest request,
                                     String idempotencyKey) {
+        if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() > 64) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "요청 키는 비어 있지 않은 64자 이하여야 합니다.");
+        }
+        validatePrepareRequest(request);
         Payment existing = paymentRepository.findByIdempotencyKey(idempotencyKey).orElse(null);
         if (existing != null) {
-            GroupBuySlotPort.GroupBuySlot existingGroupBuySlot = groupBuySlotPort.get(existing.getGroupBuyId());
-            return PaymentResponse.from(existing, existingGroupBuySlot, LocalDateTime.now(clock));
+            return reusePreparedPayment(existing, userId, groupBuyId, request);
         }
 
         // 멱등키가 달라도 자리는 하나다.
@@ -108,8 +112,7 @@ public class PaymentService {
         if (activeSlot != null
                 && activeSlot.getMethod().equals(request.method())
                 && !activeSlot.isExpired(LocalDateTime.now(clock))) {
-            GroupBuySlotPort.GroupBuySlot activeGroupBuySlot = groupBuySlotPort.get(groupBuyId);
-            return PaymentResponse.from(activeSlot, activeGroupBuySlot, LocalDateTime.now(clock));
+            return reusePreparedPayment(activeSlot, userId, groupBuyId, request);
         }
 
         // Redis fast-fail 게이트: 프로젝션 조회(짧은 자체 트랜잭션, 즉시 커넥션 반납)라
@@ -136,7 +139,51 @@ public class PaymentService {
             if (gateApplies) {
                 groupBuySlotGate.release(groupBuyId);
             }
+            // A concurrent identical request may have committed after our initial lookup.
+            // This lookup is outside the failed transaction: never query a rollback-only session.
+            if (e instanceof BusinessException business
+                    && business.getErrorCode() == ErrorCode.DUPLICATE_PARTICIPATION) {
+                Payment winner = paymentRepository.findByIdempotencyKey(idempotencyKey).orElse(null);
+                if (winner != null) {
+                    return reusePreparedPayment(winner, userId, groupBuyId, request);
+                }
+            }
             throw e;
+        }
+    }
+
+    private PaymentResponse reusePreparedPayment(Payment payment, Long userId, Long groupBuyId,
+                                                 PaymentPrepareRequest request) {
+        if (!Objects.equals(payment.getUserId(), userId)) {
+            throw new BusinessException(ErrorCode.RESOURCE_ACCESS_DENIED);
+        }
+        if (!Objects.equals(payment.getGroupBuyId(), groupBuyId)
+                || !Objects.equals(payment.getMethod(), request.method())
+                || !Objects.equals(payment.getAddressId(), request.addressId())
+                || !Objects.equals(payment.getPrepareCryptoAssetId(), request.cryptoAssetId())) {
+            throw new BusinessException(ErrorCode.PAYMENT_REQUEST_CONFLICT);
+        }
+        if (!payment.isProcessing()) {
+            throw new BusinessException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
+        }
+        LocalDateTime now = LocalDateTime.now(clock);
+        if (payment.isExpired(now) || !now.isBefore(payment.getSlotExpiresAt())) {
+            throw new BusinessException(ErrorCode.PAYMENT_SLOT_EXPIRED);
+        }
+        return PaymentResponse.from(payment, groupBuySlotPort.get(groupBuyId), now);
+    }
+
+    private static void validatePrepareRequest(PaymentPrepareRequest request) {
+        if (request == null || request.addressId() == null || request.addressId() <= 0
+                || !Set.of("CARD", "KAKAOPAY", "CRYPTO").contains(Objects.toString(request.method(), ""))) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+        if (Payment.METHOD_CRYPTO.equals(request.method())) {
+            if (request.cryptoAssetId() == null || request.cryptoAssetId() <= 0) {
+                throw new BusinessException(ErrorCode.VALIDATION_ERROR, "디지털 자산 결제에는 유효한 cryptoAssetId가 필요합니다.");
+            }
+        } else if (request.cryptoAssetId() != null) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "카드·카카오페이 결제에는 cryptoAssetId를 지정할 수 없습니다.");
         }
     }
 

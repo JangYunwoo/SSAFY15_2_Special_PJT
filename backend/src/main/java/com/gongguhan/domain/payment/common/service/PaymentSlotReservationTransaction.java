@@ -101,7 +101,7 @@ class PaymentSlotReservationTransaction {
         // 코인 결제는 스케줄러가 완료 처리하므로 그 시점에 요청 컨텍스트가 없다.
         Payment payment = Payment.prepare(
                 groupBuyId, userId, address.getAddressId(), request.method(), totalAmount,
-                slotExpiresAt, idempotencyKey);
+                slotExpiresAt, idempotencyKey, request.cryptoAssetId());
         try {
             paymentRepository.saveAndFlush(payment);
         } catch (DataIntegrityViolationException e) {
