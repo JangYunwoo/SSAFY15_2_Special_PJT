@@ -49,7 +49,7 @@ class PurchaseConfirmServiceTest {
         when(participation.getUserId()).thenReturn(USER_ID);
         when(participation.getStatus()).thenReturn(Participation.STATUS_CONFIRMED);
         when(participation.getConfirmType()).thenReturn(Participation.CONFIRM_TYPE_MANUAL);
-        when(participationRepository.findById(PARTICIPATION_ID)).thenReturn(Optional.of(participation));
+        when(participationRepository.findWithLockByParticipationId(PARTICIPATION_ID)).thenReturn(Optional.of(participation));
 
         PurchaseConfirmResponse response =
                 purchaseConfirmService.confirmManually(USER_ID, PARTICIPATION_ID, true);
@@ -65,14 +65,14 @@ class PurchaseConfirmServiceTest {
                 () -> purchaseConfirmService.confirmManually(USER_ID, PARTICIPATION_ID, false));
 
         assertEquals(ErrorCode.VALIDATION_ERROR, exception.getErrorCode());
-        verify(participationRepository, never()).findById(any());
+        verify(participationRepository, never()).findWithLockByParticipationId(any());
     }
 
     @Test
     void confirmManuallyDeniedForOtherUser() {
         Participation participation = mock(Participation.class);
         when(participation.getUserId()).thenReturn(2L);
-        when(participationRepository.findById(PARTICIPATION_ID)).thenReturn(Optional.of(participation));
+        when(participationRepository.findWithLockByParticipationId(PARTICIPATION_ID)).thenReturn(Optional.of(participation));
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> purchaseConfirmService.confirmManually(USER_ID, PARTICIPATION_ID, true));
@@ -102,7 +102,7 @@ class PurchaseConfirmServiceTest {
         when(participation.getStatus()).thenReturn(Participation.STATUS_DELIVERED);
         when(participation.isConfirmHold()).thenReturn(false);
         when(participation.getDeliveredAt()).thenReturn(NOW.minusDays(8));
-        when(participationRepository.findById(PARTICIPATION_ID)).thenReturn(Optional.of(participation));
+        when(participationRepository.findWithLockByParticipationId(PARTICIPATION_ID)).thenReturn(Optional.of(participation));
 
         purchaseConfirmService.autoConfirmIfDue(PARTICIPATION_ID);
 
@@ -113,7 +113,7 @@ class PurchaseConfirmServiceTest {
     void autoConfirmIfDueSkipsWhenAlreadyConfirmed() {
         Participation participation = mock(Participation.class);
         when(participation.getStatus()).thenReturn(Participation.STATUS_CONFIRMED);
-        when(participationRepository.findById(PARTICIPATION_ID)).thenReturn(Optional.of(participation));
+        when(participationRepository.findWithLockByParticipationId(PARTICIPATION_ID)).thenReturn(Optional.of(participation));
 
         purchaseConfirmService.autoConfirmIfDue(PARTICIPATION_ID);
 
@@ -125,7 +125,7 @@ class PurchaseConfirmServiceTest {
         Participation participation = mock(Participation.class);
         when(participation.getStatus()).thenReturn(Participation.STATUS_DELIVERED);
         when(participation.isConfirmHold()).thenReturn(true);
-        when(participationRepository.findById(PARTICIPATION_ID)).thenReturn(Optional.of(participation));
+        when(participationRepository.findWithLockByParticipationId(PARTICIPATION_ID)).thenReturn(Optional.of(participation));
 
         purchaseConfirmService.autoConfirmIfDue(PARTICIPATION_ID);
 
@@ -139,7 +139,7 @@ class PurchaseConfirmServiceTest {
         when(participation.getStatus()).thenReturn(Participation.STATUS_DELIVERED);
         when(participation.isConfirmHold()).thenReturn(false);
         when(participation.getDeliveredAt()).thenReturn(NOW.minusDays(3));
-        when(participationRepository.findById(PARTICIPATION_ID)).thenReturn(Optional.of(participation));
+        when(participationRepository.findWithLockByParticipationId(PARTICIPATION_ID)).thenReturn(Optional.of(participation));
 
         purchaseConfirmService.autoConfirmIfDue(PARTICIPATION_ID);
 

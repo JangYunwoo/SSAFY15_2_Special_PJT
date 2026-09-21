@@ -49,7 +49,7 @@ public class ParticipationDisputeService {
     public void submitDispute(Long userId, Long participationId, DisputeRequest request) {
         String reasonType = mapReasonType(request.type());
 
-        Participation participation = participationRepository.findById(participationId)
+        Participation participation = participationRepository.findWithLockByParticipationId(participationId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "참여 정보를 찾을 수 없습니다."));
         if (!participation.getUserId().equals(userId)) {
             throw new BusinessException(ErrorCode.RESOURCE_ACCESS_DENIED);

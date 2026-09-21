@@ -51,7 +51,7 @@ class ParticipationDisputeServiceTest {
         Participation participation = mock(Participation.class);
         when(participation.getUserId()).thenReturn(USER_ID);
         when(participation.getGroupBuyId()).thenReturn(GROUP_BUY_ID);
-        when(participationRepository.findById(PARTICIPATION_ID)).thenReturn(Optional.of(participation));
+        when(participationRepository.findWithLockByParticipationId(PARTICIPATION_ID)).thenReturn(Optional.of(participation));
         GroupBuy groupBuy = mock(GroupBuy.class);
         when(groupBuy.getGroupBuyId()).thenReturn(GROUP_BUY_ID);
         when(groupBuy.getSellerId()).thenReturn(SELLER_ID);
@@ -102,7 +102,7 @@ class ParticipationDisputeServiceTest {
     void disputeDeniedForOtherUsersParticipation() {
         Participation participation = mock(Participation.class);
         when(participation.getUserId()).thenReturn(2L);
-        when(participationRepository.findById(PARTICIPATION_ID)).thenReturn(Optional.of(participation));
+        when(participationRepository.findWithLockByParticipationId(PARTICIPATION_ID)).thenReturn(Optional.of(participation));
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> disputeService.submitDispute(USER_ID, PARTICIPATION_ID,
@@ -118,7 +118,7 @@ class ParticipationDisputeServiceTest {
                 "홍길동", "010-1234-5678", "06236", "서울시 강남구", "101동");
         participation.markFulfilled();
         participation.markShipping();
-        when(participationRepository.findById(PARTICIPATION_ID)).thenReturn(Optional.of(participation));
+        when(participationRepository.findWithLockByParticipationId(PARTICIPATION_ID)).thenReturn(Optional.of(participation));
         GroupBuy groupBuy = mock(GroupBuy.class);
         when(groupBuy.getGroupBuyId()).thenReturn(GROUP_BUY_ID);
         when(groupBuy.getSellerId()).thenReturn(SELLER_ID);

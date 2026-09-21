@@ -60,6 +60,24 @@ public class SettlementRecordService {
      */
     @Transactional
     public Settlement settle(Long groupBuyId, List<SettlementTarget> targets, LocalDateTime now) {
+        // 후보 조회는 잠금이 아니다. 반품/이의제기가 끼어들었는지 쓰기 직전에 같은 참여 행으로 재검증한다.
+        for (SettlementTarget target : targets.stream()
+                .sorted(java.util.Comparator.comparing(SettlementTarget::participationId)).toList()) {
+            Participation participation = participationRepository.findWithLockByParticipationId(target.participationId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+            if (!groupBuyId.equals(participation.getGroupBuyId())
+                    || !groupBuyId.equals(target.groupBuyId())
+                    || !Participation.STATUS_CONFIRMED.equals(participation.getStatus())
+                    || participation.isConfirmHold()
+                    || participation.getSettlementEligibleAt() == null
+                    || participation.getSettlementEligibleAt().isAfter(now)
+                    || participation.getShareAmount() != target.shareAmount()
+                    || participation.getShippingFee() != target.shippingFee()
+                    || escrowService.getSettlementAmount(target.participationId()) != participation.getTotalAmount()) {
+                throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
+                        "정산 후보의 상태 또는 금액이 변경되었습니다. participationId=" + target.participationId());
+            }
+        }
         SettlementTarget first = targets.get(0);
         long shareTotal = targets.stream().mapToLong(SettlementTarget::shareAmount).sum();
         long shippingTotal = targets.stream().mapToLong(SettlementTarget::shippingFee).sum();

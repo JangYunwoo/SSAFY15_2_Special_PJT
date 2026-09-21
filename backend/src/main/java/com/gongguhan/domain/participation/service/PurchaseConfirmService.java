@@ -41,7 +41,7 @@ public class PurchaseConfirmService {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR,
                     "구매확정 후 반품 제한 고지에 동의해야 확정할 수 있습니다.");
         }
-        Participation participation = participationRepository.findById(participationId)
+        Participation participation = participationRepository.findWithLockByParticipationId(participationId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "참여 정보를 찾을 수 없습니다."));
         if (!participation.getUserId().equals(userId)) {
             throw new BusinessException(ErrorCode.RESOURCE_ACCESS_DENIED);
@@ -68,7 +68,7 @@ public class PurchaseConfirmService {
     /** 후보 재검증 후 자동 확정. 조건이 바뀌었으면 조용히 넘어간다(다음 주기·수동 경로가 처리). */
     @Transactional
     public void autoConfirmIfDue(Long participationId) {
-        Participation participation = participationRepository.findById(participationId).orElse(null);
+        Participation participation = participationRepository.findWithLockByParticipationId(participationId).orElse(null);
         if (participation == null
                 || !Participation.STATUS_DELIVERED.equals(participation.getStatus())
                 || participation.isConfirmHold()) {

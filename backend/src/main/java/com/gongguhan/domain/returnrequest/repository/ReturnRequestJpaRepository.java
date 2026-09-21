@@ -16,6 +16,9 @@ import org.springframework.data.repository.query.Param;
 
 interface ReturnRequestJpaRepository extends JpaRepository<ReturnRequest, Long> {
 
+    @Query("SELECT r.participation.participationId FROM ReturnRequest r WHERE r.returnId = :returnId")
+    Optional<Long> findParticipationId(@Param("returnId") Long returnId);
+
     boolean existsByParticipationParticipationIdAndStatusNotIn(
             Long participationId, Collection<String> terminalStatuses);
 
