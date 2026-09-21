@@ -1,0 +1,12 @@
+{
+  "bug": "B27",
+  "jira": "S15P21B205-176",
+  "baseCommit": "94b16ac2ba28561bfb34001eb962536e2766e116",
+  "before": { "targetedTests": 9, "passed": 5, "failures": 4 },
+  "after": {
+    "targetedTestsIncludingTwoAdditionalGuards": 11,
+    "targetedFailures": 0,
+    "backendFull": { "suites": 91, "tests": 573, "passed": 570, "failures": 0, "errors": 0, "skipped": 3 }
+  },
+  "limits": ["Provider and Redis mocked in B27 integration", "Redis integration 2 skipped", "S3 integration 1 skipped", "No live failed transaction retried", "No deployment performed"]
+}
