@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router'
 
 import { DELIVERY_STATUS, DELIVERY_STATUS_DISPLAY, type DeliveryStatus } from '@/entities/model'
 import { deliveryApi } from '@/entities/delivery/api'
 import { CARRIERS, type Delivery, type DeliveryBoard } from '@/entities/delivery/model'
 import { deliveryQueries } from '@/entities/delivery/queries'
 import { groupBuyQueries } from '@/entities/groupBuy/queries'
+import { orderSelection } from '@/features/seller/orderSelection'
 import { toMessage } from '@/shared/api/errors'
 import { queryKeys } from '@/shared/api/queryKeys'
 import { date, groupBuyNo, maskName, percent, phone } from '@/shared/lib/format'
@@ -21,10 +23,16 @@ export default function SellerOrdersPage() {
   useDocumentTitle('주문 관리')
 
   const groupBuys = useQuery(groupBuyQueries.sellerList({ size: 100 }))
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const options = groupBuys.data?.items ?? []
-  const activeId = selectedId ?? options[0]?.id ?? null
+  const { id: activeId, invalid } = orderSelection(searchParams.get('groupBuyId'), options[0]?.id ?? null)
+  const listed = options.some((item) => item.id === activeId)
+  // 목록 첫 100개 밖의 정상 주문도 상세 권한 확인 후 접근할 수 있다.
+  const selected = useQuery({
+    ...groupBuyQueries.sellerDetail(activeId ?? ''),
+    enabled: activeId !== null && !listed,
+  })
 
   return (
     <section className="section" style={{ paddingTop: 0 }}>
@@ -41,9 +49,17 @@ export default function SellerOrdersPage() {
           aria-label="공동구매 선택"
           value={activeId ?? ''}
           onChange={(event) => {
-            setSelectedId(event.target.value)
+            setSearchParams((previous) => {
+              const next = new URLSearchParams(previous)
+              next.set('groupBuyId', event.target.value)
+              return next
+            })
           }}
         >
+          {activeId === null && <option value="" disabled>공동구매를 선택해 주세요</option>}
+          {activeId !== null && !listed && (
+            <option value={activeId}>{selected.data?.productName ?? `공동구매 ${groupBuyNo(activeId)}`}</option>
+          )}
           {options.map((item) => (
             <option key={item.id} value={item.id}>
               {item.productName} · {groupBuyNo(item.id)}
@@ -52,11 +68,17 @@ export default function SellerOrdersPage() {
         </select>
       </div>
 
-      {activeId === null ? (
+      {invalid ? (
+        <p role="alert">공동구매 번호가 올바르지 않습니다. 목록에서 다시 선택해 주세요.</p>
+      ) : activeId === null ? (
         <EmptyState>등록한 공동구매가 없습니다.</EmptyState>
-      ) : (
+      ) : listed ? (
         /* 공동구매를 바꾸면 선택·편집 상태를 들고 가지 않도록 다시 마운트합니다. */
         <DeliveryBoardView key={activeId} groupBuyId={activeId} />
+      ) : (
+        <QueryBoundary query={selected}>
+          {() => <DeliveryBoardView key={activeId} groupBuyId={activeId} />}
+        </QueryBoundary>
       )}
     </section>
   )

@@ -8,6 +8,7 @@ import { displayFor } from '@/entities/statusDisplay'
 import { groupBuyApi } from '@/entities/groupBuy/api'
 import type { Participant, SellerGroupBuyDetail } from '@/entities/groupBuy/model'
 import { groupBuyQueries } from '@/entities/groupBuy/queries'
+import { sellerOrdersPath } from '@/features/seller/orderSelection'
 import { toMessage } from '@/shared/api/errors'
 import { queryKeys } from '@/shared/api/queryKeys'
 import { BACKEND_FEATURES } from '@/shared/config/backendFeatures'
@@ -113,7 +114,7 @@ function SummaryPanel({ item }: { item: SellerGroupBuyDetail }) {
       <DataRow label="예상 정산액">{won(item.estimatedSettlementAmount)}</DataRow>
       <DataRow label="반품 접수">{item.returnCount}건</DataRow>
 
-      <ButtonLink variant="ghost" block className="mt16" to="/seller/orders">
+      <ButtonLink variant="ghost" block className="mt16" to={sellerOrdersPath(item.id)}>
         주문 관리로 이동
       </ButtonLink>
 
