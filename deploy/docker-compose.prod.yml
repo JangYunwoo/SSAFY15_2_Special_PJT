@@ -60,6 +60,7 @@ services:
       REDIS_HOST: redis
       # 백엔드 → AI 서비스도 내부 네트워크로.
       AI_EXTRACTION_BASE_URL: http://ai:8000
+      RECOMMENDATION_AI_BASE_URL: http://ai:8000
       # Gemini 멀티모달 이미지 분석은 10초를 넘길 수 있다. 기본 10초는 실상품 이미지에서
       # 백엔드가 먼저 타임아웃되어 폴백된다. 30초로 여유를 둔다.
       AI_EXTRACTION_TIMEOUT_MS: "30000"

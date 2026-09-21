@@ -11,8 +11,8 @@ from sklearn.preprocessing import StandardScaler
 EVENT_WEIGHTS = {
     "IMPRESSION": 0.0,
     "CLICK": 1.0,
-    "DETAIL_VIEW": 2.0,
-    "PURCHASE": 4.0,
+    "DETAIL_VIEW": 1.0,
+    "PURCHASE": 3.0,
 }
 FEATURE_COLUMNS = [
     "brand_affinity",

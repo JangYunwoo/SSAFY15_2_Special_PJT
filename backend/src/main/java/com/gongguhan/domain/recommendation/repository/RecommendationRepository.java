@@ -186,7 +186,7 @@ public class RecommendationRepository {
                   FROM recommendation_events e
                   JOIN recommendation_sessions s ON s.session_id = e.session_id
                  WHERE s.ended_at IS NOT NULL
-                    OR s.last_event_at <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 MINUTE)
+                    OR s.last_event_at <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 SECOND)
                  ORDER BY e.occurred_at DESC
                  LIMIT :limit
                 """, Map.of("limit", limit), this::mapStoredEvent));

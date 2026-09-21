@@ -6,7 +6,7 @@ export type RecommendationEventType = 'IMPRESSION' | 'CLICK' | 'DETAIL_VIEW'
 export interface RecommendationEvent {
   groupBuyId: Id
   eventType: RecommendationEventType
-  source: 'HOME_RECOMMENDATION' | 'GROUP_BUY_DETAIL'
+  source: 'HOME_RECOMMENDATION' | 'HOME_POPULAR' | 'GROUP_BUY_DETAIL'
   position?: number
 }
 

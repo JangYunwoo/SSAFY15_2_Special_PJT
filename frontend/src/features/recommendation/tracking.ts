@@ -25,7 +25,7 @@ export async function recordRecommendationEvents(
   }
 }
 
-/** 탭 종료·새로고침 때 현재 세션을 닫습니다. 30분 무활동은 서버가 보완합니다. */
+/** 탭 종료·새로고침 때 현재 세션을 닫습니다. 시연용 1초 무활동 판정을 서버가 보완합니다. */
 export function useRecommendationSessionLifecycle(): void {
   const isSignedIn = useIsSignedIn()
 
@@ -38,7 +38,7 @@ export function useRecommendationSessionLifecycle(): void {
       if (sessionId === null) return
       sessionStorage.removeItem(SESSION_KEY)
       void recommendationApi.endSession(sessionId).catch(() => {
-        // pagehide 중 실패해도 서버의 30분 타임아웃이 세션을 닫습니다.
+        // pagehide 중 실패해도 서버의 1초 무활동 판정이 세션을 학습 대상에 포함합니다.
       })
     }
     window.addEventListener('pagehide', close)
