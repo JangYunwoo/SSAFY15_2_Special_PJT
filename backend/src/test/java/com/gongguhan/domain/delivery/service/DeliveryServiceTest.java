@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.inOrder;
 
 import com.gongguhan.domain.delivery.dto.DeliveryBulkStatusResponse;
 import com.gongguhan.domain.delivery.dto.DeliveryInvoiceRequest;
@@ -74,7 +75,8 @@ class DeliveryServiceTest {
     private void stubDeliveryChain(Delivery delivery, Participation participation, GroupBuy groupBuy) {
         when(deliveryRepository.findById(DELIVERY_ID)).thenReturn(Optional.of(delivery));
         when(delivery.getParticipationId()).thenReturn(PARTICIPATION_ID);
-        when(participationRepository.findById(PARTICIPATION_ID)).thenReturn(Optional.of(participation));
+        when(deliveryRepository.findParticipationIdByDeliveryId(DELIVERY_ID)).thenReturn(Optional.of(PARTICIPATION_ID));
+        when(participationRepository.findWithLockByParticipationId(PARTICIPATION_ID)).thenReturn(Optional.of(participation));
         when(groupBuyRepository.findById(GROUP_BUY_ID)).thenReturn(Optional.of(groupBuy));
     }
 
@@ -144,6 +146,12 @@ class DeliveryServiceTest {
 
         verify(delivery).markShipping();
         verify(participation).markShipping();
+        var ordered = inOrder(deliveryRepository, participationRepository, delivery);
+        ordered.verify(deliveryRepository).findParticipationIdByDeliveryId(DELIVERY_ID);
+        ordered.verify(participationRepository).findWithLockByParticipationId(PARTICIPATION_ID);
+        ordered.verify(deliveryRepository).findById(DELIVERY_ID);
+        ordered.verify(delivery).markShipping();
+        verify(participationRepository, never()).findById(any());
     }
 
     @Test
@@ -182,8 +190,10 @@ class DeliveryServiceTest {
         Participation ineligible = mock(Participation.class);
         when(ineligible.getParticipationId()).thenReturn(302L);
         when(ineligible.getStatus()).thenReturn(Participation.STATUS_FULFILLED);
-        when(participationRepository.findByGroupBuyIdOrderByParticipationIdAsc(GROUP_BUY_ID))
-                .thenReturn(List.of(eligible, ineligible));
+        when(participationRepository.findIdsByGroupBuyIdOrderByParticipationIdAsc(GROUP_BUY_ID))
+                .thenReturn(List.of(301L, 302L));
+        when(participationRepository.findWithLockByParticipationId(301L)).thenReturn(Optional.of(eligible));
+        when(participationRepository.findWithLockByParticipationId(302L)).thenReturn(Optional.of(ineligible));
 
         Delivery withInvoice = mock(Delivery.class);
         when(withInvoice.getParticipationId()).thenReturn(301L);
@@ -193,8 +203,8 @@ class DeliveryServiceTest {
         when(withoutInvoice.getParticipationId()).thenReturn(302L);
         when(withoutInvoice.isReady()).thenReturn(true);
         when(withoutInvoice.hasInvoice()).thenReturn(false);
-        when(deliveryRepository.findByParticipationIdIn(List.of(301L, 302L)))
-                .thenReturn(List.of(withInvoice, withoutInvoice));
+        when(deliveryRepository.findByParticipationId(301L)).thenReturn(Optional.of(withInvoice));
+        when(deliveryRepository.findByParticipationId(302L)).thenReturn(Optional.of(withoutInvoice));
 
         DeliveryBulkStatusResponse response =
                 deliveryService.bulkUpdateStatus(SELLER_ID, GROUP_BUY_ID, "SHIPPING");
@@ -206,6 +216,13 @@ class DeliveryServiceTest {
         verify(eligible).markShipping();
         verify(withoutInvoice, never()).markShipping();
         verify(ineligible, never()).markShipping();
+        var ordered = inOrder(participationRepository, deliveryRepository);
+        ordered.verify(participationRepository).findIdsByGroupBuyIdOrderByParticipationIdAsc(GROUP_BUY_ID);
+        ordered.verify(participationRepository).findWithLockByParticipationId(301L);
+        ordered.verify(deliveryRepository).findByParticipationId(301L);
+        ordered.verify(participationRepository).findWithLockByParticipationId(302L);
+        ordered.verify(deliveryRepository).findByParticipationId(302L);
+        verify(participationRepository, never()).findByGroupBuyIdOrderByParticipationIdAsc(any());
     }
 
     @Test
