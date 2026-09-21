@@ -106,7 +106,7 @@ public class AiRecommendationClient {
 
     public record RankedItem(
             @JsonProperty("group_buy_id") long groupBuyId,
-            double score,
+            Double score,
             String reason
     ) {
     }

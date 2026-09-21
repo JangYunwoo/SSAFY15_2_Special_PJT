@@ -10,6 +10,7 @@ import com.gongguhan.domain.recommendation.repository.RecommendationTrainingEven
 import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -78,20 +79,35 @@ public class RecommendationService {
         List<RecommendationTrainingEvent> events = repository.findTrainingEvents(properties.trainingEventLimit());
         try {
             AiRecommendationClient.RankResponse ranked = aiClient.rank(userId, candidates, events, limit);
-            if (ranked == null || ranked.rankedItems() == null) {
+            if (ranked == null || ranked.rankedItems() == null
+                    || !("LOGISTIC_REGRESSION".equals(ranked.modelType())
+                    || "HEURISTIC_FALLBACK".equals(ranked.modelType()))) {
                 return fallback(candidates, limit);
             }
             Map<Long, RecommendationCandidate> byId = candidates.stream()
                     .collect(Collectors.toMap(RecommendationCandidate::groupBuyId, Function.identity()));
+            Set<Long> seen = new HashSet<>();
             List<RecommendedGroupBuyResponse> items = ranked.rankedItems().stream()
-                    .filter(item -> byId.containsKey(item.groupBuyId()))
+                    .filter(item -> item != null && byId.containsKey(item.groupBuyId()))
+                    .filter(item -> item.score() != null && Double.isFinite(item.score()))
+                    .filter(item -> seen.add(item.groupBuyId()))
+                    .limit(limit)
                     .map(item -> new RecommendedGroupBuyResponse(
-                            byId.get(item.groupBuyId()).summary(), item.score(), item.reason()))
+                            byId.get(item.groupBuyId()).summary(), item.score(),
+                            item.reason() == null || item.reason().isBlank() ? "추천 공동구매예요" : item.reason()))
                     .toList();
+            if (items.isEmpty()) {
+                return fallback(candidates, limit);
+            }
+            Map<String, Double> weights = ranked.featureWeights() == null ? Map.of()
+                    : ranked.featureWeights().entrySet().stream()
+                            .filter(entry -> entry.getKey() != null && !entry.getKey().isBlank())
+                            .filter(entry -> entry.getValue() != null && Double.isFinite(entry.getValue()))
+                            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
             return new RecommendationResponse(
                     items,
                     ranked.modelType(),
-                    ranked.featureWeights() == null ? Map.of() : ranked.featureWeights());
+                    weights);
         } catch (RestClientException error) {
             log.warn("추천 AI 호출 실패. 모집률 기반 순서로 대체합니다: {}", error.getClass().getSimpleName());
             return fallback(candidates, limit);
