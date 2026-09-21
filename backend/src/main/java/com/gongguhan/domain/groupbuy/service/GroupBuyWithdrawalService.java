@@ -12,6 +12,8 @@ import com.gongguhan.domain.refund.service.RefundOrchestrationService;
 import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
 import java.time.LocalDateTime;
+import java.time.Clock;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;
@@ -42,31 +44,31 @@ public class GroupBuyWithdrawalService {
     private final RefundOrchestrationService refundOrchestrationService;
     private final ApplicationEventPublisher eventPublisher;
     private final ObjectProvider<GroupBuyWithdrawalService> self;
+    private final Clock clock;
 
     public GroupBuyWithdrawalService(GroupBuyRepository groupBuyRepository,
                                      ParticipationRepository participationRepository,
                                      PaymentRepository paymentRepository,
                                      RefundOrchestrationService refundOrchestrationService,
                                      ApplicationEventPublisher eventPublisher,
-                                     ObjectProvider<GroupBuyWithdrawalService> self) {
+                                     ObjectProvider<GroupBuyWithdrawalService> self,
+                                     Clock clock) {
         this.groupBuyRepository = groupBuyRepository;
         this.participationRepository = participationRepository;
         this.paymentRepository = paymentRepository;
         this.refundOrchestrationService = refundOrchestrationService;
         this.eventPublisher = eventPublisher;
         this.self = self;
+        this.clock = clock;
     }
 
     public void withdraw(Long sellerId, Long groupBuyId, String reason) {
-        List<RefundTarget> targets = self.getObject().prepareWithdrawal(sellerId, groupBuyId);
+        List<RefundTarget> targets = self.getObject().prepareWithdrawal(sellerId, groupBuyId, reason);
         // 전원 환불(외부 호출). 일부가 실패해도 원장에 FAILED로 남아 재처리(RFD-04) 대상이 된다.
         for (RefundTarget target : targets) {
             refundOrchestrationService.refundParticipation(
                     target.participationId(), target.amount(), RefundReason.SELLER_FAULT);
         }
-        // 위반 후보 생성은 penalty 도메인이 이 이벤트를 소비해 처리한다(seam).
-        eventPublisher.publishEvent(new GroupBuyWithdrawnEvent(
-                groupBuyId, sellerId, targets.size(), reason, LocalDateTime.now()));
     }
 
     /**
@@ -74,8 +76,9 @@ public class GroupBuyWithdrawalService {
      * 환불 대상(참여ID·금액)을 모아 반환한다.
      */
     @Transactional
-    public List<RefundTarget> prepareWithdrawal(Long sellerId, Long groupBuyId) {
-        GroupBuy groupBuy = groupBuyRepository.findByGroupBuyIdAndSellerId(groupBuyId, sellerId)
+    public List<RefundTarget> prepareWithdrawal(Long sellerId, Long groupBuyId, String reason) {
+        GroupBuy groupBuy = groupBuyRepository.findWithLockByGroupBuyId(groupBuyId)
+                .filter(found -> found.getSellerId().equals(sellerId))
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_ACCESS_DENIED));
 
         List<Participation> paidParticipations =
@@ -94,6 +97,10 @@ public class GroupBuyWithdrawalService {
             participation.markRefunding();
             targets.add(new RefundTarget(participation.getParticipationId(), payment.getKrwAmount()));
         }
+        // 필수 후보 기록은 취소와 같은 트랜잭션이다. 외부 환불 실패로 발행이 생략되면 안 된다.
+        eventPublisher.publishEvent(new GroupBuyWithdrawnEvent(
+                groupBuyId, sellerId, targets.size(), reason,
+                LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC)));
         return targets;
     }
 
