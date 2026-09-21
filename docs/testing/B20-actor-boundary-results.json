@@ -1,0 +1,13 @@
+{
+  "issue": "S15P21B205-178",
+  "bug": "B20",
+  "reproductionBase": "e6ae9a11a3b900795caca508b52277761596e5e7",
+  "finalTestBase": "3101c92fd9455034b4c2710c5ae1506da9337c98",
+  "before": {"tests": 12, "passed": 6, "failures": 6},
+  "afterTargeted": {"tests": 16, "passed": 16, "failures": 0},
+  "afterBackendRegression": {"suites": 93, "tests": 599, "passed": 596, "failures": 0, "errors": 0, "skipped": 3},
+  "environment": "Local Windows, JDK 21, real signed JWT and Spring Security chain, MockMvc, H2",
+  "productionDeployment": false,
+  "performanceBenchmark": false,
+  "limitations": ["Redis 2 and S3 1 tests skipped", "Representative route coverage, not every row ownership rule", "Browser end-to-end tests not executed in this MR"]
+}

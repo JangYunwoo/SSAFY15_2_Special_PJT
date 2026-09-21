@@ -61,7 +61,9 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .requestMatchers("/sellers/**").hasRole("SELLER")
-                        .anyRequest().authenticated()
+                        .requestMatchers(HttpMethod.POST, "/auth/logout").authenticated()
+                        // ADMIN의 subject는 admins PK다. 사용자 API에서 users PK로 해석하면 안 된다.
+                        .anyRequest().hasRole("USER")
                 )
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, exception) ->
