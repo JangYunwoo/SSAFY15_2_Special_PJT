@@ -53,6 +53,7 @@ public class CryptoWalletProofService {
         if (!payment.isProcessing()) throw new BusinessException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
         if (payment.isExpired(now)) throw new BusinessException(ErrorCode.PAYMENT_SLOT_EXPIRED);
         CryptoQuote quote = quotes.findById(request.quoteId()).orElseThrow(() -> invalid("견적을 찾을 수 없습니다."));
+        CryptoPreparedAssetPolicy.requireMatches(payment, quote.getAssetId());
         if (quote.isUsed() || quote.isExpired(now)) throw new BusinessException(ErrorCode.QUOTE_EXPIRED);
         if (quote.getKrwAmount() != payment.getKrwAmount()) throw invalid("견적 금액이 일치하지 않습니다.");
         CryptoAsset asset = assets.findByAssetIdAndEnabledTrue(quote.getAssetId())
@@ -104,6 +105,8 @@ public class CryptoWalletProofService {
         Payment payment = payments.findForUpdateByPaymentIdAndUserId(paymentId, userId).orElseThrow(CryptoWalletProofService::denied);
         if (!payment.isProcessing()) throw new BusinessException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
         if (payment.isExpired(LocalDateTime.now(clock))) throw new BusinessException(ErrorCode.PAYMENT_SLOT_EXPIRED);
+        CryptoPreparedAssetPolicy.requireMatches(payment, quote.getAssetId());
+        if (!quote.getAssetId().equals(asset.getAssetId()) || quote.getKrwAmount() != payment.getKrwAmount()) throw denied();
         if (cryptoPayments.existsById(paymentId)) throw new BusinessException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
         proof.consume(LocalDateTime.now(clock));
         return records.record(paymentId, quote, asset, wallet, proof.getFromAddress(), proof.getTxHash(), receipt, latestBlock);

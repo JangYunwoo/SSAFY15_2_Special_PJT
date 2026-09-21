@@ -98,6 +98,7 @@ public class CryptoQuoteService {
             throw new BusinessException(ErrorCode.PAYMENT_SLOT_EXPIRED);
         }
 
+        CryptoPreparedAssetPolicy.requireMatches(payment, request.assetId());
         CryptoAsset asset = cryptoAssetRepository.findByAssetIdAndEnabledTrue(request.assetId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND,
                         "지원하지 않는 디지털 자산입니다."));

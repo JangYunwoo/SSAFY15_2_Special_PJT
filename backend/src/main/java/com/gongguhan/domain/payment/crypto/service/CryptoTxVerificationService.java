@@ -181,6 +181,7 @@ public class CryptoTxVerificationService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND,
                         "견적을 찾을 수 없습니다."));
 
+        CryptoPreparedAssetPolicy.requireMatches(payment, quote.getAssetId());
         // crypto_quotes 에 payment_id 컬럼이 없어 소유 결제를 DB 로 확인할 수 없다.
         // 원화 금액 일치로 대신 확인한다. 금액이 같은 남의 견적을 써도 환율만
         // 고정될 뿐 금전적 이득이 없고, used claim 이 중복 사용을 막는다.
