@@ -61,11 +61,11 @@ public class RefundFinalizationService {
      */
     @Transactional
     public void finalizeParticipationRefund(Long participationId, String reason) {
-        escrowService.refund(participationId, reason);        // HELD → REFUNDED
-
-        Participation participation = participationRepository.findById(participationId)
+        Participation participation = participationRepository.findWithLockByParticipationId(participationId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND,
                         "참여를 찾을 수 없습니다. participationId=" + participationId));
+        if (Participation.STATUS_REFUNDED.equals(participation.getStatus())) { return; }
+        escrowService.refund(participationId, reason);        // HELD → REFUNDED
         participation.markRefunded();                          // → REFUNDED
     }
 }

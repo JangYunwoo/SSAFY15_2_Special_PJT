@@ -118,6 +118,21 @@ class RefundDuplicateGuardIntegrationTest {
         } finally { executor.shutdownNow(); }
     }
 
+    @Test
+    void concurrentResumeClaimsHaveOneWinnerWithoutFailingLosersLedger() throws Exception {
+        Refund refund = ledgerService.openForParticipation(PARTICIPATION_ID, AMOUNT,
+                RefundReason.RECRUIT_FAILED, RefundMethod.ACCOUNT_TRANSFER).refund();
+        var gate = new java.util.concurrent.CountDownLatch(1);
+        var executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+        java.util.concurrent.Callable<Boolean> claim = () -> { gate.await(); return ledgerService.tryClaimExecution(refund.getRefundId(), "QA"); };
+        try {
+            var first = executor.submit(claim);var second = executor.submit(claim);gate.countDown();
+            assertThat(java.util.List.of(first.get(10, java.util.concurrent.TimeUnit.SECONDS),second.get(10, java.util.concurrent.TimeUnit.SECONDS)))
+                    .containsExactlyInAnyOrder(true, false);
+            assertThat(ledgerService.get(refund.getRefundId()).isProcessing()).isTrue();
+        } finally { executor.shutdownNow(); }
+    }
+
     /**
      * 애플리케이션 조회를 건너뛰고 두 행을 직접 넣어봅니다. 동시 요청이 둘 다 조회를
      * 통과한 상황과 같습니다.

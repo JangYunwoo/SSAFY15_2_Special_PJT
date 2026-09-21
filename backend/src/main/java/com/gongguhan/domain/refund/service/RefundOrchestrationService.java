@@ -56,7 +56,8 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <h2>이중 송금 방지</h2>
  *
- * <p>{@link OpenResult#created()} 가 true 일 때만 송금합니다. 개시는 멱등이라 같은
+ * <p>최초 요청은 {@link OpenResult#created()} 가 true 일 때만 실행을 시도합니다. 미송신
+ * 영속 예약의 복구도 DB 실행권을 획득한 한 요청만 송금합니다. 개시는 멱등이라 같은
  * 요청이 두 번 오면 기존 행이 돌아오는데, 그걸 구분하지 않으면 원장은 한 건인데
  * 돈이 두 번 나갑니다. 동시 요청 중 INSERT 에 성공하는 쪽은 DB 유일성 제약 덕에
  * 정확히 하나입니다.
@@ -135,6 +136,18 @@ public class RefundOrchestrationService {
         return refund;
     }
 
+    /** 영속 원장의 미송신 작업 또는 완료 후 내부 종결만 복구한다. UNKNOWN/FAILED 재송금은 하지 않는다. */
+    @Transactional(propagation = Propagation.NEVER)
+    public Refund resumePersisted(Long refundId) {
+        Refund refund = ledgerService.get(refundId);
+        if (refund.isProcessing() && !refund.isExecutionClaimed()
+                && refund.getParticipationId() != null && refund.getRefundMethod() != RefundMethod.CARD_CANCEL) {
+            refund = execute(refund, loadPayment(refund.getParticipationId()));
+        }
+        finalizeIfParticipationCompleted(refund);
+        return refund;
+    }
+
     /** 참여 취소의 상태·인원 변경 트랜잭션에 원장 생성을 합류시킨다. 외부 호출은 없다. */
     @Transactional(propagation = Propagation.MANDATORY)
     public OpenResult reserveParticipationCancellation(Long participationId, long amount, String paymentMethod) {
@@ -197,7 +210,7 @@ public class RefundOrchestrationService {
      */
     private Refund executeCardCancel(Refund refund, Payment payment, String cardNumber, String cvc) {
         Long refundId = refund.getRefundId();
-        ledgerService.claimExecution(refundId, null);
+        if (!ledgerService.tryClaimExecution(refundId, null)) { return ledgerService.get(refundId); }
         CardRefundPort.CardRefundResult result;
         try {
             result = cardRefundPort.cancel(new CardRefundPort.CardRefundCommand(
@@ -312,12 +325,14 @@ public class RefundOrchestrationService {
 
     private Refund execute(Refund refund, Payment payment) {
         Long refundId = refund.getRefundId();
+        // 목적지 기록과 사전조건 실패 처리도 실행권 소유자만 한다. 패자가 승자 상태를 덮지 못한다.
+        if (!ledgerService.tryClaimExecution(refundId, null)) { return ledgerService.get(refundId); }
         try {
             Refund executed = switch (refund.getRefundMethod()) {
                 case KAKAOPAY -> refundByPort(refund, payment);
                 case ACCOUNT_TRANSFER -> refundByTransfer(refund, payment);
                 case CRYPTO -> refundByCrypto(refund, payment);
-                case CARD_CANCEL -> ledgerService.fail(refundId,
+                case CARD_CANCEL -> failKnownRejected(refundId,
                         "카드 취소는 카드 재입력이 필요해 자동 환불로 처리할 수 없습니다.");
             };
             return executed;
@@ -344,7 +359,7 @@ public class RefundOrchestrationService {
     private Refund refundByCrypto(Refund refund, Payment payment) {
         Long refundId = refund.getRefundId();
         if (!cryptoRefundService.isEnabled()) {
-            return ledgerService.fail(refundId,
+            return failKnownRejected(refundId,
                     "환불 지갑 개인키가 설정되지 않아 코인 환불을 보낼 수 없습니다.");
         }
 
@@ -352,7 +367,6 @@ public class RefundOrchestrationService {
         ledgerService.assignWalletAddress(refundId, buyerWallet);
 
         CryptoRefundService.RefundTransfer result;
-        ledgerService.claimExecution(refundId, null);
         try {
             result = cryptoRefundService.refundByPayment(
                     payment.getPaymentId(), refund.getAmount());
@@ -381,14 +395,13 @@ public class RefundOrchestrationService {
                 .findFirst()
                 .orElse(null);
         if (port == null) {
-            return ledgerService.fail(refund.getRefundId(),
+            return failKnownRejected(refund.getRefundId(),
                     "지원하는 환불 어댑터가 없습니다: " + payment.getMethod());
         }
 
         RefundPort.RefundCommand command = new RefundPort.RefundCommand(
                 idempotencyKeyOf(refund), refund.getReturnId(), payment.getPaymentId(),
                 payment.getMethod(), refund.getAmount());
-        ledgerService.claimExecution(refund.getRefundId(), null);
         RefundPort.RefundResult result = port.refund(command);
 
         if (result.status() == RefundPort.RefundResult.Status.SUCCEEDED) {
@@ -406,7 +419,7 @@ public class RefundOrchestrationService {
     private Refund refundByTransfer(Refund refund, Payment payment) {
         String platformAccount = policyService.getString(PolicyKey.SSAFY_PLATFORM_ACCOUNT_NO);
         if (platformAccount == null || platformAccount.isBlank()) {
-            return ledgerService.fail(refund.getRefundId(),
+            return failKnownRejected(refund.getRefundId(),
                     "플랫폼 출금 계좌가 설정되지 않았습니다.");
         }
 
@@ -415,11 +428,11 @@ public class RefundOrchestrationService {
                         "구매자를 찾을 수 없습니다. userId=" + payment.getUserId()));
         String buyerAccount = buyer.getSsafyAccountNo();
         if (buyerAccount == null || buyerAccount.isBlank()) {
-            return ledgerService.fail(refund.getRefundId(),
+            return failKnownRejected(refund.getRefundId(),
                     "환불 수취 계좌가 등록되지 않았습니다. 프로필에서 계좌를 등록해야 합니다.");
         }
         if (buyer.getSsafyUserKey() == null || buyer.getSsafyUserKey().isBlank()) {
-            return ledgerService.fail(refund.getRefundId(),
+            return failKnownRejected(refund.getRefundId(),
                     "SSAFY 금융망 회원 연동이 완료되지 않았습니다.");
         }
 
@@ -428,7 +441,7 @@ public class RefundOrchestrationService {
         // 호출 전에 채번한다. 응답을 못 받아도 이 번호로 금융망 거래를 되짚을 수 있다.
         String institutionTxNo = ssafyApiLogService.generateInstitutionTransactionUniqueNo(
                 SsafyTransferClient.API_SERVICE_CODE);
-        ledgerService.claimExecution(refund.getRefundId(), institutionTxNo);
+        ledgerService.recordInstitutionTransaction(refund.getRefundId(), institutionTxNo);
 
         SsafyTransferClient.TransferResponse response;
         try {

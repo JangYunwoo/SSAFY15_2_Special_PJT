@@ -21,6 +21,26 @@ import org.springframework.data.repository.query.Param;
  */
 public interface RefundRepository extends JpaRepository<Refund, Long> {
 
+    @Query("""
+            SELECT r.refundId FROM Refund r
+             WHERE r.participationId IS NOT NULL
+               AND r.status = com.gongguhan.domain.refund.entity.RefundStatus.PROCESSING
+               AND r.executionClaimed = false
+               AND r.refundMethod <> com.gongguhan.domain.refund.entity.RefundMethod.CARD_CANCEL
+               AND r.createdAt <= :cutoff
+             ORDER BY r.refundId
+            """)
+    List<Long> findUnsent(@Param("cutoff") java.time.LocalDateTime cutoff, Pageable pageable);
+
+    @Query("""
+            SELECT r.refundId FROM Refund r, Participation p
+             WHERE r.participationId = p.participationId
+               AND r.status = com.gongguhan.domain.refund.entity.RefundStatus.COMPLETED
+               AND p.status <> 'REFUNDED'
+             ORDER BY r.refundId
+            """)
+    List<Long> findUnfinalized(Pageable pageable);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT r FROM Refund r WHERE r.refundId = :refundId")
     Optional<Refund> findForUpdate(@Param("refundId") Long refundId);
