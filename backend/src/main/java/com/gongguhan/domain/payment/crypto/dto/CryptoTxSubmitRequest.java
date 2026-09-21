@@ -28,6 +28,9 @@ public record CryptoTxSubmitRequest(
         @NotBlank(message = "fromAddress는 필수입니다.")
         @Pattern(regexp = "^0x[0-9a-fA-F]{40}$",
                 message = "지갑 주소 형식이 올바르지 않습니다. 0x + 40자리 16진수여야 합니다.")
-        String fromAddress
+        String fromAddress,
+
+        @NotBlank @Pattern(regexp = "^[0-9a-fA-F-]{36}$") String challengeId,
+        @NotBlank @Pattern(regexp = "^0x[0-9a-fA-F]{130}$") String signature
 ) {
 }

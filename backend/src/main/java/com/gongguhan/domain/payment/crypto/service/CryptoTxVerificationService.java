@@ -47,7 +47,7 @@ public class CryptoTxVerificationService {
     private final CryptoAssetRepository cryptoAssetRepository;
     private final CryptoWalletRepository cryptoWalletRepository;
     private final ChainClient chainClient;
-    private final CryptoTxRecordService cryptoTxRecordService;
+    private final CryptoWalletProofService walletProofService;
     private final Clock clock;
 
     public CryptoTxVerificationService(PaymentRepository paymentRepository,
@@ -56,7 +56,7 @@ public class CryptoTxVerificationService {
                                         CryptoAssetRepository cryptoAssetRepository,
                                         CryptoWalletRepository cryptoWalletRepository,
                                         ChainClient chainClient,
-                                        CryptoTxRecordService cryptoTxRecordService,
+                                        CryptoWalletProofService walletProofService,
                                         Clock clock) {
         this.paymentRepository = paymentRepository;
         this.cryptoPaymentRepository = cryptoPaymentRepository;
@@ -64,7 +64,7 @@ public class CryptoTxVerificationService {
         this.cryptoAssetRepository = cryptoAssetRepository;
         this.cryptoWalletRepository = cryptoWalletRepository;
         this.chainClient = chainClient;
-        this.cryptoTxRecordService = cryptoTxRecordService;
+        this.walletProofService = walletProofService;
         this.clock = clock;
     }
 
@@ -78,9 +78,26 @@ public class CryptoTxVerificationService {
     public CryptoPaymentStatusResponse submitTransaction(Long userId, Long paymentId,
                                                           CryptoTxSubmitRequest request) {
         String txHash = request.txHash().toLowerCase();
-        String fromAddress = request.fromAddress().toLowerCase();
+        Optional<CryptoPayment> recovered = walletProofService.verifyAndRecover(userId, paymentId, request);
+        if (recovered.isPresent()) {
+            Payment payment = paymentRepository.findByPaymentIdAndUserId(paymentId, userId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_ACCESS_DENIED));
+            return CryptoPaymentStatusResponse.of(payment, recovered.get());
+        }
 
-        SubmitContext context = loadAndValidate(userId, paymentId, request.quoteId(), txHash);
+        SubmitContext context;
+        try {
+            context = loadAndValidate(userId, paymentId, request.quoteId(), txHash);
+        } catch (BusinessException error) {
+            // 최초 검증 직후 다른 동일 요청이 커밋했을 수 있다. 새 거래를 만들지 않고 응답만 복구한다.
+            Optional<CryptoPayment> completed = walletProofService.verifyAndRecover(userId, paymentId, request);
+            if (completed.isPresent()) {
+                Payment payment = paymentRepository.findByPaymentIdAndUserId(paymentId, userId)
+                        .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_ACCESS_DENIED));
+                return CryptoPaymentStatusResponse.of(payment, completed.get());
+            }
+            throw error;
+        }
 
         // --- 체인 호출: 트랜잭션 밖에서 수행한다 ---
         Optional<ChainClient.ReceiptView> receipt = chainClient.findReceipt(txHash);
@@ -88,9 +105,9 @@ public class CryptoTxVerificationService {
 
         // paymentId 를 넘긴다. context.payment() 는 detached 라 쓰기 트랜잭션 안에서
         // 변경해도 반영되지 않는다. 기록 서비스가 직접 다시 읽는다.
-        CryptoPayment cryptoPayment = cryptoTxRecordService.record(
-                paymentId, context.quote(), context.asset(), context.wallet(),
-                fromAddress, txHash, receipt.orElse(null), latestBlock);
+        CryptoPayment cryptoPayment = walletProofService.recordVerified(
+                userId, paymentId, request, context.quote(), context.asset(), context.wallet(),
+                receipt.orElse(null), latestBlock);
 
         // 확정 여부가 반영된 최신 결제 상태를 다시 읽어 응답한다.
         Payment refreshed = paymentRepository.findById(paymentId).orElse(context.payment());

@@ -5,13 +5,10 @@
  * 백엔드는 견적과 정확히 일치하는 입금만 통과시킵니다. 여기서 Quote 값으로 호출
  * 데이터를 만들어 넘기면 사용자는 MetaMask 에서 확인만 누르면 됩니다.
  *
- * 입력칸(주소·해시)은 그대로 둡니다 - 모바일 지갑이나 거래소에서 직접 보낸 사람은
- * 해시만 붙여넣어 결제할 수 있어야 합니다.
+ * 주소·해시 입력칸은 직접 송금한 거래를 등록할 때도 사용합니다. 단, 등록 단계에서
+ * 송신 지갑으로 MetaMask 소유권 서명이 필요합니다. 거래소 출금 주소는 지원하지 않습니다.
  */
 import type { CryptoQuote } from '@/entities/payment/model'
-
-/** Polygon Amoy. 백엔드 crypto_assets.chain_id = 80002 과 같아야 합니다. */
-const AMOY_CHAIN_ID = '0x13882'
 
 /** transfer(address,uint256) 의 함수 선택자. */
 const TRANSFER_SELECTOR = 'a9059cbb'
@@ -41,6 +38,31 @@ function getProvider(): Eip1193Provider {
   return eth
 }
 
+/** 송금과 별개인 EIP-191 소유권 증명. 개인키는 지갑 밖으로 나오지 않습니다. */
+export async function signWalletProof(message: string, address: string, chainId: number): Promise<string> {
+  const eth = getProvider()
+  const accounts = await eth.request({ method: 'eth_requestAccounts' })
+  if (!Array.isArray(accounts) || typeof accounts[0] !== 'string' ||
+      accounts[0].toLowerCase() !== address.toLowerCase()) {
+    throw new Error('송금한 지갑 계정으로 MetaMask를 전환해 주세요.')
+  }
+  const currentChain = await eth.request({ method: 'eth_chainId' })
+  if (typeof currentChain !== 'string' || BigInt(currentChain) !== BigInt(chainId)) {
+    throw new Error('송금한 네트워크로 MetaMask를 전환해 주세요.')
+  }
+  const hex = '0x' + Array.from(new TextEncoder().encode(message),
+    (byte) => byte.toString(16).padStart(2, '0')).join('')
+  try {
+    const signature = await eth.request({ method: 'personal_sign', params: [hex, address] })
+    if (typeof signature !== 'string' || !/^0x[0-9a-fA-F]{130}$/.test(signature)) {
+      throw new Error('지갑 서명 응답이 올바르지 않습니다.')
+    }
+    return signature
+  } catch (error) {
+    throw new Error(toMetaMaskMessage(error), { cause: error })
+  }
+}
+
 /**
  * ERC-20 `transfer(address,uint256)` 호출 데이터를 만듭니다.
  *
@@ -66,6 +88,12 @@ export async function sendWithMetaMask(
   quote: CryptoQuote,
 ): Promise<{ from: string; txHash: string }> {
   const eth = getProvider()
+  const ensureQuoteValid = () => {
+    if (!Number.isFinite(Date.parse(quote.expiresAt)) || Date.parse(quote.expiresAt) <= Date.now()) {
+      throw new Error('환율 정보가 만료되어 송금할 수 없습니다. 다시 발급해 주세요.')
+    }
+  }
+  ensureQuoteValid()
 
   const accounts = (await eth.request({ method: 'eth_requestAccounts' })) as string[]
   const from = accounts[0]
@@ -75,13 +103,15 @@ export async function sendWithMetaMask(
 
   // 다른 체인에서 보내면 같은 주소라도 우리 지갑이 아닙니다. 반드시 확인합니다.
   const chainId = (await eth.request({ method: 'eth_chainId' })) as string
-  if (chainId !== AMOY_CHAIN_ID) {
+  const targetChainId = '0x' + quote.chainId.toString(16)
+  if (chainId !== targetChainId) {
     await eth.request({
       method: 'wallet_switchEthereumChain',
-      params: [{ chainId: AMOY_CHAIN_ID }],
+      params: [{ chainId: targetChainId }],
     })
   }
 
+  ensureQuoteValid()
   const txHash = (await eth.request({
     method: 'eth_sendTransaction',
     params: [
