@@ -35,6 +35,14 @@ public class RefreshTokenDenylist {
         return Boolean.TRUE.equals(redisTemplate.hasKey(key(refreshToken)));
     }
 
+    /** SET NX + TTL is one server-side operation shared by refresh and logout. */
+    public boolean tryConsume(String refreshToken, Duration ttl) {
+        if (ttl.isNegative() || ttl.isZero()) {
+            return false;
+        }
+        return Boolean.TRUE.equals(redisTemplate.opsForValue().setIfAbsent(key(refreshToken), "1", ttl));
+    }
+
     private String key(String refreshToken) {
         // 토큰 원문을 키로 쓰지 않고 해시한다(길이·노출 최소화).
         return KEY_PREFIX + DigestUtils.md5DigestAsHex(refreshToken.getBytes(StandardCharsets.UTF_8));

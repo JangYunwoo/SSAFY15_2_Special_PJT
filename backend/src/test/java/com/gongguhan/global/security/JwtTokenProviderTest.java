@@ -29,4 +29,16 @@ class JwtTokenProviderTest {
         assertTrue(jwtTokenProvider.isValidRefreshToken(refreshToken));
         assertFalse(jwtTokenProvider.isValidRefreshToken(accessToken));
     }
+
+    @Test
+    void everyIssuanceHasItsOwnIdentifierWithoutChangingTheActor() {
+        java.util.Set<String> ids = new java.util.HashSet<>();
+        for (int i = 0; i < 100; i++) {
+            var claims = jwtTokenProvider.parseClaims(jwtTokenProvider.createRefreshToken(1L, "USER", false));
+            org.assertj.core.api.Assertions.assertThat(claims.getId()).isNotBlank();
+            assertTrue(ids.add(claims.getId()));
+            org.assertj.core.api.Assertions.assertThat(claims.getSubject()).isEqualTo("1");
+            org.assertj.core.api.Assertions.assertThat(claims.get("role", String.class)).isEqualTo("USER");
+        }
+    }
 }
