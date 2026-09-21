@@ -7,9 +7,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.gongguhan.domain.returnrequest.event.ReturnNeglectEvent;
-import com.gongguhan.domain.returnrequest.port.RefundPort;
+import com.gongguhan.domain.refund.entity.Refund;
+import com.gongguhan.domain.refund.service.RefundOrchestrationService;
 import com.gongguhan.domain.returnrequest.port.RefundPort.RefundCommand;
-import com.gongguhan.domain.returnrequest.port.RefundPort.RefundResult;
 import com.gongguhan.domain.returnrequest.repository.ReturnRequestRepository.RefundContext;
 import com.gongguhan.domain.returnrequest.service.ReturnRefundRecordService.Preparation;
 import com.gongguhan.global.error.BusinessException;
@@ -18,7 +18,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
@@ -27,7 +26,8 @@ class ReturnRefundServiceTest {
 
     private ReturnRefundRecordService recordService;
     private ReturnRequestService returnRequestService;
-    private RefundPort port;
+    private RefundOrchestrationService refunds;
+    private Refund refund;
     private ApplicationEventPublisher events;
     private ReturnRefundService service;
     private Preparation preparation;
@@ -36,32 +36,36 @@ class ReturnRefundServiceTest {
     void setUp() {
         recordService = mock(ReturnRefundRecordService.class);
         returnRequestService = mock(ReturnRequestService.class);
-        port = mock(RefundPort.class);
+        refunds = mock(RefundOrchestrationService.class);
+        refund = mock(Refund.class);
+        when(refund.getRefundId()).thenReturn(70L);
         events = mock(ApplicationEventPublisher.class);
         RefundContext context = new RefundContext(40L, 30L, 20L, 50L,
                 "KAKAOPAY", 44_000, "APPROVED", LocalDateTime.of(2026, 9, 10, 5, 0));
         RefundCommand command = new RefundCommand("RETURN-40", 40L, 50L, "KAKAOPAY", 44_000);
-        preparation = new Preparation(context, command, true);
-        when(port.supports("KAKAOPAY")).thenReturn(true);
-        service = new ReturnRefundService(recordService, returnRequestService, List.of(port), events,
+        preparation = new Preparation(context, command, true, null);
+        when(refunds.executeReservedReturn(30L, null)).thenReturn(refund);
+        service = new ReturnRefundService(recordService, returnRequestService, refunds, events,
                 Clock.fixed(Instant.parse("2026-09-11T05:00:00Z"), ZoneOffset.UTC));
     }
 
     @Test
     void successfulPickupRefundCompletesReturn() {
         when(recordService.prepareSeller(20L, 40L)).thenReturn(preparation);
-        when(port.refund(preparation.command())).thenReturn(RefundResult.succeeded("A-CANCEL"));
+        when(refund.isCompleted()).thenReturn(true);
 
         service.pickupComplete(20L, 40L);
 
-        verify(recordService).complete(40L, "A-CANCEL");
+        verify(refunds).executeReservedReturn(30L, null);
+        verify(recordService, never()).complete(any(), any());
         verify(recordService, never()).fail(any(), any());
     }
 
     @Test
     void providerFailureLinksRefundFailedStatus() {
         when(recordService.prepareSeller(20L, 40L)).thenReturn(preparation);
-        when(port.refund(preparation.command())).thenReturn(RefundResult.failed("잔액 부족"));
+        when(refund.isFailed()).thenReturn(true);
+        when(refund.getFailReason()).thenReturn("잔액 부족");
 
         service.pickupComplete(20L, 40L);
 
@@ -72,7 +76,7 @@ class ReturnRefundServiceTest {
     @Test
     void providerExceptionIsRecordedBeforeItPropagates() {
         when(recordService.prepareSeller(20L, 40L)).thenReturn(preparation);
-        when(port.refund(preparation.command()))
+        when(refunds.executeReservedReturn(30L, null))
                 .thenThrow(new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE));
 
         try {
@@ -87,21 +91,21 @@ class ReturnRefundServiceTest {
     @Test
     void duplicatePreparationSkipsProviderCall() {
         when(recordService.prepareSeller(20L, 40L))
-                .thenReturn(new Preparation(preparation.context(), null, false));
+                .thenReturn(new Preparation(preparation.context(), null, false, null));
 
         service.pickupComplete(20L, 40L);
 
-        verify(port, never()).refund(any());
+        verify(refunds, never()).executeReservedReturn(any(), any());
     }
 
     @Test
     void automaticRefundPublishesNeglectViolation() {
         when(recordService.prepareAutomatic(40L)).thenReturn(preparation);
-        when(port.refund(preparation.command())).thenReturn(RefundResult.succeeded("A-CANCEL"));
+        when(refund.isCompleted()).thenReturn(true);
 
         service.processAutomatic(40L);
 
         verify(events).publishEvent(any(ReturnNeglectEvent.class));
-        verify(recordService).complete(40L, "A-CANCEL");
+        verify(refunds).executeReservedReturn(30L, null);
     }
 }

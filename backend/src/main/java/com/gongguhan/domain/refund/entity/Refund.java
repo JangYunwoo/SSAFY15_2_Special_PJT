@@ -120,6 +120,23 @@ public class Refund {
     @Column(name = "fail_reason", length = 255)
     private String failReason;
 
+    @Column(name = "execution_claimed", nullable = false, columnDefinition = "BOOLEAN NOT NULL DEFAULT FALSE")
+    private boolean executionClaimed;
+
+    public void claimExecution(String correlationId) {
+        requireProcessing();
+        if (executionClaimed) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "외부 환불 실행 결과 대조가 필요합니다.");
+        }
+        executionClaimed = true;
+        if (correlationId != null) { institutionTxNo = correlationId; }
+    }
+
+    public void releaseUnsentOrRejectedExecution() {
+        requireProcessing();
+        executionClaimed = false;
+    }
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -312,7 +329,7 @@ public class Refund {
     public void markFailed(String reason, LocalDateTime processedAt) {
         requireProcessing();
         this.status = RefundStatus.FAILED;
-        this.refundMarker = null;
+        this.refundMarker = executionClaimed ? ACTIVE_MARKER : null;
         this.failReason = reason;
         this.processedAt = processedAt;
     }
@@ -327,6 +344,9 @@ public class Refund {
      * 거부합니다. 조용히 두 건이 진행되는 것보다 낫습니다.
      */
     public void retry() {
+        if (executionClaimed) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "이전 환불의 외부 결과를 대조하기 전에는 재실행할 수 없습니다.");
+        }
         if (status != RefundStatus.FAILED) {
             throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
                     "실패한 환불만 재처리할 수 있습니다. refundId=" + refundId

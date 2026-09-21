@@ -26,7 +26,7 @@ class ReturnRefundRecordServiceTest {
     void setUp() {
         repository = Mockito.mock(ReturnRequestRepository.class);
         service = new ReturnRefundRecordService(repository,
-                Clock.fixed(Instant.parse("2026-09-11T05:00:00Z"), ZoneOffset.UTC));
+                Clock.fixed(Instant.parse("2026-09-11T05:00:00Z"), ZoneOffset.UTC), Mockito.mock(com.gongguhan.domain.refund.service.RefundLedgerService.class));
     }
 
     @Test

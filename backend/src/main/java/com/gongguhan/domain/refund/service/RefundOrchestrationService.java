@@ -197,6 +197,7 @@ public class RefundOrchestrationService {
      */
     private Refund executeCardCancel(Refund refund, Payment payment, String cardNumber, String cvc) {
         Long refundId = refund.getRefundId();
+        ledgerService.claimExecution(refundId, null);
         CardRefundPort.CardRefundResult result;
         try {
             result = cardRefundPort.cancel(new CardRefundPort.CardRefundCommand(
@@ -209,6 +210,7 @@ public class RefundOrchestrationService {
         return switch (result.status()) {
             case CANCELED -> ledgerService.completeByCardCancel(refundId, null);
             case REQUIRES_TRANSFER_FALLBACK -> {
+                ledgerService.releaseUnsentOrRejectedExecution(refundId);
                 log.info("카드 취소 불가로 계좌이체 폴백 refundId={} reason={}",
                         refundId, result.responseMessage());
                 // 전환된 엔티티(수단=ACCOUNT_TRANSFER)를 넘긴다. 넘기지 않고 기존 refund 를
@@ -216,9 +218,17 @@ public class RefundOrchestrationService {
                 Refund switched = ledgerService.fallbackToAccountTransfer(refundId);
                 yield execute(switched, payment);
             }
-            case FAILED -> ledgerService.fail(refundId, truncate(
+            case FAILED -> failKnownRejected(refundId, truncate(
                     result.responseMessage() == null ? "카드 취소가 거절되었습니다." : result.responseMessage()));
         };
+    }
+
+    /** 수거 상태와 같은 트랜잭션에서 예약된 환불만 커밋 후 실행한다. */
+    @Transactional(propagation = Propagation.NEVER)
+    public Refund executeReservedReturn(Long participationId, OpenResult reserved) {
+        Refund result = executeIfCreated(reserved, loadPayment(participationId));
+        finalizeIfParticipationCompleted(result);
+        return result;
     }
 
     /** 반품 승인·수거 완료에 따른 환불을 개시하고 실행합니다 (FR-RTN-17). */
@@ -227,7 +237,9 @@ public class RefundOrchestrationService {
         RefundMethod method = resolveMethod(payment.getMethod());
 
         OpenResult opened = ledgerService.openForReturn(returnId, participationId, amount, method);
-        return executeIfCreated(opened, payment);
+        Refund result = executeIfCreated(opened, payment);
+        finalizeIfParticipationCompleted(result);
+        return result;
     }
 
     /**
@@ -340,6 +352,7 @@ public class RefundOrchestrationService {
         ledgerService.assignWalletAddress(refundId, buyerWallet);
 
         CryptoRefundService.RefundTransfer result;
+        ledgerService.claimExecution(refundId, null);
         try {
             result = cryptoRefundService.refundByPayment(
                     payment.getPaymentId(), refund.getAmount());
@@ -375,6 +388,7 @@ public class RefundOrchestrationService {
         RefundPort.RefundCommand command = new RefundPort.RefundCommand(
                 idempotencyKeyOf(refund), refund.getReturnId(), payment.getPaymentId(),
                 payment.getMethod(), refund.getAmount());
+        ledgerService.claimExecution(refund.getRefundId(), null);
         RefundPort.RefundResult result = port.refund(command);
 
         if (result.status() == RefundPort.RefundResult.Status.SUCCEEDED) {
@@ -414,6 +428,7 @@ public class RefundOrchestrationService {
         // 호출 전에 채번한다. 응답을 못 받아도 이 번호로 금융망 거래를 되짚을 수 있다.
         String institutionTxNo = ssafyApiLogService.generateInstitutionTransactionUniqueNo(
                 SsafyTransferClient.API_SERVICE_CODE);
+        ledgerService.claimExecution(refund.getRefundId(), institutionTxNo);
 
         SsafyTransferClient.TransferResponse response;
         try {
@@ -438,11 +453,15 @@ public class RefundOrchestrationService {
                 response.header().responseCode(), response.header().responseMessage(), response);
 
         if (!response.isSuccess()) {
-            return ledgerService.fail(refund.getRefundId(),
+            return failKnownRejected(refund.getRefundId(),
                     truncate(response.header().responseMessage()));
         }
         return ledgerService.completeByAccountTransfer(refund.getRefundId(), institutionTxNo,
                 response.firstTransactionUniqueNo());
+    }
+
+    private Refund failKnownRejected(Long refundId, String reason) {
+        return ledgerService.failRejected(refundId, reason);
     }
 
     /** 로그에 남길 요청 스냅샷. 계좌번호는 뒤 4자리만 남깁니다. */
@@ -498,12 +517,16 @@ public class RefundOrchestrationService {
         if (refund == null || refund.getStatus() != RefundStatus.COMPLETED) {
             return;
         }
-        if (refund.getReturnId() != null || refund.getParticipationId() == null) {
+        if (refund.getParticipationId() == null) {
             return;
         }
         Long participationId = refund.getParticipationId();
         try {
-            finalizationService.finalizeParticipationRefund(participationId, "참여 환불 완료");
+            if (refund.getReturnId() != null) {
+                finalizationService.finalizeReturnRefund(refund);
+            } else {
+                finalizationService.finalizeParticipationRefund(participationId, "참여 환불 완료");
+            }
         } catch (RuntimeException exception) {
             log.error("환불은 완료됐으나 에스크로/참여 종결에 실패했습니다. participationId={} refundId={}",
                     participationId, refund.getRefundId(), exception);

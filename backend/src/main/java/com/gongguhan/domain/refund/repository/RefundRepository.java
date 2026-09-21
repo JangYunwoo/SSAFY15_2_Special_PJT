@@ -7,6 +7,8 @@ import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.repository.query.Param;
 
 /**
@@ -19,6 +21,10 @@ import org.springframework.data.repository.query.Param;
  */
 public interface RefundRepository extends JpaRepository<Refund, Long> {
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM Refund r WHERE r.refundId = :refundId")
+    Optional<Refund> findForUpdate(@Param("refundId") Long refundId);
+
     /**
      * 해당 참여 건에 진행 중이거나 완료된 환불을 찾습니다.
      *
@@ -30,7 +36,7 @@ public interface RefundRepository extends JpaRepository<Refund, Long> {
     @Query("""
             SELECT r FROM Refund r
              WHERE r.participationId = :participationId
-               AND r.status <> com.gongguhan.domain.refund.entity.RefundStatus.FAILED
+               AND (r.status <> com.gongguhan.domain.refund.entity.RefundStatus.FAILED OR r.executionClaimed = true)
             """)
     Optional<Refund> findActiveByParticipationId(@Param("participationId") Long participationId);
 
@@ -38,7 +44,7 @@ public interface RefundRepository extends JpaRepository<Refund, Long> {
     @Query("""
             SELECT r FROM Refund r
              WHERE r.depositId = :depositId
-               AND r.status <> com.gongguhan.domain.refund.entity.RefundStatus.FAILED
+               AND (r.status <> com.gongguhan.domain.refund.entity.RefundStatus.FAILED OR r.executionClaimed = true)
             """)
     Optional<Refund> findActiveByDepositId(@Param("depositId") Long depositId);
 

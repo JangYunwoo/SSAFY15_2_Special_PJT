@@ -2,14 +2,13 @@ package com.gongguhan.domain.returnrequest.service;
 
 import com.gongguhan.domain.returnrequest.dto.ReturnDetailResponse;
 import com.gongguhan.domain.returnrequest.event.ReturnNeglectEvent;
-import com.gongguhan.domain.returnrequest.port.RefundPort;
-import com.gongguhan.domain.returnrequest.port.RefundPort.RefundResult;
+import com.gongguhan.domain.refund.entity.Refund;
+import com.gongguhan.domain.refund.service.RefundOrchestrationService;
 import com.gongguhan.domain.returnrequest.service.ReturnRefundRecordService.Preparation;
 import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.util.List;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
@@ -19,18 +18,18 @@ public class ReturnRefundService {
 
     private final ReturnRefundRecordService recordService;
     private final ReturnRequestService returnRequestService;
-    private final List<RefundPort> refundPorts;
+    private final RefundOrchestrationService refunds;
     private final ApplicationEventPublisher events;
     private final Clock clock;
 
     public ReturnRefundService(ReturnRefundRecordService recordService,
                                ReturnRequestService returnRequestService,
-                               List<RefundPort> refundPorts,
+                               RefundOrchestrationService refunds,
                                ApplicationEventPublisher events,
                                Clock clock) {
         this.recordService = recordService;
         this.returnRequestService = returnRequestService;
-        this.refundPorts = refundPorts;
+        this.refunds = refunds;
         this.events = events;
         this.clock = clock;
     }
@@ -57,22 +56,12 @@ public class ReturnRefundService {
         if (!preparation.shouldInvoke()) {
             return;
         }
-        RefundPort port = refundPorts.stream()
-                .filter(candidate -> candidate.supports(preparation.command().paymentMethod()))
-                .findFirst()
-                .orElse(null);
-        if (port == null) {
-            recordService.fail(preparation.context().returnId(),
-                    "지원하는 환불 어댑터가 없습니다: " + preparation.command().paymentMethod());
-            return;
-        }
         try {
-            RefundResult result = port.refund(preparation.command());
-            if (result.status() == RefundResult.Status.SUCCEEDED) {
-                recordService.complete(preparation.context().returnId(), result.providerRefundId());
-            } else {
-                recordService.fail(preparation.context().returnId(), result.failureReason());
+            Refund result = refunds.executeReservedReturn(preparation.context().participationId(), preparation.reserved());
+            if (result.isFailed()) {
+                recordService.fail(preparation.context().returnId(), result.getFailReason());
             }
+            // Existing PROCESSING is not a failure and must not trigger another transfer.
         } catch (BusinessException exception) {
             recordService.fail(preparation.context().returnId(), exception.getMessage());
             throw exception;

@@ -71,6 +71,53 @@ class RefundDuplicateGuardIntegrationTest {
         assertThat(refundRepository.count()).isEqualTo(1);
     }
 
+    @Test
+    void claimedFailureRetainsMarkerAndCannotBeRetriedOrReplaced() {
+        Refund refund = ledgerService.openForParticipation(PARTICIPATION_ID, AMOUNT,
+                RefundReason.RECRUIT_FAILED, RefundMethod.ACCOUNT_TRANSFER).refund();
+        ledgerService.claimExecution(refund.getRefundId(), "QA-CORRELATION");
+        ledgerService.fail(refund.getRefundId(), "response lost");
+        assertThatThrownBy(() -> ledgerService.retry(refund.getRefundId())).hasMessageContaining("대조");
+        assertThat(ledgerService.openForParticipation(PARTICIPATION_ID, AMOUNT,
+                RefundReason.RECRUIT_FAILED, RefundMethod.ACCOUNT_TRANSFER).created()).isFalse();
+        assertThatThrownBy(() -> refundRepository.saveAndFlush(Refund.forParticipation(PARTICIPATION_ID,
+                AMOUNT, RefundReason.RECRUIT_FAILED, RefundMethod.ACCOUNT_TRANSFER, NOW)))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void explicitRejectionReleasesClaimAtomicallyAndAllowsRetry() {
+        Refund refund = ledgerService.openForParticipation(PARTICIPATION_ID, AMOUNT,
+                RefundReason.RECRUIT_FAILED, RefundMethod.ACCOUNT_TRANSFER).refund();
+        ledgerService.claimExecution(refund.getRefundId(), "QA-CORRELATION");
+        ledgerService.failRejected(refund.getRefundId(), "rejected");
+        ledgerService.retry(refund.getRefundId());
+        ledgerService.claimExecution(refund.getRefundId(), "QA-CORRELATION-RETRY");
+        assertThatThrownBy(() -> ledgerService.claimExecution(refund.getRefundId(), null)).hasMessageContaining("대조");
+    }
+
+    @Test
+    void concurrentRetriesHaveOneProcessingOwner() throws Exception {
+        Refund refund = ledgerService.openForParticipation(PARTICIPATION_ID, AMOUNT,
+                RefundReason.RECRUIT_FAILED, RefundMethod.ACCOUNT_TRANSFER).refund();
+        ledgerService.fail(refund.getRefundId(), "not sent");
+        var gate = new java.util.concurrent.CountDownLatch(1);
+        var executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+        java.util.concurrent.Callable<Boolean> retry = () -> {
+            gate.await();
+            try { ledgerService.retry(refund.getRefundId()); return true; }
+            catch (com.gongguhan.global.error.BusinessException rejected) { return false; }
+        };
+        try {
+            var first = executor.submit(retry);
+            var second = executor.submit(retry);
+            gate.countDown();
+            assertThat(java.util.List.of(first.get(10, java.util.concurrent.TimeUnit.SECONDS),
+                    second.get(10, java.util.concurrent.TimeUnit.SECONDS)))
+                    .containsExactlyInAnyOrder(true, false);
+        } finally { executor.shutdownNow(); }
+    }
+
     /**
      * 애플리케이션 조회를 건너뛰고 두 행을 직접 넣어봅니다. 동시 요청이 둘 다 조회를
      * 통과한 상황과 같습니다.

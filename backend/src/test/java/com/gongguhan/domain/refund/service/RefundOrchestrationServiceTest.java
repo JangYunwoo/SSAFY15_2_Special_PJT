@@ -249,7 +249,7 @@ class RefundOrchestrationServiceTest {
 
         service.refundParticipation(PARTICIPATION_ID, AMOUNT, RefundReason.RECRUIT_FAILED);
 
-        verify(ledgerService).fail(eq(REFUND_ID), anyString());
+        verify(ledgerService).failRejected(eq(REFUND_ID), anyString());
         verify(ledgerService, never()).completeByAccountTransfer(anyLong(), anyString(), any());
     }
 
@@ -642,7 +642,7 @@ class RefundOrchestrationServiceTest {
         service.refundParticipationByCard(PARTICIPATION_ID, AMOUNT,
                 RefundReason.PARTICIPATION_CANCEL, CARD_NUMBER, CVC);
 
-        verify(ledgerService).fail(eq(REFUND_ID), anyString());
+        verify(ledgerService).failRejected(eq(REFUND_ID), anyString());
         verify(ledgerService, never()).completeByCardCancel(anyLong(), any());
         verify(transferClient, never()).transfer(anyString(), anyString(), anyString(),
                 anyString(), anyString(), anyString(), anyLong(), anyString(), anyString());
