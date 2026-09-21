@@ -11,6 +11,10 @@ import org.springframework.data.repository.query.Param;
 
 public interface SettlementRepository extends JpaRepository<Settlement, Long> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select s from Settlement s where s.settlementId = :id")
+    Optional<Settlement> findForUpdate(@Param("id") Long id);
+
     /**
      * 다음 회차 번호.
      *
@@ -48,6 +52,7 @@ public interface SettlementRepository extends JpaRepository<Settlement, Long> {
            select s from Settlement s
             where s.status = 'PENDING'
               and s.transferStatus = 'FAILED'
+              and s.transferClaimed = false
             order by s.createdAt asc
            """)
     List<Settlement> findAutoRetryTargets(Pageable pageable);
