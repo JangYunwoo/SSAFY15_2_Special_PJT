@@ -86,11 +86,16 @@ class PaymentSlotReservationTransaction {
                 .orElseThrow(() -> new BusinessException(ErrorCode.VALIDATION_ERROR, "본인 소유의 배송지가 아닙니다."));
         validateMethod(request);
 
+        // 상태 전환 스케줄러가 아직 실행되지 않아도 실제 모집 기간을 벗어나면 발급하지 않는다.
+        LocalDateTime now = LocalDateTime.now(clock);
+        if (now.isBefore(groupBuy.getRecruitStartAt()) || !now.isBefore(groupBuy.getRecruitEndAt())) {
+            throw new BusinessException(ErrorCode.GROUP_BUY_NOT_RECRUITING);
+        }
         groupBuy.reserveSlot();
 
         long totalAmount = groupBuy.getUnitShareAmount() + groupBuy.getShippingFee();
         long ttlSeconds = METHOD_CRYPTO.equals(request.method()) ? TTL_CRYPTO_SECONDS : TTL_CARD_KAKAOPAY_SECONDS;
-        LocalDateTime slotExpiresAt = LocalDateTime.now(clock).plusSeconds(ttlSeconds);
+        LocalDateTime slotExpiresAt = now.plusSeconds(ttlSeconds);
 
         // 고른 배송지를 결제 건에 남긴다. 승인 완료 시 참여 건 배송지의 출처가 된다.
         // 코인 결제는 스케줄러가 완료 처리하므로 그 시점에 요청 컨텍스트가 없다.

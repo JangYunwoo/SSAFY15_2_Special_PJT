@@ -18,6 +18,7 @@ import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -115,6 +116,8 @@ class PaymentSlotReservationTransactionTest {
     @Test
     void failsWhenGroupBuyIsFull() {
         GroupBuy groupBuy = mock(GroupBuy.class);
+        when(groupBuy.getRecruitStartAt()).thenReturn(LocalDateTime.parse("2025-12-31T00:00:00"));
+        when(groupBuy.getRecruitEndAt()).thenReturn(LocalDateTime.parse("2026-01-02T00:00:00"));
         when(groupBuyRepository.findById(GROUP_BUY_ID)).thenReturn(Optional.of(groupBuy));
         when(userAddressRepository.findByAddressIdAndUserId(10L, USER_ID))
                 .thenReturn(Optional.of(mock(UserAddress.class)));

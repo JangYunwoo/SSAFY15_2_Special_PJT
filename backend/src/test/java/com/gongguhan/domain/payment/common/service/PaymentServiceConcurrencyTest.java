@@ -7,6 +7,7 @@ import com.gongguhan.domain.payment.common.dto.PaymentPrepareRequest;
 import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
 import java.time.LocalDateTime;
+import java.time.Clock;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -44,16 +45,19 @@ class PaymentServiceConcurrencyTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private Clock clock;
+
     @Test
     void onlyOneConcurrentPrepareSucceedsForSingleSlotGroupBuy() throws InterruptedException {
         long groupBuyId = GROUP_BUY_ID;
         jdbcTemplate.update("""
                 INSERT INTO group_buys
                   (group_buy_id, product_id, seller_id, target_participants, unit_share_amount,
-                   shipping_fee, current_participants, reserved_slots, recruit_end_at, status,
+                   shipping_fee, current_participants, reserved_slots, recruit_start_at, recruit_end_at, status,
                    version, created_at, updated_at)
-                VALUES (?, 1, 1, 1, 50000, 4000, 0, 0, ?, 'RECRUITING', 0, NOW(), NOW())
-                """, groupBuyId, LocalDateTime.now().plusDays(1));
+                VALUES (?, 1, 1, 1, 50000, 4000, 0, 0, ?, ?, 'RECRUITING', 0, NOW(), NOW())
+                """, groupBuyId, LocalDateTime.now(clock).minusDays(1), LocalDateTime.now(clock).plusDays(1));
 
         for (int i = 0; i < THREAD_COUNT; i++) {
             long userId = 900100L + i;
