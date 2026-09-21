@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router'
 
@@ -6,7 +6,6 @@ import type { PaymentMethod } from '@/entities/model'
 import type { GroupBuyDetail } from '@/entities/groupBuy/model'
 import { groupBuyQueries } from '@/entities/groupBuy/queries'
 import { paymentApi } from '@/entities/payment/api'
-import type { CryptoQuote } from '@/entities/payment/model'
 import { CardFields } from '@/features/checkout/CardFields'
 import { EMPTY_CARD, isCardComplete, type CardInput } from '@/features/checkout/cardInput'
 import { useCheckoutStore } from '@/features/checkout/checkoutStore'
@@ -20,6 +19,8 @@ import { usePaymentSlot } from '@/features/checkout/usePaymentSlot'
 import { toMessage } from '@/shared/api/errors'
 import { won } from '@/shared/lib/format'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
+import { useNow } from '@/shared/lib/hooks/useNow'
+import { newIdempotencyKey } from '@/shared/api/client'
 import { Button } from '@/shared/ui/Button'
 import { Steps } from '@/shared/ui/Steps'
 import { QueryBoundary } from '@/shared/ui/states'
@@ -49,14 +50,16 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
   const navigate = useNavigate()
   const addressId = useCheckoutStore((state) => state.addressId)
 
-  const [method, setMethod] = useState<PaymentMethod>('CARD')
+  const [method, setMethod] = useState<PaymentMethod | null>(null)
   const [card, setCard] = useState<CardInput>(EMPTY_CARD)
   const [cryptoAssetId, setCryptoAssetId] = useState<string | null>(null)
   const [walletAddress, setWalletAddress] = useState('')
   const [txHash, setTxHash] = useState('')
   /** 해시를 등록한 뒤 입금 확인을 기다리는 결제. 코인 결제만 이 단계를 거칩니다. */
   const [awaitingPaymentId, setAwaitingPaymentId] = useState<string | null>(null)
-  const [quote, setQuote] = useState<CryptoQuote | null>(null)
+  const now = useNow()
+  const submission = useRef(false)
+  const approvalKeys = useRef(new Map<string, string>())
 
   const slot = usePaymentSlot({
     groupBuyId: groupBuy.id,
@@ -65,28 +68,44 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
     cryptoAssetId: method === 'CRYPTO' ? cryptoAssetId : null,
   })
   const payment = slot.payment
+  const quotePaymentId = payment?.paymentId ?? null
 
   /** CRYP-02. 자산을 고르면 환율을 고정합니다. */
-  const issueQuote = useMutation({
-    mutationFn: ({ paymentId, assetId }: { paymentId: string; assetId: string }) =>
-      paymentApi.cryptoQuote(paymentId, assetId),
-    onSuccess: setQuote,
+  const issueQuote = useQuery({
+    queryKey: ['payments', 'cryptoQuote', quotePaymentId, cryptoAssetId],
+    queryFn: () => {
+      if (quotePaymentId === null || cryptoAssetId === null) throw new Error('결제와 자산을 선택해 주세요.')
+      return paymentApi.cryptoQuote(quotePaymentId, cryptoAssetId)
+    },
+    enabled: method === 'CRYPTO' && payment !== null && cryptoAssetId !== null,
+    staleTime: Infinity,
+    retry: false,
+    refetchOnWindowFocus: false,
   })
+  // 늦게 도착한 이전 결제/자산의 응답은 다른 queryKey에만 저장된다.
+  const quote = method === 'CRYPTO' && payment !== null &&
+    issueQuote.data?.paymentId === payment.paymentId ? issueQuote.data : null
 
   /** CARD-01 / KAKA-01. 승인에 성공하면 완료 화면으로 넘어갑니다. */
   const approve = useMutation({
     mutationFn: async () => {
-      if (payment === null) throw new Error('결제 준비가 완료되지 않았습니다.')
+      if (payment === null || method === null || payment.method !== method ||
+          payment.status !== 'PROCESSING' || Date.parse(payment.slotExpiresAt) <= Date.now()) {
+        throw new Error('유효한 결제 준비가 완료되지 않았습니다.')
+      }
+      const attempt = `${payment.paymentId}:${method}`
+      const key = approvalKeys.current.get(attempt) ?? newIdempotencyKey()
+      approvalKeys.current.set(attempt, key)
 
       if (method === 'CARD') {
         return paymentApi.approveCard(payment.paymentId, {
           cardNumber: card.cardNumber.replace(/\s/g, ''),
           cvc: card.cvc,
-        })
+        }, key)
       }
 
       if (method === 'KAKAOPAY') {
-        const ready = await paymentApi.kakaoReady(payment.paymentId)
+        const ready = await paymentApi.kakaoReady(payment.paymentId, key)
         // 외부 결제창으로 이동하면 이 화면이 언마운트된다. 이동 전에 정산 완료로
         // 표시하지 않으면 cleanup이 PAY-03을 호출해 방금 준비한 슬롯을 해제한다.
         slot.markSettled()
@@ -94,7 +113,9 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
         return null
       }
 
-      if (quote === null) throw new Error('환율 정보를 먼저 발급해 주세요.')
+      if (quote === null || Date.parse(quote.expiresAt) <= Date.now()) {
+        throw new Error('유효한 환율 정보를 먼저 발급해 주세요.')
+      }
       /*
        * CRYP-03. 해시를 등록해도 결제 완료가 아닙니다. 필요 컨펌 수에 도달해야
        * 확정되므로 완료 화면으로 바로 넘기지 않고 입금 확인 단계로 넘어갑니다.
@@ -114,34 +135,26 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
       if (result !== null)
         void navigate(`/checkout/complete/${result.paymentId}`, { replace: true })
     },
+    onSettled: () => { submission.current = false },
   })
 
   const selectAsset = (assetId: string) => {
     setCryptoAssetId(assetId)
-    setQuote(null)
   }
-
-  // 슬롯 선점(prepare)에는 cryptoAssetId 가, Quote 에는 paymentId 가 필요합니다.
-  // 자산을 고르는 시점에는 아직 결제가 없으므로, 결제가 준비된 뒤에 Quote 를 발급합니다.
-  // 같은 (결제, 자산) 조합으로 두 번 요청하지 않도록 마지막 요청을 기억합니다.
-  const issuedFor = useRef<string | null>(null)
-  const issueQuoteMutate = issueQuote.mutate
-  useEffect(() => {
-    if (method !== 'CRYPTO' || payment === null || cryptoAssetId === null) return
-    const key = `${payment.paymentId}:${cryptoAssetId}`
-    if (issuedFor.current === key) return
-    issuedFor.current = key
-    issueQuoteMutate({ paymentId: payment.paymentId, assetId: cryptoAssetId })
-  }, [method, payment, cryptoAssetId, issueQuoteMutate])
 
   const canSubmit =
     payment !== null &&
+    !slot.isPreparing &&
+    payment.method === method &&
+    payment.status === 'PROCESSING' &&
+    Date.parse(payment.slotExpiresAt) > now &&
     !approve.isPending &&
     (method === 'CARD'
       ? isCardComplete(card)
       : method === 'KAKAOPAY'
         ? true
-        : quote !== null && isWalletAddress(walletAddress) && isTxHash(txHash))
+        : quote !== null && Date.parse(quote.expiresAt) > now &&
+          !issueQuote.isFetching && isWalletAddress(walletAddress) && isTxHash(txHash))
 
   // 서버가 확정한 1인 결제금액을 그대로 씁니다 (GRP-01/02 personalPaymentAmount).
   const total = groupBuy.personalPaymentAmount
@@ -175,6 +188,7 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
             }}
             onRetry={() => {
               setAwaitingPaymentId(null)
+              setMethod(null)
               setTxHash('')
             }}
           />
@@ -195,9 +209,11 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
 
           <PaymentMethodPicker
             value={method}
+            disabled={approve.isPending}
             onChange={(next) => {
+              if (submission.current) return
               setMethod(next)
-              setQuote(null)
+              approve.reset()
             }}
             bodies={{
               CARD: <CardFields value={card} onChange={setCard} />,
@@ -216,11 +232,9 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
                   txHash={txHash}
                   onTxHashChange={setTxHash}
                   quote={quote}
-                  isQuoteLoading={issueQuote.isPending}
+                  isQuoteLoading={issueQuote.isFetching}
                   onQuoteExpired={() => {
-                    // 만료되면 같은 자산으로 다시 고정합니다.
-                    issuedFor.current = null
-                    setQuote(null)
+                    if (payment !== null && !submission.current && !issueQuote.isFetching) void issueQuote.refetch()
                   }}
                 />
               ),
@@ -246,12 +260,24 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
               {toMessage(approve.error)}
             </p>
           )}
+          {(slot.error !== null || slot.isExpired) && (
+            <Button disabled={slot.isPreparing || approve.isPending} onClick={slot.retry}>
+              결제 준비 다시 시도
+            </Button>
+          )}
+          {issueQuote.isError && method === 'CRYPTO' && payment !== null && (
+            <Button disabled={issueQuote.isFetching} onClick={() => { void issueQuote.refetch() }}>
+              환율 정보 다시 확인
+            </Button>
+          )}
 
           <Button
             block
             className="mt16"
             disabled={!canSubmit}
             onClick={() => {
+              if (!canSubmit || submission.current) return
+              submission.current = true
               approve.mutate()
             }}
           >
@@ -259,7 +285,7 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
               ? '결제 준비 중…'
               : approve.isPending
                 ? '결제 처리 중…'
-                : `${won(total)} 결제하기`}
+                : method === null ? '결제수단을 선택해 주세요' : `${won(total)} 결제하기`}
           </Button>
 
           {payment !== null && (
