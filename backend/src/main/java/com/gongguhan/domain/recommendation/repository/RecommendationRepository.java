@@ -42,6 +42,10 @@ public class RecommendationRepository {
     }
 
     public List<RecommendationCandidate> findCandidates(int limit) {
+        return findCandidates(limit, OffsetDateTime.now(ZoneOffset.UTC));
+    }
+
+    List<RecommendationCandidate> findCandidates(int limit, OffsetDateTime now) {
         String sql = """
                 SELECT gb.group_buy_id AS id,
                        p.product_id,
@@ -66,12 +70,14 @@ public class RecommendationRepository {
                   JOIN seller_profiles sp ON sp.seller_id = gb.seller_id
              LEFT JOIN categories c ON c.category_id = p.category_id
                  WHERE gb.status = 'RECRUITING'
+                   AND gb.recruit_start_at <= :now
+                   AND gb.recruit_end_at > :now
                    AND p.status = 'ACTIVE'
                    AND sp.status <> 'SUSPENDED'
                  ORDER BY gb.created_at DESC, gb.group_buy_id DESC
                  LIMIT :limit
                 """.formatted(THUMBNAIL_SUBQUERY);
-        return jdbcTemplate.query(sql, Map.of("limit", limit), this::mapCandidate);
+        return jdbcTemplate.query(sql, Map.of("limit", limit, "now", timestamp(now)), this::mapCandidate);
     }
 
     public Map<Long, RecommendationCandidate> findCandidateSnapshots(Set<Long> groupBuyIds) {
