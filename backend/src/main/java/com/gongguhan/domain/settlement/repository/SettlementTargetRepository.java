@@ -60,6 +60,7 @@ public class SettlementTargetRepository {
               JOIN group_buys gb ON gb.group_buy_id = p.group_buy_id
               JOIN escrows e ON e.participation_id = p.participation_id
              WHERE p.status = 'CONFIRMED'
+               AND p.confirm_hold = FALSE
                AND p.settlement_eligible_at IS NOT NULL
                AND p.settlement_eligible_at <= :now
                AND e.status = 'HELD'

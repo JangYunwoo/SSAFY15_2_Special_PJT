@@ -121,13 +121,13 @@ public class ReturnRequestRepository {
     }
 
     public Optional<ReturnLock> findSellerLock(Long sellerId, Long returnId) {
-        return requests.findWithLockByReturnId(returnId)
+        return findLockedReturn(returnId)
                 .filter(request -> groupBuy(request.getParticipation()).getSellerId().equals(sellerId))
                 .map(this::toLock);
     }
 
     public Optional<ReturnLock> findBuyerLock(Long userId, Long returnId) {
-        return requests.findWithLockByReturnId(returnId)
+        return findLockedReturn(returnId)
                 .filter(request -> request.getParticipation().getUserId().equals(userId))
                 .map(this::toLock);
     }
@@ -154,7 +154,7 @@ public class ReturnRequestRepository {
     }
 
     public Optional<ReturnLock> findAdminLock(Long returnId) {
-        return requests.findWithLockByReturnId(returnId).map(this::toLock);
+        return findLockedReturn(returnId).map(this::toLock);
     }
 
     public boolean approveByAdmin(Long returnId, Long adminId, LocalDateTime resolvedAt) {
@@ -181,7 +181,7 @@ public class ReturnRequestRepository {
     }
 
     public boolean approveAutomatically(Long returnId, LocalDateTime approvedAt) {
-        Optional<ReturnRequest> found = requests.findWithLockByReturnId(returnId);
+        Optional<ReturnRequest> found = findLockedReturn(returnId);
         if (found.isEmpty() || !found.get().approveAutomatically(approvedAt)) {
             return false;
         }
@@ -190,13 +190,13 @@ public class ReturnRequestRepository {
     }
 
     public Optional<RefundContext> findSellerRefundContext(Long sellerId, Long returnId) {
-        return requests.findWithLockByReturnId(returnId)
+        return findLockedReturn(returnId)
                 .filter(request -> groupBuy(request.getParticipation()).getSellerId().equals(sellerId))
                 .flatMap(this::toRefundContext);
     }
 
     public Optional<RefundContext> findAutoRefundContext(Long returnId) {
-        return requests.findWithLockByReturnId(returnId).flatMap(this::toRefundContext);
+        return findLockedReturn(returnId).flatMap(this::toRefundContext);
     }
 
     public List<Long> findAutoRefundCandidates(LocalDateTime now, int limit) {
@@ -303,8 +303,17 @@ public class ReturnRequestRepository {
                 .orElseThrow(() -> new IllegalStateException("반품 정보를 찾을 수 없습니다."));
     }
 
+    /** 확정/반품/정산은 참여 → 반품 순서로 잠가 교차 경합과 역순 교착을 피한다. */
+    private Optional<ReturnRequest> findLockedReturn(Long returnId) {
+        return requests.findParticipationId(returnId).flatMap(participationId -> {
+            participations.findWithLockByParticipationId(participationId)
+                    .orElseThrow(() -> new IllegalStateException("참여 정보를 찾을 수 없습니다."));
+            return requests.findWithLockByReturnId(returnId);
+        });
+    }
+
     private ReturnRequest lockedRequest(Long returnId) {
-        return requests.findWithLockByReturnId(returnId)
+        return findLockedReturn(returnId)
                 .orElseThrow(() -> new IllegalStateException("반품 정보를 찾을 수 없습니다."));
     }
 
