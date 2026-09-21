@@ -20,8 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
  * {@code REFUNDED} 로 종결한다. 둘을 한 트랜잭션으로 묶어, 에스크로만 닫히고 참여는 남는
  * 어긋난 상태가 생기지 않게 한다.
  *
- * <p>반품 환불은 반품 도메인이 스스로 종결하므로(부분 환불·정산 잔액 처리가 달라) 이 경로로
- * 오지 않는다. 호출 측이 {@code returnId} 가 없는 참여 환불에 대해서만 부른다.
+ * <p>반품 환불은 finalizeReturnRefund에서 부분 환불 누계와 반품 이력을 함께 종결한다.
+ * 0원 반품은 자금 이동 없이 종결하며 배송비 잔액은 별도 정산 정책이 검증한다.
+ * returnId가 없는 전액 참여 환불은 finalizeParticipationRefund를 사용한다.
  */
 @Service
 public class RefundFinalizationService {
@@ -48,7 +49,7 @@ public class RefundFinalizationService {
         }
         LocalDateTime completedAt = LocalDateTime.now(clock);
         if (returns.markRefunded(refund.getReturnId(), completedAt)) {
-            escrowService.refundPartially(refund.getParticipationId(), refund.getAmount(), "반품 환불 완료");
+            escrowService.refundReturn(refund.getParticipationId(), refund.getAmount(), "반품 환불 완료");
             returns.addHistory(refund.getReturnId(), "REFUNDED", "환불 완료: REFUND-" + refund.getRefundId(), completedAt);
         }
     }

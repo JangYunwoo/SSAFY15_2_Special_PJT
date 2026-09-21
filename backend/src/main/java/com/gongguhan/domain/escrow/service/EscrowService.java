@@ -135,6 +135,28 @@ public class EscrowService {
         return escrow;
     }
 
+    /** 0원 반품도 원 에스크로 존재/보관 상태를 검증하되 자금 누계를 바꾸지 않는다. */
+    @Transactional
+    public Escrow refundReturn(Long participationId, long amount, String reason) {
+        if (amount > 0) { return refundPartially(participationId, amount, reason); }
+        Escrow escrow = findByParticipationId(participationId);
+        if (amount != 0 || !escrow.isHeld()) { throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION); }
+        return escrow;
+    }
+
+    /** 정산 서비스가 반품 배송비 근거를 잠금 후 재검증한 동일 트랜잭션에서만 호출한다. */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public Escrow releaseReturnShipping(Long participationId, long expectedAmount) {
+        Participation participation = findParticipation(participationId);
+        Escrow escrow = findByParticipationId(participationId);
+        if (!Participation.STATUS_REFUNDED.equals(participation.getStatus()) || participation.isConfirmHold()
+                || expectedAmount <= 0 || escrow.heldAmount() != expectedAmount) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION);
+        }
+        escrow.release(true, LocalDateTime.now(clock));
+        return escrow;
+    }
+
     /**
      * 정산 대상 금액 (FR-STL-07).
      *

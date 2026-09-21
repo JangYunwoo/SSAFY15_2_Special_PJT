@@ -11,6 +11,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface SettlementRepository extends JpaRepository<Settlement, Long> {
 
+    boolean existsByGroupBuyIdAndRoundingDiffGreaterThan(Long groupBuyId, long roundingDiff);
+
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from Settlement s where s.settlementId = :id")
     Optional<Settlement> findForUpdate(@Param("id") Long id);
@@ -20,7 +22,7 @@ public interface SettlementRepository extends JpaRepository<Settlement, Long> {
      *
      * <p>같은 공동구매의 참여자들이 동시에 구매확정하지 않아 정산이 여러 번 나뉩니다.
      * {@code UNIQUE(group_buy_id, round_no)} 가 걸려 있어 번호가 겹치면 DB 가
-     * 거부합니다 — 이 조회는 번호를 정하기 위한 것이고, 경쟁 차단은 DB 가 합니다.
+     * 거부합니다. 호출 서비스는 공구 행 잠금 후 조회하여 정상 경합에서도 회차를 직렬화합니다.
      */
     @Query("""
            select coalesce(max(s.roundNo), 0) + 1 from Settlement s
