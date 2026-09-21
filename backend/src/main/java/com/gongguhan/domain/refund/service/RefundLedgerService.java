@@ -214,7 +214,7 @@ public class RefundLedgerService {
      */
     @Transactional
     public Refund retry(Long refundId) {
-        Refund refund = load(refundId);
+        Refund refund = locked(refundId);
         try {
             refund.retry();
             refundRepository.flush();
@@ -225,6 +225,30 @@ public class RefundLedgerService {
                     "같은 대상에 다른 환불이 진행 중이라 재처리할 수 없습니다. refundId=" + refundId);
         }
         return refund;
+    }
+
+    @Transactional
+    public void claimExecution(Long refundId, String correlationId) {
+        locked(refundId).claimExecution(correlationId);
+    }
+
+    @Transactional
+    public void releaseUnsentOrRejectedExecution(Long refundId) {
+        locked(refundId).releaseUnsentOrRejectedExecution();
+    }
+
+    /** 확실한 거절만 실행권 해제와 실패 기록을 한 번에 커밋한다. */
+    @Transactional
+    public Refund failRejected(Long refundId, String reason) {
+        Refund refund = locked(refundId);
+        refund.releaseUnsentOrRejectedExecution();
+        refund.markFailed(reason, now());
+        return refund;
+    }
+
+    private Refund locked(Long refundId) {
+        return refundRepository.findForUpdate(refundId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
     }
 
     /** 재처리 배치가 집어갈 실패 건을 오래된 순서로 가져옵니다. */

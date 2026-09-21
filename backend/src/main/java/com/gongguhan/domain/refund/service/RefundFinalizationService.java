@@ -3,6 +3,10 @@ package com.gongguhan.domain.refund.service;
 import com.gongguhan.domain.escrow.service.EscrowService;
 import com.gongguhan.domain.participation.entity.Participation;
 import com.gongguhan.domain.participation.repository.ParticipationRepository;
+import com.gongguhan.domain.refund.entity.Refund;
+import com.gongguhan.domain.returnrequest.repository.ReturnRequestRepository;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
 import org.springframework.stereotype.Service;
@@ -24,11 +28,29 @@ public class RefundFinalizationService {
 
     private final EscrowService escrowService;
     private final ParticipationRepository participationRepository;
+    private final ReturnRequestRepository returns;
+    private final Clock clock;
 
     public RefundFinalizationService(EscrowService escrowService,
-                                     ParticipationRepository participationRepository) {
+                                     ParticipationRepository participationRepository,
+                                     ReturnRequestRepository returns, Clock clock) {
         this.escrowService = escrowService;
         this.participationRepository = participationRepository;
+        this.returns = returns;
+        this.clock = clock;
+    }
+
+    /** 반품 상태 선점을 이용해 부분환불 누계를 정확히 한 번 반영한다. 실패하면 모두 롤백한다. */
+    @Transactional
+    public void finalizeReturnRefund(Refund refund) {
+        if (!refund.isCompleted() || refund.getReturnId() == null) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION);
+        }
+        LocalDateTime completedAt = LocalDateTime.now(clock);
+        if (returns.markRefunded(refund.getReturnId(), completedAt)) {
+            escrowService.refundPartially(refund.getParticipationId(), refund.getAmount(), "반품 환불 완료");
+            returns.addHistory(refund.getReturnId(), "REFUNDED", "환불 완료: REFUND-" + refund.getRefundId(), completedAt);
+        }
     }
 
     /**

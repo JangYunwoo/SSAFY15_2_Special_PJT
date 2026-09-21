@@ -3,6 +3,9 @@ package com.gongguhan.domain.returnrequest.service;
 import com.gongguhan.domain.returnrequest.port.RefundPort.RefundCommand;
 import com.gongguhan.domain.returnrequest.repository.ReturnRequestRepository;
 import com.gongguhan.domain.returnrequest.repository.ReturnRequestRepository.RefundContext;
+import com.gongguhan.domain.refund.service.RefundLedgerService;
+import com.gongguhan.domain.refund.service.RefundLedgerService.OpenResult;
+import com.gongguhan.domain.refund.entity.RefundMethod;
 import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
 import java.time.Clock;
@@ -18,10 +21,12 @@ public class ReturnRefundRecordService {
 
     private final ReturnRequestRepository repository;
     private final Clock clock;
+    private final RefundLedgerService ledger;
 
-    public ReturnRefundRecordService(ReturnRequestRepository repository, Clock clock) {
+    public ReturnRefundRecordService(ReturnRequestRepository repository, Clock clock, RefundLedgerService ledger) {
         this.repository = repository;
         this.clock = clock;
+        this.ledger = ledger;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -88,9 +93,16 @@ public class ReturnRefundRecordService {
                     "판매자가 수거 완료를 확인했습니다.", requestedAt);
         }
         repository.addHistory(context.returnId(), "REFUND_REQUESTED", note, requestedAt);
+        RefundMethod method = switch (context.paymentMethod()) {
+            case "CARD" -> RefundMethod.ACCOUNT_TRANSFER;
+            case "KAKAOPAY" -> RefundMethod.KAKAOPAY;
+            case "CRYPTO" -> RefundMethod.CRYPTO;
+            default -> throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "지원하지 않는 환불 수단입니다.");
+        };
+        OpenResult reserved = ledger.openForReturn(context.returnId(), context.participationId(), context.refundAmount(), method);
         return Preparation.invoke(context, new RefundCommand(
                 "RETURN-" + context.returnId(), context.returnId(), context.paymentId(),
-                context.paymentMethod(), context.refundAmount()));
+                context.paymentMethod(), context.refundAmount()), reserved);
     }
 
     private LocalDateTime now() {
@@ -109,13 +121,13 @@ public class ReturnRefundRecordService {
         return new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "반품 정보를 찾을 수 없습니다.");
     }
 
-    public record Preparation(RefundContext context, RefundCommand command, boolean shouldInvoke) {
-        static Preparation invoke(RefundContext context, RefundCommand command) {
-            return new Preparation(context, command, true);
+    public record Preparation(RefundContext context, RefundCommand command, boolean shouldInvoke, OpenResult reserved) {
+        static Preparation invoke(RefundContext context, RefundCommand command, OpenResult reserved) {
+            return new Preparation(context, command, true, reserved);
         }
 
         static Preparation skipped(RefundContext context) {
-            return new Preparation(context, null, false);
+            return new Preparation(context, null, false, null);
         }
     }
 }

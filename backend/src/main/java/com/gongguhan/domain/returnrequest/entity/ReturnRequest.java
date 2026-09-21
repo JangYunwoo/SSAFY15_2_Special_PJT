@@ -219,7 +219,7 @@ public class ReturnRequest {
     }
 
     public boolean completeRefund(LocalDateTime completedAt) {
-        if (!STATUS_REFUND_REQUESTED.equals(status)) {
+        if (!STATUS_REFUND_REQUESTED.equals(status) && !STATUS_REFUND_FAILED.equals(status)) {
             return false;
         }
         status = STATUS_REFUNDED;
