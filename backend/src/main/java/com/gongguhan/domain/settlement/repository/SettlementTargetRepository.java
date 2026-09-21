@@ -12,9 +12,9 @@ import org.springframework.stereotype.Repository;
 /**
  * 정산 대상 조회 (FR-STL-01~05).
  *
- * <p>참여·공동구매·에스크로·정산항목을 한 번에 봐야 해서 SQL 로 씁니다. 팀 규칙상 JPA
- * 연관관계를 쓰지 않아 엔티티 그래프로는 이 조인을 표현할 수 없고, 배치가 건별로
- * 조회하면 N+1 이 됩니다. {@code ParticipationQueryRepository} 와 같은 패턴입니다.
+ * <p>일반 구매확정 보고서의 기존 SQL은 유지한다. 연관관계 없는 엔티티의 교차 조회도
+ * JPQL로 가능하므로, 새 반품 배송비 검증 조회는 ReturnShippingSettlementRepository에서
+ * JPA 투영으로 수행한다. 기존 조회의 전면 교체와 금전 정책 변경을 한 번에 섞지 않는다.
  *
  * <p>다른 도메인 테이블은 <b>읽기만</b> 합니다.
  */
@@ -41,12 +41,10 @@ public class SettlementTargetRepository {
      *       <td><b>부분 환불 건은 자동 배치에서 뺀다</b> — 아래 설명</td></tr>
      * </table>
      *
-     * <p><b>부분 환불 건을 제외하는 이유.</b> 54,000원(분담금 50,000 + 배송비 4,000) 중
-     * 42,000원을 환불하면 남은 12,000원은 원배송비와 반품배송비이지 분담금이 아닙니다.
-     * 플랫폼 수수료는 분담금에만 매기므로, 남은 금액을 분담금과 배송비로 어떻게 나눌지
-     * 정해야 수수료를 계산할 수 있습니다. <b>그 배분 규칙이 명세에 없습니다.</b>
-     * 임의로 정하면 판매자가 받을 돈이 조용히 달라지므로, 자동 배치에서 빼고 제외 사유로
-     * 드러냅니다({@link #findExcluded}). 규칙이 정해지면 이 조건을 풀면 됩니다.
+     * <p>부분 환불 건에 원 상품 분담금을 다시 적용하지 않는다. 반품·환불 원장과
+     * 에스크로가 원배송비 및 공제된 반품배송비 잔액임을 증명하는 건만 별도 JPQL로
+     * 추가한다. 해당 대상은 분담금 0, 배송비 잔액으로 만들어 판매 수수료를 부과하지 않는다.
+     * 근거 불일치·분쟁 건은 계속 보류한다.
      */
     private static final String SELECT_TARGET = """
             SELECT p.participation_id,
@@ -97,15 +95,30 @@ public class SettlementTargetRepository {
             """;
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
+    private final ReturnShippingSettlementRepository returnShipping;
 
-    public SettlementTargetRepository(NamedParameterJdbcTemplate jdbcTemplate) {
+    public SettlementTargetRepository(NamedParameterJdbcTemplate jdbcTemplate, ReturnShippingSettlementRepository returnShipping) {
         this.jdbcTemplate = jdbcTemplate;
+        this.returnShipping = returnShipping;
     }
 
     /** 정산 가능한 참여 건을 공동구매 순으로 모아 돌려줍니다. */
     public List<SettlementTarget> findTargets(LocalDateTime now) {
-        return jdbcTemplate.query(SELECT_TARGET,
-                new MapSqlParameterSource("now", now), this::mapTarget);
+        var targets = new java.util.ArrayList<>(jdbcTemplate.query(SELECT_TARGET,
+                new MapSqlParameterSource("now", now), this::mapTarget));
+        targets.addAll(returnShipping.findTargets(now, null).stream().map(this::mapReturnShipping).toList());
+        targets.sort(java.util.Comparator.comparing(SettlementTarget::groupBuyId).thenComparing(SettlementTarget::participationId));
+        return targets;
+    }
+
+    public java.util.Optional<SettlementTarget> findReturnShippingTarget(Long participationId, LocalDateTime now) {
+        var found = returnShipping.findTargets(now, participationId);
+        return found.size() == 1 ? java.util.Optional.of(mapReturnShipping(found.get(0))) : java.util.Optional.empty();
+    }
+
+    private SettlementTarget mapReturnShipping(ReturnShippingSettlementRepository.ShippingTarget target) {
+        return new SettlementTarget(target.getParticipationId(), target.getGroupBuyId(), 0,
+                target.getShippingFee(), target.getSellerId(), target.getRoundingDiff(), target.getPlatformFeeRate(), true);
     }
 
     /** 해당 공동구매에서 아직 정산되지 않은 참여 건과 그 사유. */
@@ -174,7 +187,7 @@ public class SettlementTargetRepository {
         public static final String RETURNED = "RETURNED";
         /** 전액 환불됨. 보관 중인 돈이 없음. */
         public static final String REFUNDED = "REFUNDED";
-        /** 부분 환불됨. 잔액 배분 규칙이 정해지면 정산 대상이 됨. */
+        /** 부분 환불됨. 배송비 잔액 근거가 검증된 건만 별도 정산한다. */
         public static final String PARTIAL_REFUND = "PARTIAL_REFUND";
 
         private ExcludedReason() {
@@ -194,8 +207,13 @@ public class SettlementTargetRepository {
             long shippingFee,
             Long sellerId,
             long roundingDiff,
-            BigDecimal platformFeeRate
+            BigDecimal platformFeeRate,
+            boolean returnShipping
     ) {
+        public SettlementTarget(Long participationId, Long groupBuyId, long shareAmount, long shippingFee,
+                                Long sellerId, long roundingDiff, BigDecimal platformFeeRate) {
+            this(participationId, groupBuyId, shareAmount, shippingFee, sellerId, roundingDiff, platformFeeRate, false);
+        }
     }
 
     /** 정산에서 빠진 참여 건. */

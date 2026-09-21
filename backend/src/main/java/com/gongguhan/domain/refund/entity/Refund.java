@@ -155,9 +155,9 @@ public class Refund {
     private Refund(Long participationId, Long returnId, Long depositId, long amount,
                    RefundReason reasonType, RefundMethod refundMethod,
                    String toAddress, LocalDateTime createdAt) {
-        if (amount <= 0) {
+        if (amount < 0 || (amount == 0 && reasonType != RefundReason.RETURN)) {
             throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR,
-                    "환불 금액은 0보다 커야 합니다. amount=" + amount);
+                    "환불 금액은 양수여야 하며 배송비 공제 반품만 0원을 허용합니다. amount=" + amount);
         }
         this.participationId = participationId;
         this.returnId = returnId;
@@ -289,6 +289,14 @@ public class Refund {
     public void completeByCardCancel(Long ssafyTransactionNo, LocalDateTime processedAt) {
         requireMethod(RefundMethod.CARD_CANCEL);
         this.ssafyTransactionNo = ssafyTransactionNo;
+        markCompleted(processedAt);
+    }
+
+    /** 배송비 공제 후 환불액이 0원인 반품은 외부 거래를 만들지 않는다. */
+    public void completeWithoutTransfer(LocalDateTime processedAt) {
+        if (amount != 0 || reasonType != RefundReason.RETURN) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION);
+        }
         markCompleted(processedAt);
     }
 

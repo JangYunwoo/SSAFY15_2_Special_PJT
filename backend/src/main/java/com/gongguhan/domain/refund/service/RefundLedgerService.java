@@ -146,6 +146,14 @@ public class RefundLedgerService {
         return refund;
     }
 
+    /** 외부 자금 이동이 없는 0원 반품을 원장 잠금 아래 정확히 한 번 종결한다. */
+    @Transactional
+    public Refund completeWithoutTransfer(Long refundId) {
+        Refund refund = locked(refundId);
+        if (!refund.isCompleted()) { refund.completeWithoutTransfer(now()); }
+        return refund;
+    }
+
     /** 카드 승인 취소 결과를 기록합니다. */
     @Transactional
     public Refund completeByCardCancel(Long refundId, Long ssafyTransactionNo) {

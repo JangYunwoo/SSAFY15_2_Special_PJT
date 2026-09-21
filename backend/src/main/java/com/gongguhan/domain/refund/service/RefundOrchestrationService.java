@@ -325,6 +325,9 @@ public class RefundOrchestrationService {
 
     private Refund execute(Refund refund, Payment payment) {
         Long refundId = refund.getRefundId();
+        if (refund.getAmount() == 0 && refund.getReasonType() == RefundReason.RETURN) {
+            return ledgerService.completeWithoutTransfer(refundId);
+        }
         // 목적지 기록과 사전조건 실패 처리도 실행권 소유자만 한다. 패자가 승자 상태를 덮지 못한다.
         if (!ledgerService.tryClaimExecution(refundId, null)) { return ledgerService.get(refundId); }
         try {

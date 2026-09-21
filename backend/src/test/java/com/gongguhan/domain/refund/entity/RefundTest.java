@@ -42,6 +42,23 @@ class RefundTest {
         return Refund.forUnmatchedDeposit(DEPOSIT_ID, AMOUNT, BUYER_WALLET, NOW);
     }
 
+    @Test
+    void zeroReturnCanCompleteWithoutExternalTransfer() {
+        Refund refund = Refund.forReturn(RETURN_ID, PARTICIPATION_ID, 0, RefundMethod.KAKAOPAY, NOW);
+        refund.completeWithoutTransfer(LATER);
+        assertTrue(refund.isCompleted());
+        assertNull(refund.getInstitutionTxNo());
+        assertThrows(BusinessException.class, () -> refund.completeWithoutTransfer(LATER));
+    }
+
+    @Test
+    void zeroCompletionCannotHidePositiveRefundOrNegativeReturn() {
+        Refund refund = Refund.forReturn(RETURN_ID, PARTICIPATION_ID, 1, RefundMethod.KAKAOPAY, NOW);
+        assertThrows(BusinessException.class, () -> refund.completeWithoutTransfer(LATER));
+        assertThrows(BusinessException.class, () -> Refund.forReturn(RETURN_ID, PARTICIPATION_ID, -1, RefundMethod.KAKAOPAY, NOW));
+        assertThrows(BusinessException.class, () -> Refund.forParticipation(PARTICIPATION_ID, 0, RefundReason.RECRUIT_FAILED, RefundMethod.ACCOUNT_TRANSFER, NOW));
+    }
+
     @Nested
     @DisplayName("개시")
     class Opening {

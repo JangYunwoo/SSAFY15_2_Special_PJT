@@ -1,6 +1,7 @@
 package com.gongguhan.domain.settlement.service;
 
 import com.gongguhan.domain.escrow.service.EscrowService;
+import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
 import com.gongguhan.domain.participation.entity.Participation;
 import com.gongguhan.domain.participation.repository.ParticipationRepository;
 import com.gongguhan.domain.settlement.entity.Settlement;
@@ -9,6 +10,7 @@ import com.gongguhan.domain.settlement.event.SettlementCompletedEvent;
 import com.gongguhan.domain.settlement.repository.SettlementItemRepository;
 import com.gongguhan.domain.settlement.repository.SettlementRepository;
 import com.gongguhan.domain.settlement.repository.SettlementTargetRepository.SettlementTarget;
+import com.gongguhan.domain.settlement.repository.SettlementTargetRepository;
 import com.gongguhan.global.error.BusinessException;
 import com.gongguhan.global.error.ErrorCode;
 import java.time.LocalDateTime;
@@ -39,17 +41,22 @@ public class SettlementRecordService {
     private final ParticipationRepository participationRepository;
     private final EscrowService escrowService;
     private final ApplicationEventPublisher events;
+    private final SettlementTargetRepository targetRepository;
+    private final GroupBuyRepository groupBuyRepository;
 
     public SettlementRecordService(SettlementRepository settlementRepository,
                                    SettlementItemRepository settlementItemRepository,
                                    ParticipationRepository participationRepository,
                                    EscrowService escrowService,
-                                   ApplicationEventPublisher events) {
+                                   ApplicationEventPublisher events, SettlementTargetRepository targetRepository,
+                                   GroupBuyRepository groupBuyRepository) {
         this.settlementRepository = settlementRepository;
         this.settlementItemRepository = settlementItemRepository;
         this.participationRepository = participationRepository;
         this.escrowService = escrowService;
         this.events = events;
+        this.targetRepository = targetRepository;
+        this.groupBuyRepository = groupBuyRepository;
     }
 
     /**
@@ -60,11 +67,34 @@ public class SettlementRecordService {
      */
     @Transactional
     public Settlement settle(Long groupBuyId, List<SettlementTarget> targets, LocalDateTime now) {
-        // 후보 조회는 잠금이 아니다. 반품/이의제기가 끼어들었는지 쓰기 직전에 같은 참여 행으로 재검증한다.
+        if (targets.isEmpty()) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "정산 대상이 없습니다.");
+        }
+        // 참여 취소와 같은 참여 → 공구 순서다. 여러 참여는 ID 오름차순으로 모두 잠근다.
+        var lockedParticipations = new java.util.HashMap<Long, Participation>();
         for (SettlementTarget target : targets.stream()
                 .sorted(java.util.Comparator.comparing(SettlementTarget::participationId)).toList()) {
             Participation participation = participationRepository.findWithLockByParticipationId(target.participationId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+            if (!groupBuyId.equals(participation.getGroupBuyId())) {
+                throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION);
+            }
+            lockedParticipations.put(target.participationId(), participation);
+        }
+        // 서로 다른 참여 목록도 공구의 회차/차액을 공유한다. 일반 조회는 이 잠금 뒤에 한다.
+        groupBuyRepository.findWithLockByGroupBuyId(groupBuyId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+        // 후보 조회는 잠금이 아니다. 반품/이의제기가 끼어들었는지 쓰기 직전에 재검증한다.
+        for (SettlementTarget target : targets) {
+            Participation participation = lockedParticipations.get(target.participationId());
+            if (target.returnShipping()) {
+                SettlementTarget current = targetRepository.findReturnShippingTarget(target.participationId(), now)
+                        .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "반품 배송비 잔액 근거가 변경되었습니다."));
+                if (!groupBuyId.equals(current.groupBuyId()) || !current.equals(target)) {
+                    throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "반품 배송비 정산 금액이 변경되었습니다.");
+                }
+                continue;
+            }
             if (!groupBuyId.equals(participation.getGroupBuyId())
                     || !groupBuyId.equals(target.groupBuyId())
                     || !Participation.STATUS_CONFIRMED.equals(participation.getStatus())
@@ -83,9 +113,10 @@ public class SettlementRecordService {
         long shippingTotal = targets.stream().mapToLong(SettlementTarget::shippingFee).sum();
 
         int roundNo = settlementRepository.nextRoundNo(groupBuyId);
-        // 절상 차액은 공동구매 생성 시 한 번 확정된 값이라 1회차에만 가산한다.
-        // 회차마다 더하면 판매자가 같은 차액을 여러 번 받는다.
-        long roundingDiff = roundNo == 1 ? first.roundingDiff() : 0L;
+        // 배송비만 정산한 회차는 상품 차액을 소진하지 않는다. 최초 상품 포함 회차에 한 번 반영한다.
+        long roundingDiff = shareTotal > 0
+                && !settlementRepository.existsByGroupBuyIdAndRoundingDiffGreaterThan(groupBuyId, 0)
+                ? first.roundingDiff() : 0L;
 
         Settlement settlement = settlementRepository.save(Settlement.create(
                 groupBuyId, first.sellerId(), roundNo, targets.size(),
@@ -94,7 +125,11 @@ public class SettlementRecordService {
         for (SettlementTarget target : targets) {
             settlementItemRepository.save(SettlementItem.of(settlement.getSettlementId(),
                     target.participationId(), target.shareAmount(), target.shippingFee()));
-            releaseAndMark(target.participationId());
+            if (target.returnShipping()) {
+                escrowService.releaseReturnShipping(target.participationId(), target.shippingFee());
+            } else {
+                releaseAndMark(target.participationId());
+            }
         }
         // UNIQUE(participation_id) 위반을 지금 드러낸다. 커밋까지 미루면 호출 측이
         // 어느 단계에서 겹쳤는지 알 수 없다.
