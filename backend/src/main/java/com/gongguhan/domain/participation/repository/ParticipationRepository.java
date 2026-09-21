@@ -16,6 +16,9 @@ public interface ParticipationRepository extends JpaRepository<Participation, Lo
 
     List<Participation> findByGroupBuyIdOrderByParticipationIdAsc(Long groupBuyId);
 
+    @Query("SELECT p.participationId FROM Participation p WHERE p.groupBuyId = :groupBuyId ORDER BY p.participationId")
+    List<Long> findIdsByGroupBuyIdOrderByParticipationIdAsc(@Param("groupBuyId") Long groupBuyId);
+
     List<Participation> findByGroupBuyIdAndStatus(Long groupBuyId, String status);
 
     List<Participation> findByStatusAndConfirmHoldFalseAndDeliveredAtBefore(

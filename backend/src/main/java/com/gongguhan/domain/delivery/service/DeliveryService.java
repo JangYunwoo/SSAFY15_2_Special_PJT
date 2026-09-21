@@ -67,8 +67,9 @@ public class DeliveryService {
     /** DLV-02: 송장 등록. 모집 완료 상태에서만 허용하고 동일 송장 중복을 거부한다. */
     @Transactional
     public DeliveryResponse registerInvoice(Long sellerId, Long deliveryId, DeliveryInvoiceRequest request) {
-        Delivery delivery = findDelivery(deliveryId);
-        Participation participation = findParticipation(delivery.getParticipationId());
+        ParticipationWithDelivery row = findLockedRow(deliveryId);
+        Delivery delivery = row.delivery();
+        Participation participation = row.participation();
         GroupBuy groupBuy = requireSellerOwnership(sellerId, participation.getGroupBuyId());
 
         if (!GroupBuy.STATUS_FULFILLED.equals(groupBuy.getStatus())) {
@@ -89,8 +90,9 @@ public class DeliveryService {
     /** DLV-03: 참여자별 배송 상태 전환 (READY→SHIPPING→DELIVERED). */
     @Transactional
     public DeliveryResponse updateStatus(Long sellerId, Long deliveryId, String rawStatus) {
-        Delivery delivery = findDelivery(deliveryId);
-        Participation participation = findParticipation(delivery.getParticipationId());
+        ParticipationWithDelivery row = findLockedRow(deliveryId);
+        Delivery delivery = row.delivery();
+        Participation participation = row.participation();
         requireSellerOwnership(sellerId, participation.getGroupBuyId());
 
         transition(delivery, participation, normalizeTargetStatus(rawStatus));
@@ -109,10 +111,13 @@ public class DeliveryService {
 
         int updated = 0;
         int total = 0;
-        for (ParticipationWithDelivery row : findRows(groupBuyId)) {
+        // ID만 먼저 읽는다. 잠금 전에 엔티티를 읽으면 1차 캐시의 오래된 confirmHold가 남는다.
+        for (Long participationId : participationRepository.findIdsByGroupBuyIdOrderByParticipationIdAsc(groupBuyId)) {
+            Participation participation = findLockedParticipation(participationId);
+            Delivery delivery = deliveryRepository.findByParticipationId(participationId).orElse(null);
             total++;
-            if (row.delivery() != null && canTransition(row.delivery(), row.participation(), targetStatus)) {
-                transition(row.delivery(), row.participation(), targetStatus);
+            if (delivery != null && canTransition(delivery, participation, targetStatus)) {
+                transition(delivery, participation, targetStatus);
                 updated++;
             }
         }
@@ -199,6 +204,19 @@ public class DeliveryService {
     private Delivery findDelivery(Long deliveryId) {
         return deliveryRepository.findById(deliveryId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "배송 정보를 찾을 수 없습니다."));
+    }
+
+    private ParticipationWithDelivery findLockedRow(Long deliveryId) {
+        Long participationId = deliveryRepository.findParticipationIdByDeliveryId(deliveryId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "배송 정보를 찾을 수 없습니다."));
+        // 분쟁·반품·확정과 동일한 참여 행을 먼저 잠근 뒤 배송을 읽는다.
+        Participation participation = findLockedParticipation(participationId);
+        return new ParticipationWithDelivery(participation, findDelivery(deliveryId));
+    }
+
+    private Participation findLockedParticipation(Long participationId) {
+        return participationRepository.findWithLockByParticipationId(participationId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "참여 정보를 찾을 수 없습니다."));
     }
 
     private Participation findParticipation(Long participationId) {
