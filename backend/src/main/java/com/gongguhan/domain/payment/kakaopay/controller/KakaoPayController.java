@@ -2,6 +2,7 @@ package com.gongguhan.domain.payment.kakaopay.controller;
 
 import com.gongguhan.domain.payment.common.dto.PaymentResponse;
 import com.gongguhan.domain.payment.kakaopay.dto.KakaoPayApproveRequest;
+import com.gongguhan.domain.payment.kakaopay.dto.KakaoPayFlowRequest;
 import com.gongguhan.domain.payment.kakaopay.dto.KakaoPayReadyResponse;
 import com.gongguhan.domain.payment.kakaopay.service.KakaoPayService;
 import com.gongguhan.global.common.ApiResponse;
@@ -53,8 +54,9 @@ public class KakaoPayController {
     public ResponseEntity<ApiResponse<Void>> cancelFlow(
             @AuthenticationPrincipal Long userId,
             @PathVariable Long paymentId,
+            @Valid @RequestBody KakaoPayFlowRequest request,
             HttpServletRequest httpRequest) {
-        kakaoPayService.cancelFlow(userId, paymentId);
+        kakaoPayService.cancelFlow(userId, paymentId, request.state());
         return ResponseEntity.ok(ApiResponse.success(null, TraceIdUtils.from(httpRequest)));
     }
 
@@ -62,8 +64,9 @@ public class KakaoPayController {
     public ResponseEntity<ApiResponse<Void>> failFlow(
             @AuthenticationPrincipal Long userId,
             @PathVariable Long paymentId,
+            @Valid @RequestBody KakaoPayFlowRequest request,
             HttpServletRequest httpRequest) {
-        kakaoPayService.failFlow(userId, paymentId);
+        kakaoPayService.failFlow(userId, paymentId, request.state());
         return ResponseEntity.ok(ApiResponse.success(null, TraceIdUtils.from(httpRequest)));
     }
 

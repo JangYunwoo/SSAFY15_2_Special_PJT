@@ -105,6 +105,10 @@ public class KakaoPayPayment {
         this.stateConsumedAt = consumedAt;
     }
 
+    public void consumeCallbackState(LocalDateTime consumedAt) {
+        this.stateConsumedAt = consumedAt;
+    }
+
     public boolean hasReusableReady(LocalDateTime now) {
         return tid != null && nextRedirectPcUrl != null && stateNonce != null
                 && stateConsumedAt == null && stateExpiresAt != null
