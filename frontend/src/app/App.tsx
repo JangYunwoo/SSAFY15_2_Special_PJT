@@ -2,12 +2,15 @@ import { Suspense } from 'react'
 import { RouterProvider } from 'react-router'
 
 import { LoadingState } from '@/shared/ui/states'
+import { useRecommendationSessionLifecycle } from '@/features/recommendation/tracking'
 
 import { ErrorBoundary } from './providers/ErrorBoundary'
 import { QueryProvider } from './providers/QueryProvider'
 import { router } from './router'
 
 export function App() {
+  useRecommendationSessionLifecycle()
+
   return (
     <ErrorBoundary>
       <QueryProvider>

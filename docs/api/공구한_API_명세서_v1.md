@@ -320,6 +320,24 @@ AI 분석은 ERD v2에 따라 동기 요청으로 처리한다. 분석 결과를
 
 공개 목록은 `keyword`, `categoryId`, `status`, `sort`, `page`, `size`를 쿼리 파라미터로 받는다. 판매 철회 API는 참여자가 존재하는 거래에만 사용하며, 사유를 필수로 받아 공동구매 취소, 전원 환불 개시, 판매자 위반 후보 생성을 하나의 업무 흐름으로 실행한다.
 
+### 개인화 추천 실험 API
+
+| ID | Method | URL | 기능 | 권한 |
+| --- | --- | --- | --- | --- |
+| REC-01 | GET | `/recommendations/group-buys?size=8` | 로그인 사용자의 개인화 공동구매 순위 | USER |
+| REC-02 | POST | `/recommendations/events` | 노출·클릭·상세조회 행동을 세션 단위로 기록 | USER |
+| REC-03 | POST | `/recommendations/sessions/end` | 탭 종료 시 세션 종료 표시 | USER |
+
+`REC-02`는 `sessionId`와 최대 100개의 `events`를 받는다. 이벤트 유형은
+`IMPRESSION`, `CLICK`, `DETAIL_VIEW`만 허용한다. 구매는 클라이언트가 보내지 않고
+서버의 `participations`를 정답 데이터로 사용한다. 종료된 세션 또는 시연 환경에서 1초 이상
+활동이 없는 세션만 모델 학습에 반영한다.
+
+`REC-01`은 브랜드·카테고리 선호, 모집률, 할인율, 마감 임박도를 입력으로 한
+로지스틱 회귀 순위를 반환한다. 학습 데이터가 부족하면 명시된 초기 가중치로,
+AI 서버가 응답하지 않으면 모집률 기반 순서로 자동 대체한다. 최근 30일 안에
+구매한 동일 상품은 재구매 피로를 줄이기 위해 점수를 낮춘다.
+
 ## 5. 결제 슬롯 및 공통 결제 API
 
 별도의 슬롯 리소스를 외부에 노출하지 않는다. 결제 준비 시 `payments`에 `PROCESSING` 행을 생성하고, `slot_expires_at`까지 해당 사용자의 자리를 보장한다.

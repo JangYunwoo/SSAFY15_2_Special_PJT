@@ -30,6 +30,8 @@ interface RequestOptions {
 interface BodyOptions extends RequestOptions {
   /** FormData 를 넘기면 Content-Type 을 브라우저가 정하도록 비웁니다. */
   body?: unknown
+  /** pagehide 중에도 세션 종료 로그 전송을 이어갑니다. */
+  keepalive?: boolean
 }
 
 /**
@@ -93,7 +95,7 @@ async function parse<TData, TMeta>(response: Response): Promise<ApiResponse<TDat
 
 /** 한 번 보냅니다. 토큰은 보낼 때마다 새로 읽어 재발급된 값이 반영됩니다. */
 async function send(method: string, path: string, options: BodyOptions): Promise<Response> {
-  const { body, idempotencyKey, query, signal } = options
+  const { body, idempotencyKey, query, signal, keepalive } = options
   const headers = new Headers({ Accept: 'application/json' })
 
   const token = accessTokenProvider()
@@ -108,6 +110,7 @@ async function send(method: string, path: string, options: BodyOptions): Promise
       method,
       headers,
       credentials: 'include',
+      ...(keepalive === undefined ? {} : { keepalive }),
       ...(body === undefined ? {} : { body: isFormData ? body : JSON.stringify(body) }),
       ...(signal ? { signal } : {}),
     })
@@ -174,6 +177,8 @@ export const api = {
   get: <TData>(path: string, options?: RequestOptions) => unwrap<TData>('GET', path, options),
   post: <TData>(path: string, body?: unknown, options?: RequestOptions) =>
     unwrap<TData>('POST', path, { ...options, body }),
+  postKeepalive: <TData>(path: string, body?: unknown, options?: RequestOptions) =>
+    unwrap<TData>('POST', path, { ...options, body, keepalive: true }),
   patch: <TData>(path: string, body?: unknown, options?: RequestOptions) =>
     unwrap<TData>('PATCH', path, { ...options, body }),
   put: <TData>(path: string, body?: unknown, options?: RequestOptions) =>

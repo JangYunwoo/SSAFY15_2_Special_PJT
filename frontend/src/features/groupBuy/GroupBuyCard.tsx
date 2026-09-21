@@ -10,9 +10,17 @@ import { won } from '@/shared/lib/format'
  * 채우는데 그 값은 "공동구매 1회분 총액"이라, 1인 분담금을 목표 인원 전체의
  * 금액과 비교하게 됩니다. 목표 인원이 늘수록 할인율이 올라가는 수치였습니다.
  */
-export function GroupBuyCard({ item }: { item: GroupBuySummary }) {
+export function GroupBuyCard({
+  item,
+  reason,
+  onClick,
+}: {
+  item: GroupBuySummary
+  reason?: string | undefined
+  onClick?: (() => void) | undefined
+}) {
   return (
-    <Link className="card" to={`/group-buys/${item.id}`}>
+    <Link className="card" to={`/group-buys/${item.id}`} onClick={onClick}>
       <div className="thumb">
         {item.thumbnailUrl !== null && <img src={item.thumbnailUrl} alt="" loading="lazy" />}
       </div>
@@ -24,6 +32,7 @@ export function GroupBuyCard({ item }: { item: GroupBuySummary }) {
         <div className="meta">
           {item.paidCount} / {item.targetCount}명
         </div>
+        {reason !== undefined && <div className="meta">{reason}</div>}
       </div>
     </Link>
   )
