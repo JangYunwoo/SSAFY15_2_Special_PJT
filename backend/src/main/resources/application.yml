@@ -46,6 +46,8 @@ app:
     timeout-ms: ${RECOMMENDATION_AI_TIMEOUT_MS:3000}
     max-candidates: ${RECOMMENDATION_MAX_CANDIDATES:100}
     training-event-limit: ${RECOMMENDATION_TRAINING_EVENT_LIMIT:5000}
+    # 로컬 통합 테스트용 가상 상품·행동 로그. 운영에서는 반드시 false로 둔다.
+    seed-enabled: ${RECOMMENDATION_SEED_ENABLED:false}
   ai-extraction:
     base-url: ${AI_EXTRACTION_BASE_URL:http://localhost:8000}
     path: ${AI_EXTRACTION_PATH:/api/v1/products/extract}

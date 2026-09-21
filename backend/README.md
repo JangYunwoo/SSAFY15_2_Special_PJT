@@ -82,6 +82,28 @@ ID로 바꾼다. 매칭되지 않으면 해당 필드만 비우고 경고를 반
 | `AI_EXTRACTION_PATH` | 이미지 분석 경로, 기본값 `/api/v1/products/extract` |
 | `AI_EXTRACTION_TIMEOUT_MS` | 연결·응답 제한시간, 기본값 `10000` |
 
+## 개인화 추천 로컬 데이터
+
+운영 DB를 복사하지 않고 로컬 통합 화면에서 추천 순위 변화를 확인하려면
+`backend/.env`에 다음 값을 추가한다.
+
+```dotenv
+RECOMMENDATION_SEED_ENABLED=true
+```
+
+이 옵션은 `local` 프로필에서만 동작하며, 기동 시 가상 상품 24개와 로그인 가능한
+구매자 3명, 사용자별 행동 로그 120건, 구매 이력을 멱등하게 생성한다.
+
+| 이메일 | 선호 경향 | 비밀번호 |
+| --- | --- | --- |
+| `recommend101@gongguhan.test` | 가공식품·맛있는청년들 | `Recommend1234!` |
+| `recommend102@gongguhan.test` | 농산물·참달아 | `Recommend1234!` |
+| `recommend103@gongguhan.test` | 건강기능식품·종근당 | `Recommend1234!` |
+
+각 계정으로 로그인하면 홈의 추천 순서가 서로 달라야 한다. 시드는 고정 ID를 사용하고
+`ON DUPLICATE KEY UPDATE`로 넣으므로 백엔드를 다시 실행해도 중복 생성되지 않는다.
+운영 프로필에서는 이 컴포넌트가 로드되지 않으며 기본값도 `false`다.
+
 ## API 기본 경로
 
 `server.servlet.context-path=/api/v1`이 설정되어 있으므로, 컨트롤러의 `@RequestMapping`은

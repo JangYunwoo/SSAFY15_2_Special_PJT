@@ -8,6 +8,7 @@ public record RecommendationProperties(
         String path,
         int timeoutMs,
         int maxCandidates,
-        int trainingEventLimit
+        int trainingEventLimit,
+        boolean seedEnabled
 ) {
 }
