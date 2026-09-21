@@ -5,9 +5,9 @@ import { queryKeys } from '@/shared/api/queryKeys'
 import { recommendationApi } from './api'
 
 export const recommendationQueries = {
-  list: (size = 8) =>
+  list: (userId: string | null, size = 8) =>
     queryOptions({
-      queryKey: queryKeys.recommendations.list(size),
+      queryKey: queryKeys.recommendations.list(userId, size),
       queryFn: () => recommendationApi.list(size),
       staleTime: 30_000,
     }),

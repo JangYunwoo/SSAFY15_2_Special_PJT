@@ -19,7 +19,7 @@ export const queryKeys = {
   },
   recommendations: {
     all: ['recommendations'] as const,
-    list: (size: number) => ['recommendations', 'group-buys', size] as const,
+    list: (userId: string | null, size: number) => ['recommendations', 'group-buys', userId, size] as const,
   },
   sellerGroupBuys: {
     all: ['seller', 'group-buys'] as const,
