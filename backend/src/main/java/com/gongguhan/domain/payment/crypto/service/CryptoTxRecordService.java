@@ -3,7 +3,6 @@ package com.gongguhan.domain.payment.crypto.service;
 import com.gongguhan.domain.account.entity.UserAddress;
 import com.gongguhan.domain.account.repository.UserAddressRepository;
 import com.gongguhan.domain.payment.common.entity.Payment;
-import com.gongguhan.domain.payment.common.port.GroupBuySlotPort;
 import com.gongguhan.domain.payment.common.repository.PaymentRepository;
 import com.gongguhan.domain.payment.common.service.PaymentService;
 import com.gongguhan.domain.payment.crypto.entity.CryptoAsset;
@@ -47,7 +46,6 @@ public class CryptoTxRecordService {
     private final PaymentRepository paymentRepository;
     private final UserAddressRepository userAddressRepository;
     private final PaymentService paymentService;
-    private final GroupBuySlotPort groupBuySlotPort;
     private final Clock clock;
 
     public CryptoTxRecordService(CryptoPaymentRepository cryptoPaymentRepository,
@@ -57,7 +55,6 @@ public class CryptoTxRecordService {
                                   PaymentRepository paymentRepository,
                                   UserAddressRepository userAddressRepository,
                                   PaymentService paymentService,
-                                  GroupBuySlotPort groupBuySlotPort,
                                   Clock clock) {
         this.cryptoPaymentRepository = cryptoPaymentRepository;
         this.cryptoDepositRepository = cryptoDepositRepository;
@@ -66,7 +63,6 @@ public class CryptoTxRecordService {
         this.paymentRepository = paymentRepository;
         this.userAddressRepository = userAddressRepository;
         this.paymentService = paymentService;
-        this.groupBuySlotPort = groupBuySlotPort;
         this.clock = clock;
     }
 
@@ -90,7 +86,7 @@ public class CryptoTxRecordService {
 
         LocalDateTime now = LocalDateTime.now(clock);
 
-        Payment payment = paymentRepository.findById(paymentId)
+        Payment payment = paymentRepository.findForUpdateByPaymentId(paymentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND,
                         "결제를 찾을 수 없습니다."));
         // 검증과 기록 사이에 슬롯 만료 배치나 사용자 이탈이 끼어들 수 있다.
@@ -132,7 +128,7 @@ public class CryptoTxRecordService {
             // 트랜잭션이 revert 됐다. 자금이 이동하지 않았으므로 입금 기록도 없다.
             // 여기서 save() 를 다시 부르지 않는다. cryptoPayment 는 이미 관리 객체이므로
             // 변경이 커밋 시점에 자동으로 반영된다.
-            failPayment(payment, "TX_REVERTED");
+            paymentService.failPayment(paymentId, "TX_REVERTED");
             log.info("트랜잭션 revert payment={} txHash={}", paymentId, txHash);
             return cryptoPayment;
         }
@@ -176,7 +172,7 @@ public class CryptoTxRecordService {
             return false;
         }
 
-        Payment payment = paymentRepository.findById(paymentId).orElse(null);
+        Payment payment = paymentRepository.findForUpdateByPaymentId(paymentId).orElse(null);
         if (payment == null || !payment.isProcessing()) {
             return false;   // 이미 완료·실패·만료됨. 폴링이 배치와 겹치는 정상 상황이다.
         }
@@ -187,7 +183,7 @@ public class CryptoTxRecordService {
         // 자리는 이미 남에게 넘어갔는데 참여 건을 만들게 되어 인원이 초과된다.
         // FR-SLT-10 대로 결제를 폐기하고 환불 대상으로 남긴다.
         if (payment.isExpired(now)) {
-            failPayment(payment, "SLOT_EXPIRED_BEFORE_CONFIRMATION");
+            paymentService.failPayment(paymentId, "SLOT_EXPIRED_BEFORE_CONFIRMATION");
             log.warn("슬롯 만료 후 컨펌 도달 - 환불 대상 payment={}", paymentId);
             return false;
         }
@@ -209,7 +205,7 @@ public class CryptoTxRecordService {
         if (cryptoPayment == null || cryptoPayment.getReceiptStatus() != null) {
             return;
         }
-        Payment payment = paymentRepository.findById(paymentId).orElse(null);
+        Payment payment = paymentRepository.findForUpdateByPaymentId(paymentId).orElse(null);
         if (payment == null || !payment.isProcessing()) {
             return;
         }
@@ -218,7 +214,7 @@ public class CryptoTxRecordService {
         cryptoPayment.applyReceipt(receipt.success(), receipt.blockNumber());
 
         if (!receipt.success()) {
-            failPayment(payment, "TX_REVERTED");
+            paymentService.failPayment(paymentId, "TX_REVERTED");
             return;
         }
 
@@ -228,7 +224,7 @@ public class CryptoTxRecordService {
         } catch (BusinessException e) {
             // 폴링 경로에서는 예외를 던져도 받을 사용자가 없다. 결제를 실패로
             // 확정하고 사유를 남겨 관리자가 확인하게 한다.
-            failPayment(payment, "TX_VERIFICATION_FAILED: " + e.getMessage());
+            paymentService.failPayment(paymentId, "TX_VERIFICATION_FAILED: " + e.getMessage());
             log.warn("폴링 중 트랜잭션 검증 실패 payment={}", paymentId, e);
             return;
         }
@@ -381,16 +377,4 @@ public class CryptoTxRecordService {
                 address.getAddress2());
     }
 
-    /**
-     * 결제를 실패로 확정하고 선점 슬롯을 놓아준다.
-     *
-     * <p>슬롯 해제를 빠뜨리면 그 자리가 영구히 막힌다. 슬롯 만료 배치(FR-SLT-07)가
-     * 아직 없어서 자동으로 회수되지도 않는다. 공동구매 엔티티를 직접 만지지 않고
-     * {@link GroupBuySlotPort}를 쓰는 이유는, 결제 계층이 공동구매 내부에 의존하지
-     * 않게 하려는 팀의 경계 설계를 따르기 위함이다.
-     */
-    private void failPayment(Payment payment, String reason) {
-        payment.markFailed(reason);
-        groupBuySlotPort.release(payment.getGroupBuyId());
-    }
 }
