@@ -113,6 +113,7 @@ class CryptoDepositRefundServiceTest {
         when(ledgerService.openForUnmatchedDeposit(eq(DEPOSIT_ID), anyLong(), eq(SENDER)))
                 .thenReturn(new OpenResult(opened, true));
         when(cryptoRefundService.isEnabled()).thenReturn(true);
+        when(ledgerService.tryClaimExecution(REFUND_ID, null)).thenReturn(true);
         return deposit;
     }
 
