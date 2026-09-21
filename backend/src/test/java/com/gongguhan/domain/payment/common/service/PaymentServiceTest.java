@@ -294,7 +294,7 @@ class PaymentServiceTest {
 
     @Test
     void abortFailsWhenNotOwner() {
-        when(paymentRepository.findByPaymentIdAndUserId(PAYMENT_ID, USER_ID)).thenReturn(Optional.empty());
+        when(paymentRepository.findForUpdateByPaymentIdAndUserId(PAYMENT_ID, USER_ID)).thenReturn(Optional.empty());
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> paymentService.abort(USER_ID, PAYMENT_ID));
@@ -306,7 +306,7 @@ class PaymentServiceTest {
     void abortFailsWhenPaymentAlreadyProcessed() {
         Payment payment = mock(Payment.class);
         when(payment.isProcessing()).thenReturn(false);
-        when(paymentRepository.findByPaymentIdAndUserId(PAYMENT_ID, USER_ID)).thenReturn(Optional.of(payment));
+        when(paymentRepository.findForUpdateByPaymentIdAndUserId(PAYMENT_ID, USER_ID)).thenReturn(Optional.of(payment));
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> paymentService.abort(USER_ID, PAYMENT_ID));
@@ -319,7 +319,7 @@ class PaymentServiceTest {
         Payment payment = mock(Payment.class);
         when(payment.isProcessing()).thenReturn(true);
         when(payment.getGroupBuyId()).thenReturn(GROUP_BUY_ID);
-        when(paymentRepository.findByPaymentIdAndUserId(PAYMENT_ID, USER_ID)).thenReturn(Optional.of(payment));
+        when(paymentRepository.findForUpdateByPaymentIdAndUserId(PAYMENT_ID, USER_ID)).thenReturn(Optional.of(payment));
 
         paymentService.abort(USER_ID, PAYMENT_ID);
 
@@ -365,7 +365,7 @@ class PaymentServiceTest {
 
     @Test
     void expireSlotIfDueDoesNothingWhenPaymentMissing() {
-        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.empty());
+        when(paymentRepository.findForUpdateByPaymentId(PAYMENT_ID)).thenReturn(Optional.empty());
 
         paymentService.expireSlotIfDue(PAYMENT_ID);
 
@@ -376,7 +376,7 @@ class PaymentServiceTest {
     void expireSlotIfDueDoesNothingWhenAlreadyResolved() {
         Payment payment = mock(Payment.class);
         when(payment.isProcessing()).thenReturn(false);
-        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
+        when(paymentRepository.findForUpdateByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment));
 
         paymentService.expireSlotIfDue(PAYMENT_ID);
 
@@ -389,7 +389,7 @@ class PaymentServiceTest {
         Payment payment = mock(Payment.class);
         when(payment.isProcessing()).thenReturn(true);
         when(payment.isExpired(any())).thenReturn(false);
-        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
+        when(paymentRepository.findForUpdateByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment));
 
         paymentService.expireSlotIfDue(PAYMENT_ID);
 
@@ -403,7 +403,7 @@ class PaymentServiceTest {
         when(payment.isProcessing()).thenReturn(true);
         when(payment.isExpired(any())).thenReturn(true);
         when(payment.getGroupBuyId()).thenReturn(GROUP_BUY_ID);
-        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
+        when(paymentRepository.findForUpdateByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment));
 
         paymentService.expireSlotIfDue(PAYMENT_ID);
 
@@ -418,7 +418,7 @@ class PaymentServiceTest {
         when(payment.isProcessing()).thenReturn(true);
         when(payment.isExpired(any())).thenReturn(true);
         when(payment.getGroupBuyId()).thenReturn(GROUP_BUY_ID);
-        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
+        when(paymentRepository.findForUpdateByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment));
         when(groupBuySlotPort.release(GROUP_BUY_ID)).thenThrow(
                 new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "공동구매를 찾을 수 없습니다."));
 
@@ -456,7 +456,7 @@ class PaymentServiceTest {
     void completePaymentFailsWhenAlreadyProcessed() {
         Payment payment = mock(Payment.class);
         when(payment.isProcessing()).thenReturn(false);
-        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
+        when(paymentRepository.findForUpdateByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment));
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> paymentService.completePayment(PAYMENT_ID, snapshot()));
@@ -470,7 +470,7 @@ class PaymentServiceTest {
         Payment payment = mock(Payment.class);
         when(payment.isProcessing()).thenReturn(true);
         when(payment.isExpired(any())).thenReturn(true);
-        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
+        when(paymentRepository.findForUpdateByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment));
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> paymentService.completePayment(PAYMENT_ID, snapshot()));
@@ -490,7 +490,7 @@ class PaymentServiceTest {
         // completePayment가 이제 PaymentResponse를 반환하므로(카카오페이 연동, -73)
         // 응답 조립에 쓰이는 슬롯 만료 시각도 스텁이 필요하다.
         when(payment.getSlotExpiresAt()).thenReturn(LocalDateTime.now());
-        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
+        when(paymentRepository.findForUpdateByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment));
         when(groupBuySlotPort.confirm(GROUP_BUY_ID)).thenReturn(slotView());
         ParticipationWriterPort.ParticipationRecord participationRecord =
                 new ParticipationWriterPort.ParticipationRecord(300L, GROUP_BUY_ID, USER_ID);
@@ -513,7 +513,7 @@ class PaymentServiceTest {
 
     @Test
     void failPaymentFailsWhenPaymentMissing() {
-        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.empty());
+        when(paymentRepository.findForUpdateByPaymentId(PAYMENT_ID)).thenReturn(Optional.empty());
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> paymentService.failPayment(PAYMENT_ID, "H1054"));
@@ -525,7 +525,7 @@ class PaymentServiceTest {
     void failPaymentDoesNothingWhenAlreadyResolved() {
         Payment payment = mock(Payment.class);
         when(payment.isProcessing()).thenReturn(false);
-        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
+        when(paymentRepository.findForUpdateByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment));
 
         paymentService.failPayment(PAYMENT_ID, "H1054");
 
@@ -538,7 +538,7 @@ class PaymentServiceTest {
         Payment payment = mock(Payment.class);
         when(payment.isProcessing()).thenReturn(true);
         when(payment.getGroupBuyId()).thenReturn(GROUP_BUY_ID);
-        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
+        when(paymentRepository.findForUpdateByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment));
 
         paymentService.failPayment(PAYMENT_ID, "H1054");
 

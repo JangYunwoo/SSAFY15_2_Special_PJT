@@ -187,7 +187,8 @@ public class PaymentService {
 
     @Transactional
     public void abort(Long userId, Long paymentId) {
-        Payment payment = findOwnedPayment(userId, paymentId);
+        Payment payment = paymentRepository.findForUpdateByPaymentIdAndUserId(paymentId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_ACCESS_DENIED));
         if (!payment.isProcessing()) {
             throw new BusinessException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
         }
@@ -215,7 +216,7 @@ public class PaymentService {
      */
     @Transactional
     public void expireSlotIfDue(Long paymentId) {
-        Payment payment = paymentRepository.findById(paymentId).orElse(null);
+        Payment payment = paymentRepository.findForUpdateByPaymentId(paymentId).orElse(null);
         if (payment == null || !payment.isProcessing() || !payment.isExpired(LocalDateTime.now(clock))) {
             return;
         }
@@ -234,7 +235,7 @@ public class PaymentService {
      */
     @Transactional
     public void failPayment(Long paymentId, String reason) {
-        Payment payment = paymentRepository.findById(paymentId)
+        Payment payment = paymentRepository.findForUpdateByPaymentId(paymentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "결제를 찾을 수 없습니다."));
         if (!payment.isProcessing()) {
             return;
@@ -262,7 +263,7 @@ public class PaymentService {
      */
     @Transactional
     public PaymentResponse completePayment(Long paymentId, ParticipationSnapshot snapshot) {
-        Payment payment = paymentRepository.findById(paymentId)
+        Payment payment = paymentRepository.findForUpdateByPaymentId(paymentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "결제를 찾을 수 없습니다."));
         if (!payment.isProcessing()) {
             throw new BusinessException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
