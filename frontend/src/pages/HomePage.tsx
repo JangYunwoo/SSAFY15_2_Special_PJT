@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { groupBuyQueries } from '@/entities/groupBuy/queries'
 import { recommendationQueries } from '@/entities/recommendation/queries'
-import { useIsSignedIn } from '@/features/auth/sessionStore'
+import { useActor, useIsSignedIn } from '@/features/auth/sessionStore'
 import { GroupBuyCarousel } from '@/features/groupBuy/GroupBuyCarousel'
 import { GroupBuyGrid } from '@/features/groupBuy/GroupBuyGrid'
 import { recordRecommendationEvents } from '@/features/recommendation/tracking'
@@ -16,6 +16,8 @@ const PREVIEW_SIZE = 8
 export function HomePage() {
   useDocumentTitle()
   const isSignedIn = useIsSignedIn()
+  const actor = useActor()
+  const userId = isSignedIn ? actor?.id ?? null : null
 
   const query = useQuery(
     groupBuyQueries.list({
@@ -25,12 +27,12 @@ export function HomePage() {
     }),
   )
   const recommendationQuery = useQuery({
-    ...recommendationQueries.list(PREVIEW_SIZE),
-    enabled: isSignedIn,
+    ...recommendationQueries.list(userId, PREVIEW_SIZE),
+    enabled: userId !== null,
   })
   const recommended = useMemo(
-    () => recommendationQuery.data?.items ?? [],
-    [recommendationQuery.data?.items],
+    () => userId === null ? [] : recommendationQuery.data?.items ?? [],
+    [userId, recommendationQuery.data?.items],
   )
   const personalized = recommended.length > 0
   const recommendedItems = recommended.map((item) => item.groupBuy)
@@ -121,6 +123,7 @@ export function HomePage() {
 
       <div className="mt24">
         <GroupBuyCarousel
+          key={userId}
           items={recommendedItems}
           label="회원님을 위한 공동구매"
           reasons={reasons}
