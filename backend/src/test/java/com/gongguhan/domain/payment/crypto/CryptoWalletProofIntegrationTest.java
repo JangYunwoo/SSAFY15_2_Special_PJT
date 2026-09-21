@@ -60,6 +60,7 @@ class CryptoWalletProofIntegrationTest {
                 slot_marker,idempotency_key,status,created_at,updated_at)
                 VALUES(?,?,1,1,'CRYPTO',1000,?,'Y',?,'PROCESSING',NOW(),NOW())
                 """, id, id, now.plusMinutes(10), "proof-" + id);
+        jdbc.update("UPDATE payments SET prepare_crypto_asset_id=? WHERE payment_id=?", id, id);
         jdbc.update("""
                 INSERT INTO crypto_assets(asset_id,symbol,chain_id,chain_name,token_contract,decimals,required_confirmations,enabled,created_at)
                 VALUES(?, ?,80002,'Polygon Amoy','0xcccccccccccccccccccccccccccccccccccccccc',6,5,TRUE,NOW())
@@ -132,6 +133,24 @@ class CryptoWalletProofIntegrationTest {
         var proof = issue();
         jdbc.update("UPDATE crypto_assets SET chain_id=1 WHERE asset_id=?", id);
         assertThatThrownBy(() -> record(request(proof))).isInstanceOf(BusinessException.class);
+        verifyNoInteractions(records);
+    }
+
+    @ParameterizedTest @ValueSource(booleans = {true, false})
+    void differentOrUnknownOriginalAssetCannotIssueChallenge(boolean unknown) {
+        jdbc.update("UPDATE payments SET prepare_crypto_asset_id=? WHERE payment_id=?", unknown ? null : id + 1, id);
+        assertThatThrownBy(this::issue).isInstanceOf(BusinessException.class);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM crypto_wallet_challenges WHERE payment_id=?", Integer.class, id)).isZero();
+        verifyNoInteractions(records);
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"ASSET", "AMOUNT"})
+    void paymentBindingChangeDuringRpcCannotConsumeProofOrRecord(String mutation) {
+        var proof = issue(); var signed = request(proof);
+        if ("ASSET".equals(mutation)) jdbc.update("UPDATE payments SET prepare_crypto_asset_id=? WHERE payment_id=?", id + 1, id);
+        else jdbc.update("UPDATE payments SET krw_amount=2000 WHERE payment_id=?", id);
+        assertThatThrownBy(() -> record(signed)).isInstanceOf(BusinessException.class);
+        assertThat(challenges.findById(proof.challengeId()).orElseThrow().isConsumed()).isFalse();
         verifyNoInteractions(records);
     }
 

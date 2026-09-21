@@ -1,6 +1,7 @@
 package com.gongguhan.domain.payment.crypto;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 import com.gongguhan.domain.payment.crypto.dto.*;
 import com.gongguhan.domain.payment.crypto.service.*;
@@ -38,6 +39,7 @@ class CryptoSignedSubmissionIntegrationTest {
                 slot_marker,idempotency_key,status,created_at,updated_at)
                 VALUES(880001,880001,1,1,'CRYPTO',1000,?,'Y','signed-fixture','PROCESSING',NOW(),NOW())
                 """, now.plusMinutes(10));
+        jdbc.update("UPDATE payments SET prepare_crypto_asset_id=880001 WHERE payment_id=880001");
         jdbc.update("""
                 INSERT INTO crypto_assets(asset_id,symbol,chain_id,chain_name,token_contract,decimals,required_confirmations,enabled,created_at)
                 VALUES(880001,'USDT',80002,'Polygon Amoy',?,6,5,TRUE,NOW())
@@ -51,6 +53,12 @@ class CryptoSignedSubmissionIntegrationTest {
         var sig = Sign.signPrefixedMessage(challenge.message().getBytes(StandardCharsets.UTF_8), key);
         var signature = "0x" + Numeric.toHexStringNoPrefix(sig.getR()) + Numeric.toHexStringNoPrefix(sig.getS()) + Numeric.toHexStringNoPrefix(sig.getV());
         var request = new CryptoTxSubmitRequest(880001L, hash, from, challenge.challengeId(), signature);
+        // 발급 후 검증 전에 원선택이 달라지면 RPC 자체를 호출하지 않는다.
+        jdbc.update("UPDATE payments SET prepare_crypto_asset_id=880002 WHERE payment_id=880001");
+        assertThatThrownBy(() -> service.submitTransaction(1L, 880001L, request))
+                .isInstanceOf(com.gongguhan.global.error.BusinessException.class);
+        verifyNoInteractions(chain);
+        jdbc.update("UPDATE payments SET prepare_crypto_asset_id=880001 WHERE payment_id=880001");
         when(chain.findReceipt(hash)).thenReturn(Optional.of(new ChainClient.ReceiptView(true, 100,
                 List.of(new ChainClient.TransferLog(token, from, to, BigInteger.valueOf(1000000), 0)))));
         when(chain.getLatestBlockNumber()).thenReturn(100L);

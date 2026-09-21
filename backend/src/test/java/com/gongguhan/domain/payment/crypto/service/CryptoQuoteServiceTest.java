@@ -79,7 +79,7 @@ class CryptoQuoteServiceTest {
     /** 슬롯이 {@code slotTtlSeconds}초 뒤 만료되는 코인 결제 건. */
     private Payment cryptoPayment(long slotTtlSeconds) {
         return Payment.prepare(100L, USER_ID, ADDRESS_ID, "CRYPTO", KRW_AMOUNT,
-                NOW_LDT.plusSeconds(slotTtlSeconds), "idem-crypto-1");
+                NOW_LDT.plusSeconds(slotTtlSeconds), "idem-crypto-1", ASSET_ID);
     }
 
     private CryptoAsset usdt() {
@@ -133,6 +133,30 @@ class CryptoQuoteServiceTest {
 
     private CryptoQuoteRequest request() {
         return new CryptoQuoteRequest(ASSET_ID);
+    }
+
+    @Test
+    void rejectsAssetDifferentFromOriginalPrepareBeforeRateLookup() {
+        Payment payment = Payment.prepare(100L, USER_ID, ADDRESS_ID, "CRYPTO", KRW_AMOUNT,
+                NOW_LDT.plusSeconds(600), "asset-changed", ASSET_ID + 1);
+        givenIssuableContext(payment, 600);
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> cryptoQuoteService.issueQuote(USER_ID, PAYMENT_ID, request()));
+        assertEquals(ErrorCode.PAYMENT_REQUEST_CONFLICT, error.getErrorCode());
+        verify(exchangeRateProvider, never()).getKrwRate(any());
+        verify(cryptoQuoteRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectsUnknownLegacyAssetWithoutGuessingFromRequestedQuote() {
+        Payment payment = Payment.prepare(100L, USER_ID, ADDRESS_ID, "CRYPTO", KRW_AMOUNT,
+                NOW_LDT.plusSeconds(600), "legacy-asset");
+        givenIssuableContext(payment, 600);
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> cryptoQuoteService.issueQuote(USER_ID, PAYMENT_ID, request()));
+        assertEquals(ErrorCode.PAYMENT_REQUEST_CONFLICT, error.getErrorCode());
+        verify(exchangeRateProvider, never()).getKrwRate(any());
+        verify(cryptoQuoteRepository, never()).save(any());
     }
 
     // ------------------------------------------------------------------
