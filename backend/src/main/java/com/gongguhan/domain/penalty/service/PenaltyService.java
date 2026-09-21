@@ -82,11 +82,12 @@ public class PenaltyService {
     @Transactional
     public SellerPenalty confirm(Long adminId, Long penaltyId, String memo) {
         SellerPenalty penalty = load(penaltyId);
+        // 일반 조회/정책 조회보다 먼저 잠근다. 다른 판정의 누적과 프로필 수정을 함께 보호한다.
+        SellerProfile seller = loadSeller(penalty.getSellerId());
         LocalDateTime now = LocalDateTime.now(clock);
         penalty.confirm(adminId, memo, now);
 
         int limit = penaltyLimit();
-        SellerProfile seller = loadSeller(penalty.getSellerId());
         seller.recordPenalty(limit);
 
         // 비정규화 값이 아니라 원장을 세어 알린다. 둘이 어긋나도 알림은 사실을 말해야 한다.
@@ -142,10 +143,10 @@ public class PenaltyService {
     @Transactional
     public SellerPenalty revoke(Long adminId, Long penaltyId, String memo) {
         SellerPenalty penalty = load(penaltyId);
+        SellerProfile seller = loadSeller(penalty.getSellerId());
         penalty.revoke(adminId, memo, LocalDateTime.now(clock));
 
         int limit = penaltyLimit();
-        SellerProfile seller = loadSeller(penalty.getSellerId());
         seller.revokePenalty(limit);
 
         auditLogService.record(adminId, AuditLogService.TARGET_SELLER_PENALTY, penaltyId,
@@ -174,13 +175,13 @@ public class PenaltyService {
     }
 
     private SellerPenalty load(Long penaltyId) {
-        return penaltyRepository.findById(penaltyId)
+        return penaltyRepository.findForUpdate(penaltyId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND,
                         "위반 기록을 찾을 수 없습니다. penaltyId=" + penaltyId));
     }
 
     private SellerProfile loadSeller(Long sellerId) {
-        return sellerProfileRepository.findById(sellerId)
+        return sellerProfileRepository.findForUpdate(sellerId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND,
                         "판매자를 찾을 수 없습니다. sellerId=" + sellerId));
     }

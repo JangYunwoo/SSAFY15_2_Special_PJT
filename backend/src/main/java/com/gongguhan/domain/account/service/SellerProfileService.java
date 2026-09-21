@@ -26,7 +26,9 @@ public class SellerProfileService {
 
     @Transactional
     public SellerProfileResponse updateProfile(Long sellerId, SellerProfileUpdateRequest request) {
-        SellerProfile profile = findProfile(sellerId);
+        // Hibernate의 전체 행 갱신이 동시 제재의 횟수/정지 상태를 덮어쓰지 않게 한다.
+        SellerProfile profile = sellerProfileRepository.findForUpdate(sellerId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "판매자 프로필을 찾을 수 없습니다."));
         profile.update(request.businessPhone(), request.ssafyAccountNo(), request.accountHolder(),
                 request.returnZipcode(), request.returnAddress1(), request.returnAddress2());
         return SellerProfileResponse.from(profile);

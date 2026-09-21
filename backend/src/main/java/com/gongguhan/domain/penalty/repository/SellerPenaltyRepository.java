@@ -2,11 +2,21 @@ package com.gongguhan.domain.penalty.repository;
 
 import com.gongguhan.domain.penalty.entity.SellerPenalty;
 import java.util.List;
+import java.util.Optional;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface SellerPenaltyRepository extends JpaRepository<SellerPenalty, Long> {
+
+    /** 판정의 상태 확인과 변경을 하나로 직렬화한다. 다음 잠금은 판매자 행이다. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from SellerPenalty p where p.penaltyId = :id")
+    Optional<SellerPenalty> findForUpdate(@Param("id") Long id);
 
     /** 위반 후보 중복 생성 방지 - 같은 공동구매·같은 사유는 상태와 무관하게 1건만 둔다. */
     boolean existsByGroupBuyIdAndReasonType(Long groupBuyId, String reasonType);
