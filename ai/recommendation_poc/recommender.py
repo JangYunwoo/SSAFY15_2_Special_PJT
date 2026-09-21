@@ -54,8 +54,12 @@ def _normalized(scores: dict[object, float]) -> dict[object, float]:
 
 def build_user_profile(events: pd.DataFrame, user_id: int, now: pd.Timestamp) -> UserPreferenceProfile:
     """현재 시점 이전의 행동만으로 사용자 브랜드·카테고리 선호를 계산한다."""
+    reference = pd.Timestamp(now)
+    if reference.tzinfo is None:
+        reference = reference.tz_localize("UTC")
     history = events.loc[
         (events["user_id"] == user_id) & events["event_type"].isin(EVENT_WEIGHTS)
+        & (pd.to_datetime(events["occurred_at"], utc=True) <= reference)
     ].copy()
     if history.empty:
         return UserPreferenceProfile(
@@ -64,9 +68,6 @@ def build_user_profile(events: pd.DataFrame, user_id: int, now: pd.Timestamp) ->
         )
 
     occurred_at = pd.to_datetime(history["occurred_at"], utc=True)
-    reference = pd.Timestamp(now)
-    if reference.tzinfo is None:
-        reference = reference.tz_localize("UTC")
     age_hours = ((reference - occurred_at).dt.total_seconds() / 3600).clip(lower=0)
     history["event_score"] = history["event_type"].map(EVENT_WEIGHTS).fillna(0.0)
     history["event_score"] *= 0.5 ** (age_hours / (24 * 14))
@@ -179,6 +180,9 @@ def recommend(
         candidates = candidates.loc[candidates["status"] == "RECRUITING"].copy()
 
     events = events.copy()
+    # 하나의 기준시각으로 선호도, 학습, 최근 구매 감점의 관측 범위를 맞춘다.
+    events["occurred_at"] = pd.to_datetime(events["occurred_at"], utc=True)
+    events = events.loc[events["occurred_at"] <= now].copy()
     event_features = [
         "product_id",
         "brand",
