@@ -11,6 +11,11 @@ import com.gongguhan.domain.participation.repository.ParticipationRepository;
 import com.gongguhan.domain.payment.common.port.ParticipationWriterPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import org.mockito.ArgumentCaptor;
 
 class ParticipationWriterAdapterTest {
 
@@ -23,7 +28,8 @@ class ParticipationWriterAdapterTest {
     @BeforeEach
     void setUp() {
         participationRepository = mock(ParticipationRepository.class);
-        adapter = new ParticipationWriterAdapter(participationRepository);
+        adapter = new ParticipationWriterAdapter(participationRepository,
+                Clock.fixed(Instant.parse("2026-09-21T03:04:05Z"), ZoneId.of("Asia/Seoul")));
     }
 
     @Test
@@ -49,5 +55,16 @@ class ParticipationWriterAdapterTest {
         verify(participationRepository).saveAndFlush(any(Participation.class));
         assertEquals(GROUP_BUY_ID, result.groupBuyId());
         assertEquals(USER_ID, result.userId());
+        ArgumentCaptor<Participation> captured = ArgumentCaptor.forClass(Participation.class);
+        verify(participationRepository).saveAndFlush(captured.capture());
+        assertEquals(LocalDateTime.of(2026, 9, 21, 3, 4, 5), captured.getValue().getJoinedAt());
+    }
+
+    @Test
+    void explicitUtcTimestampIsPreservedWithoutHostTimeLookup() {
+        LocalDateTime utc = LocalDateTime.of(2020, 1, 2, 3, 4, 5);
+        Participation participation = Participation.create(100L, 1L, 1000, 0, 1000,
+                "테스트", "01012345678", "04524", "서울", "101호", utc);
+        assertEquals(utc, participation.getJoinedAt());
     }
 }

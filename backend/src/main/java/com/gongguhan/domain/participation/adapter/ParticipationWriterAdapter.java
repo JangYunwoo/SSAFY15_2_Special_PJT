@@ -4,6 +4,9 @@ import com.gongguhan.domain.participation.entity.Participation;
 import com.gongguhan.domain.participation.repository.ParticipationRepository;
 import com.gongguhan.domain.payment.common.port.ParticipationWriterPort;
 import org.springframework.stereotype.Component;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 /**
  * {@link ParticipationWriterPort}의 participation 도메인 구현체 (S15P21B205-105).
@@ -17,9 +20,11 @@ import org.springframework.stereotype.Component;
 public class ParticipationWriterAdapter implements ParticipationWriterPort {
 
     private final ParticipationRepository participationRepository;
+    private final Clock clock;
 
-    public ParticipationWriterAdapter(ParticipationRepository participationRepository) {
+    public ParticipationWriterAdapter(ParticipationRepository participationRepository, Clock clock) {
         this.participationRepository = participationRepository;
+        this.clock = clock;
     }
 
     @Override
@@ -34,7 +39,7 @@ public class ParticipationWriterAdapter implements ParticipationWriterPort {
                 command.groupBuyId(), command.userId(),
                 command.shareAmount(), command.shippingFee(), command.totalAmount(),
                 command.recipientName(), command.recipientPhone(), command.zipcode(),
-                command.address1(), command.address2());
+                command.address1(), command.address2(), LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
         participationRepository.saveAndFlush(participation);
         return new ParticipationRecord(
                 participation.getParticipationId(), participation.getGroupBuyId(), participation.getUserId());

@@ -9,6 +9,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.Objects;
 import org.hibernate.annotations.ColumnDefault;
 
 @Entity
@@ -101,7 +103,7 @@ public class Participation {
 
     private Participation(Long groupBuyId, Long userId, long shareAmount, long shippingFee, long totalAmount,
                            String recipientName, String recipientPhone, String zipcode,
-                           String address1, String address2) {
+                           String address1, String address2, LocalDateTime joinedAt) {
         this.groupBuyId = groupBuyId;
         this.userId = userId;
         this.shareAmount = shareAmount;
@@ -113,7 +115,7 @@ public class Participation {
         this.address1 = address1;
         this.address2 = address2;
         this.status = STATUS_PAID;
-        this.joinedAt = LocalDateTime.now();
+        this.joinedAt = Objects.requireNonNull(joinedAt, "joinedAt");
         this.activeMarker = ACTIVE_MARKER;
     }
 
@@ -121,7 +123,15 @@ public class Participation {
                                         long totalAmount, String recipientName, String recipientPhone,
                                         String zipcode, String address1, String address2) {
         return new Participation(groupBuyId, userId, shareAmount, shippingFee, totalAmount,
-                recipientName, recipientPhone, zipcode, address1, address2);
+                recipientName, recipientPhone, zipcode, address1, address2, LocalDateTime.now(ZoneOffset.UTC));
+    }
+
+    /** 서비스 Clock으로 확정한 UTC 시각을 전달한다. 호스트 지역 시각을 저장하지 않는다. */
+    public static Participation create(Long groupBuyId, Long userId, long shareAmount, long shippingFee,
+                                        long totalAmount, String recipientName, String recipientPhone,
+                                        String zipcode, String address1, String address2, LocalDateTime joinedAt) {
+        return new Participation(groupBuyId, userId, shareAmount, shippingFee, totalAmount,
+                recipientName, recipientPhone, zipcode, address1, address2, joinedAt);
     }
 
     /** 모집 완료 판정 시 일괄 전환된다 (PAID → FULFILLED). */
