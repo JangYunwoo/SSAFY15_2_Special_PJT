@@ -13,7 +13,7 @@ import { number, percent, won } from '@/shared/lib/format'
 import type { SubmitHandlerEvent } from '@/shared/lib/dom'
 import { useDebouncedValue } from '@/shared/lib/hooks/useDebouncedValue'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
-import { Button } from '@/shared/ui/Button'
+import { Button, ButtonLink } from '@/shared/ui/Button'
 import { DataRow, TotalRow } from '@/shared/ui/DataRow'
 import { SelectField, TextField } from '@/shared/ui/Field'
 import { Panel } from '@/shared/ui/Panel'
@@ -44,9 +44,10 @@ export default function SellerGroupBuyNewPage() {
           <h2 className="sec-title">공동구매 생성</h2>
           <p className="sec-sub">2단계 · 등록된 상품에 모집 조건을 설정합니다.</p>
         </div>
+        <ButtonLink to="/seller/products/new" variant="ghost">새 상품 등록</ButtonLink>
       </div>
 
-      <Steps steps={STEPS} current={1} />
+      <Steps steps={STEPS} current={1} links={['/seller/products/new', null]} />
 
       <QueryBoundary query={products}>
         {(page) => {
@@ -60,6 +61,7 @@ export default function SellerGroupBuyNewPage() {
                   공동구매에 연결되지 않은 상품이 있어야 모집을 열 수 있습니다. 먼저 상품을 등록해
                   주세요.
                 </p>
+                <ButtonLink to="/seller/products/new">상품 등록하기</ButtonLink>
               </Panel>
             )
           }
