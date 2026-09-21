@@ -2,6 +2,8 @@ package com.gongguhan.domain.payment.common.controller;
 
 import com.gongguhan.domain.payment.common.dto.PaymentPrepareRequest;
 import com.gongguhan.domain.payment.common.dto.PaymentResponse;
+import com.gongguhan.domain.payment.common.dto.PaymentHistoryResponse;
+import com.gongguhan.domain.payment.common.service.PaymentHistoryService;
 import com.gongguhan.domain.payment.common.service.PaymentService;
 import com.gongguhan.global.common.ApiResponse;
 import com.gongguhan.global.common.PageResponse;
@@ -27,9 +29,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class PaymentController {
 
     private final PaymentService paymentService;
+    private final PaymentHistoryService paymentHistoryService;
 
-    public PaymentController(PaymentService paymentService) {
+    public PaymentController(PaymentService paymentService, PaymentHistoryService paymentHistoryService) {
         this.paymentService = paymentService;
+        this.paymentHistoryService = paymentHistoryService;
     }
 
     @PostMapping("/group-buys/{groupBuyId}/payments/prepare")
@@ -63,11 +67,11 @@ public class PaymentController {
     }
 
     @GetMapping("/users/me/payments")
-    public ResponseEntity<ApiResponse<List<PaymentResponse>>> listHistory(
+    public ResponseEntity<ApiResponse<List<PaymentHistoryResponse>>> listHistory(
             @AuthenticationPrincipal Long userId,
             @PageableDefault(size = 20) Pageable pageable,
             HttpServletRequest httpRequest) {
-        Page<PaymentResponse> page = paymentService.listHistory(userId, pageable);
+        Page<PaymentHistoryResponse> page = paymentHistoryService.listHistory(userId, pageable);
         return ResponseEntity.ok(ApiResponse.success(
                 page.getContent(), PageResponse.from(page), TraceIdUtils.from(httpRequest)));
     }
