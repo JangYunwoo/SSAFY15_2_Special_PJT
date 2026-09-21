@@ -74,7 +74,7 @@ public class ParticipationQueryService {
                 summary.autoConfirmAt(), summary.withdrawalDeadlineAt(), summary.confirmedAt(),
                 summary.autoConfirmed(),
                 row.paymentId(),
-                row.recipientName(), row.recipientPhone(), row.zipcode(), row.address1(), row.address2(),
+                row.recipientName(), row.recipientPhone(), row.zipcode(), row.address1(), row.address2(), row.deliveryRequest(),
                 buildHistory(row),
                 canCancel(row),
                 canConfirm(row),

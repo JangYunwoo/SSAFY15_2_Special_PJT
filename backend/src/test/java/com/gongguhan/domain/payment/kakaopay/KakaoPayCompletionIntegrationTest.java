@@ -99,5 +99,7 @@ class KakaoPayCompletionIntegrationTest {
                 VALUES (?, ?, ?, 501, 'KAKAOPAY', 54000, ?, 'Y', 'ready-idem',
                         'PROCESSING', NOW(), NOW())
                 """, PAYMENT_ID, GROUP_BUY_ID, USER_ID, expiresAt);
+        // ready/approve 오케스트레이터를 건너뛰는 원자성 시험이므로 준비 스냅샷을 명시한다.
+        jdbcTemplate.update("UPDATE payments SET shipping_recipient_name='김구매',shipping_recipient_phone='01012345678',shipping_zipcode='06236',shipping_address1='서울시 강남구',shipping_address2='101호' WHERE payment_id=?",PAYMENT_ID);
     }
 }

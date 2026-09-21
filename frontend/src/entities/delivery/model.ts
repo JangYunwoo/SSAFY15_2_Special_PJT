@@ -10,6 +10,7 @@ export interface Delivery {
   zipcode: string
   address1: string
   address2: string
+  deliveryRequest?: string | null
   status: DeliveryStatus
   carrierCode: string | null
   carrierName: string | null

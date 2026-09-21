@@ -19,28 +19,29 @@ const controller = new PaymentSlotController({
 })
 
 interface Args {
+  deliveryRequest?: string | null
   groupBuyId: string
   addressId: string | null
   method: PaymentMethod | null
   cryptoAssetId?: string | null
 }
 
-export function usePaymentSlot({ groupBuyId, addressId, method, cryptoAssetId = null }: Args) {
+export function usePaymentSlot({ groupBuyId, addressId, method, cryptoAssetId = null, deliveryRequest = null }: Args) {
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot)
   const now = useNow()
   const setPaymentId = useCheckoutStore((state) => state.setPaymentId)
   const selection = method !== null && addressId !== null &&
     (method !== 'CRYPTO' || (cryptoAssetId?.trim().length ?? 0) > 0)
-    ? { groupBuyId, addressId, method, cryptoAssetId: method === 'CRYPTO' ? cryptoAssetId : null }
+    ? { groupBuyId, addressId, method, cryptoAssetId: method === 'CRYPTO' ? cryptoAssetId : null, deliveryRequest }
     : null
 
   useEffect(() => {
     controller.select(method !== null && addressId !== null &&
       (method !== 'CRYPTO' || (cryptoAssetId?.trim().length ?? 0) > 0)
-      ? { groupBuyId, addressId, method, cryptoAssetId: method === 'CRYPTO' ? cryptoAssetId : null }
+      ? { groupBuyId, addressId, method, cryptoAssetId: method === 'CRYPTO' ? cryptoAssetId : null, deliveryRequest }
       : null)
     return () => { controller.select(null) }
-  }, [groupBuyId, addressId, method, cryptoAssetId])
+  }, [groupBuyId, addressId, method, cryptoAssetId, deliveryRequest])
 
   const matches = selectionKey(selection) === selectionKey(snapshot.selection)
   const payment = matches && !snapshot.busy && isUsablePayment(snapshot.payment, selection, now)

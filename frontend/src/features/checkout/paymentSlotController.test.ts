@@ -32,6 +32,27 @@ function setup() {
 }
 
 describe('결제 슬롯 전환 직렬화', () => {
+  it('일회성 배송 요청을 전송하며 변경 시 이전 슬롯을 해제하고 새 키로 준비한다', async () => {
+    const { controller, prepare, abort } = setup()
+    controller.select({ ...card, deliveryRequest: '문 앞' })
+    await flush()
+    controller.select({ ...card, deliveryRequest: '' })
+    await flush()
+    expect(prepare.mock.calls[0]?.[1].deliveryRequest).toBe('문 앞')
+    expect(prepare.mock.calls[1]?.[1].deliveryRequest).toBe('')
+    expect(abort).toHaveBeenCalledWith('1')
+    expect(abort.mock.invocationCallOrder[0]).toBeLessThan(prepare.mock.invocationCallOrder[1] ?? 0)
+    expect(prepare.mock.calls[0]?.[2]).not.toBe(prepare.mock.calls[1]?.[2])
+  })
+  it('배송 요청 포함 통신 실패 재시도는 같은 본문과 키를 유지한다', async () => {
+    const { controller, prepare } = setup()
+    prepare.mockRejectedValueOnce(new TypeError('network'))
+    controller.select({ ...kakao, deliveryRequest: '경비실' })
+    await flush()
+    controller.retry()
+    await flush()
+    expect(prepare.mock.calls[0]).toEqual(prepare.mock.calls[1])
+  })
   it('완료 구독 콜백에서 바뀐 선택도 유실하지 않는다', async () => {
     const { controller } = setup()
     controller.subscribe(() => {

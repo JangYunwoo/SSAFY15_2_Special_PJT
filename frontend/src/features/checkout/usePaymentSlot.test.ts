@@ -38,7 +38,7 @@ describe('명시적 수단 및 B07 자산 선택 게이트', () => {
   })
   it.each(['CARD', 'KAKAOPAY'] as const)('%s는 자산 없이 준비 가능하다', (method) => {
     render(method, 'address', null)
-    expect(mocks.select).toHaveBeenCalledWith({ groupBuyId: 'group', addressId: 'address', method, cryptoAssetId: null })
+    expect(mocks.select).toHaveBeenCalledWith({ groupBuyId: 'group', addressId: 'address', method, cryptoAssetId: null, deliveryRequest: null })
   })
   it.each(['CARD', 'KAKAOPAY', 'CRYPTO'] as const)('%s도 배송지 없이 준비하지 않는다', (method) => {
     render(method, null, 'asset')
@@ -47,7 +47,7 @@ describe('명시적 수단 및 B07 자산 선택 게이트', () => {
   it('자산 변경을 현재 선택 ID로 전달한다', () => {
     for (const cryptoAssetId of ['asset-1', 'asset-2']) {
       render('CRYPTO', 'address', cryptoAssetId)
-      expect(mocks.select).toHaveBeenLastCalledWith({ groupBuyId: 'group', addressId: 'address', method: 'CRYPTO', cryptoAssetId })
+      expect(mocks.select).toHaveBeenLastCalledWith({ groupBuyId: 'group', addressId: 'address', method: 'CRYPTO', cryptoAssetId, deliveryRequest: null })
     }
   })
 })

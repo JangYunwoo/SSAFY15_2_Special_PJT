@@ -40,6 +40,7 @@ class CryptoSignedSubmissionIntegrationTest {
                 VALUES(880001,880001,1,1,'CRYPTO',1000,?,'Y','signed-fixture','PROCESSING',NOW(),NOW())
                 """, now.plusMinutes(10));
         jdbc.update("UPDATE payments SET prepare_crypto_asset_id=880001 WHERE payment_id=880001");
+        jdbc.update("UPDATE payments SET shipping_recipient_name='QA',shipping_recipient_phone='01000000000',shipping_zipcode='00000',shipping_address1='QA' WHERE payment_id=880001");
         jdbc.update("""
                 INSERT INTO crypto_assets(asset_id,symbol,chain_id,chain_name,token_contract,decimals,required_confirmations,enabled,created_at)
                 VALUES(880001,'USDT',80002,'Polygon Amoy',?,6,5,TRUE,NOW())

@@ -7,6 +7,7 @@ import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
 import com.gongguhan.domain.payment.common.dto.PaymentPrepareRequest;
 import com.gongguhan.domain.payment.common.dto.PaymentResponse;
 import com.gongguhan.domain.payment.common.entity.Payment;
+import com.gongguhan.domain.payment.common.entity.PaymentShippingSnapshot;
 import com.gongguhan.domain.payment.common.port.GroupBuySlotPort;
 import com.gongguhan.domain.payment.common.port.ParticipationWriterPort;
 import com.gongguhan.domain.payment.common.repository.PaymentRepository;
@@ -97,11 +98,14 @@ class PaymentSlotReservationTransaction {
         long ttlSeconds = METHOD_CRYPTO.equals(request.method()) ? TTL_CRYPTO_SECONDS : TTL_CARD_KAKAOPAY_SECONDS;
         LocalDateTime slotExpiresAt = now.plusSeconds(ttlSeconds);
 
-        // 고른 배송지를 결제 건에 남긴다. 승인 완료 시 참여 건 배송지의 출처가 된다.
-        // 코인 결제는 스케줄러가 완료 처리하므로 그 시점에 요청 컨텍스트가 없다.
+        // 주소록은 수정·삭제될 수 있으므로 결제 준비 시점의 값 자체를 보존한다.
         Payment payment = Payment.prepare(
                 groupBuyId, userId, address.getAddressId(), request.method(), totalAmount,
                 slotExpiresAt, idempotencyKey, request.cryptoAssetId());
+        payment.captureShipping(new PaymentShippingSnapshot(address.getRecipientName(), address.getRecipientPhone(),
+                address.getZipcode(), address.getAddress1(), address.getAddress2(),
+                request.deliveryRequest() == null ? address.getDeliveryRequest() : request.deliveryRequest()),
+                request.deliveryRequest());
         try {
             paymentRepository.saveAndFlush(payment);
         } catch (DataIntegrityViolationException e) {

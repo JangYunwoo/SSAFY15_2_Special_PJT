@@ -3,6 +3,7 @@ package com.gongguhan.domain.payment.common.entity;
 import com.gongguhan.global.common.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -36,13 +37,9 @@ public class Payment extends BaseTimeEntity {
     private Long userId;
 
     /**
-     * 결제 시작 시 구매자가 고른 배송지.
-     *
-     * <p>승인 완료 시 참여 건의 배송지 스냅샷을 만들 출처다. 코인 결제는 컨펌 도달을
-     * 기다리는 스케줄러가 완료 처리하므로 그 시점에 HTTP 요청이 없어, 결제 건에
-     * 남겨두지 않으면 배송지를 알 방법이 없다.
-     *
-     * <p>V3 이전에 생성된 행은 NULL 이다.
+     * 결제 시작 시 고른 주소 ID. V22부터 원본 요청 비교/선택 이력으로만 보관한다.
+     * 주소록이 삭제되어도 ID를 지우지 않으며 실제 배송 정보는 shippingSnapshot을 사용한다.
+     * V3 이전 행의 NULL 주소는 외부 승인 전에 검증하여 잘못된 청구를 차단한다.
      */
     @Column(name = "address_id")
     private Long addressId;
@@ -50,6 +47,21 @@ public class Payment extends BaseTimeEntity {
     /** Original prepare request asset; quote creation must not change the retry contract. */
     @Column(name = "prepare_crypto_asset_id")
     private Long prepareCryptoAssetId;
+    @Embedded
+    private PaymentShippingSnapshot shippingSnapshot;
+
+    /** null(주소 기본값 사용)과 빈 문자열(요청 없음)을 멱등 비교에서도 구분한다. */
+    @Column(name = "prepare_delivery_request", length = 100)
+    private String prepareDeliveryRequest;
+
+    public void captureShipping(PaymentShippingSnapshot snapshot, String requestedDeliveryRequest) {
+        if (shippingSnapshot != null) throw new IllegalStateException("배송지 스냅샷은 변경할 수 없습니다.");
+        shippingSnapshot = java.util.Objects.requireNonNull(snapshot);
+        prepareDeliveryRequest = requestedDeliveryRequest;
+    }
+
+    public PaymentShippingSnapshot getShippingSnapshot() { return shippingSnapshot; }
+    public String getPrepareDeliveryRequest() { return prepareDeliveryRequest; }
 
     @Column(name = "participation_id")
     private Long participationId;

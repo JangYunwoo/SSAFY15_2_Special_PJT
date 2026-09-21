@@ -18,6 +18,7 @@ interface DeliveryApiResponse {
   zipcode?: string
   address1?: string
   address2?: string
+  deliveryRequest?: string | null
   participationStatus?: string
   /** 목록은 deliveryStatus, 단건 응답은 status 로 옵니다. */
   deliveryStatus?: string
@@ -52,6 +53,7 @@ function toDelivery(response: DeliveryApiResponse): Delivery {
     zipcode: response.zipcode ?? '',
     address1: response.address1 ?? '',
     address2: response.address2 ?? '',
+    deliveryRequest: response.deliveryRequest ?? null,
     status: (response.deliveryStatus ?? response.status ?? 'READY') as DeliveryStatus,
     carrierCode: response.carrierCode,
     carrierName: carrierNameOf(response.carrierCode),

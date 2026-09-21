@@ -41,6 +41,7 @@ export interface ParticipationDetail extends ParticipationSummary {
   zipcode: string
   address1: string
   address2: string
+  deliveryRequest?: string | null
   history: ParticipationHistoryEntry[]
   canCancel: boolean
   canConfirm: boolean

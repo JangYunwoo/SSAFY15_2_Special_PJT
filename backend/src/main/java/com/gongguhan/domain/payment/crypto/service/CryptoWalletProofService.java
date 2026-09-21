@@ -1,6 +1,7 @@
 package com.gongguhan.domain.payment.crypto.service;
 
 import com.gongguhan.domain.payment.common.entity.Payment;
+import com.gongguhan.domain.payment.common.service.PaymentService;
 import com.gongguhan.domain.payment.common.repository.PaymentRepository;
 import com.gongguhan.domain.payment.crypto.dto.CryptoTxSubmitRequest;
 import com.gongguhan.domain.payment.crypto.dto.CryptoWalletChallengeRequest;
@@ -21,6 +22,7 @@ import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 import org.web3j.crypto.Keys;
 import org.web3j.crypto.Sign;
 import org.web3j.utils.Numeric;
@@ -36,17 +38,21 @@ public class CryptoWalletProofService {
     private final CryptoTxRecordService records;
     private final Clock clock;
     private final String domain;
+    private final PaymentService paymentService;
 
     public CryptoWalletProofService(CryptoWalletChallengeRepository challenges, PaymentRepository payments,
             CryptoQuoteRepository quotes, CryptoAssetRepository assets, CryptoPaymentRepository cryptoPayments,
             CryptoTxRecordService records, Clock clock,
-            @Value("${app.crypto.wallet-proof-domain:j15b205.p.ssafy.io}") String domain) {
+            @Value("${app.crypto.wallet-proof-domain:j15b205.p.ssafy.io}") String domain,
+            PaymentService paymentService) {
         this.challenges = challenges; this.payments = payments; this.quotes = quotes; this.assets = assets;
         this.cryptoPayments = cryptoPayments; this.records = records; this.clock = clock; this.domain = domain;
+        this.paymentService = paymentService;
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public CryptoWalletChallengeResponse issue(Long userId, Long paymentId, CryptoWalletChallengeRequest request) {
+        paymentService.getApprovalContext(userId, paymentId, Payment.METHOD_CRYPTO);
         LocalDateTime now = LocalDateTime.now(clock);
         Payment payment = ownedPayment(userId, paymentId);
         if (!"CRYPTO".equals(payment.getMethod())) throw invalid("코인 결제에만 지갑 증명을 발급합니다.");

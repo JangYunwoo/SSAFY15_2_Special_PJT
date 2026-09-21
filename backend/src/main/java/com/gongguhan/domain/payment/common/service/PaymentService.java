@@ -7,6 +7,7 @@ import com.gongguhan.domain.groupbuy.service.GroupBuySlotGate;
 import com.gongguhan.domain.payment.common.dto.PaymentPrepareRequest;
 import com.gongguhan.domain.payment.common.dto.PaymentResponse;
 import com.gongguhan.domain.payment.common.entity.Payment;
+import com.gongguhan.domain.payment.common.entity.PaymentShippingSnapshot;
 import com.gongguhan.domain.payment.common.port.EscrowWriterPort;
 import com.gongguhan.domain.payment.common.port.GroupBuySlotPort;
 import com.gongguhan.domain.payment.common.port.ParticipationWriterPort;
@@ -160,7 +161,8 @@ public class PaymentService {
         if (!Objects.equals(payment.getGroupBuyId(), groupBuyId)
                 || !Objects.equals(payment.getMethod(), request.method())
                 || !Objects.equals(payment.getAddressId(), request.addressId())
-                || !Objects.equals(payment.getPrepareCryptoAssetId(), request.cryptoAssetId())) {
+                || !Objects.equals(payment.getPrepareCryptoAssetId(), request.cryptoAssetId())
+                || !Objects.equals(payment.getPrepareDeliveryRequest(), request.deliveryRequest())) {
             throw new BusinessException(ErrorCode.PAYMENT_REQUEST_CONFLICT);
         }
         if (!payment.isProcessing()) {
@@ -174,6 +176,9 @@ public class PaymentService {
     }
 
     private static void validatePrepareRequest(PaymentPrepareRequest request) {
+        if (request != null && request.deliveryRequest() != null && request.deliveryRequest().length() > 100) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "배송 요청사항은 100자 이하여야 합니다.");
+        }
         if (request == null || request.addressId() == null || request.addressId() <= 0
                 || !Set.of("CARD", "KAKAOPAY", "CRYPTO").contains(Objects.toString(request.method(), ""))) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
@@ -312,7 +317,7 @@ public class PaymentService {
      * 컨트롤러에 연결되지 않으며, 각 결제수단(CARD-01 등)의 승인 서비스가 승인 성공 시 직접 호출한다.
      */
     @Transactional
-    public PaymentResponse completePayment(Long paymentId, ParticipationSnapshot snapshot) {
+    public PaymentResponse completePayment(Long paymentId) {
         Payment payment = paymentRepository.findForUpdateByPaymentId(paymentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "결제를 찾을 수 없습니다."));
         if (!payment.isProcessing()) {
@@ -326,6 +331,9 @@ public class PaymentService {
             throw new BusinessException(ErrorCode.PAYMENT_SLOT_EXPIRED);
         }
 
+        // 레거시도 승인/견적 이전에 확정되어야 한다. 사후 주소록 조회는 하지 않는다.
+        PaymentShippingSnapshot snapshot = storedSnapshot(payment);
+
         // GroupBuySlotPort.confirm은 findWithLockByGroupBuyId(비관적 락)로 재조회 후
         // confirmParticipant()까지 한 번에 수행한다 - completePayment 전체가 하나의
         // 트랜잭션이라 이 시점에 먼저 호출해도(참여·에스크로 생성 실패 시 롤백되어) 예전과
@@ -337,8 +345,8 @@ public class PaymentService {
                 new ParticipationWriterPort.ParticipationCreateCommand(
                         payment.getGroupBuyId(), payment.getUserId(),
                         groupBuySlot.unitShareAmount(), groupBuySlot.shippingFee(), payment.getKrwAmount(),
-                        snapshot.recipientName(), snapshot.recipientPhone(), snapshot.zipcode(),
-                        snapshot.address1(), snapshot.address2()));
+                        snapshot.getRecipientName(), snapshot.getRecipientPhone(), snapshot.getZipcode(),
+                        snapshot.getAddress1(), snapshot.getAddress2(), snapshot.getDeliveryRequest()));
 
         // 보관 시각도 Clock 에서 가져온다. 엔티티가 LocalDateTime.now() 를 직접 부르면
         // 테스트에서 시각을 고정할 수 없고, DB 에 UTC/KST 가 섞인다.
@@ -353,9 +361,12 @@ public class PaymentService {
      * 결제수단 어댑터가 공통 결제 내부 엔티티나 주소 저장소를 직접 참조하지 않고
      * 외부 승인에 필요한 불변 값만 읽는 경계다.
      */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public ApprovalContext getApprovalContext(Long userId, Long paymentId, String expectedMethod) {
-        Payment payment = findOwnedPayment(userId, paymentId);
+        Payment payment = paymentRepository.findForUpdateByPaymentIdAndUserId(paymentId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_ACCESS_DENIED));
         validateApprovalCandidate(payment, expectedMethod);
+        ensureShippingSnapshot(payment);
         return new ApprovalContext(
                 payment.getPaymentId(), payment.getGroupBuyId(), payment.getUserId(),
                 payment.getKrwAmount(), payment.getSlotExpiresAt());
@@ -383,17 +394,25 @@ public class PaymentService {
         Payment payment = paymentRepository.findForUpdateByPaymentIdAndUserId(paymentId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_ACCESS_DENIED));
         validateApprovalCandidate(payment, expectedMethod);
-        if (payment.getAddressId() == null) {
-            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR,
-                    "결제 건에 배송지가 없습니다.");
-        }
-        UserAddress address = userAddressRepository
-                .findByAddressIdAndUserId(payment.getAddressId(), userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR,
-                        "결제 시작 시 선택한 배송지를 찾을 수 없습니다."));
-        return completePayment(paymentId, new ParticipationSnapshot(
-                address.getRecipientName(), address.getRecipientPhone(), address.getZipcode(),
-                address.getAddress1(), address.getAddress2()));
+        return completePayment(paymentId);
+    }
+
+    /** 외부 호출 전의 짧은 트랜잭션에서만 레거시 결제 주소를 보정한다. */
+    private void ensureShippingSnapshot(Payment payment) {
+        if (payment.getShippingSnapshot() != null) return;
+        UserAddress address = payment.getAddressId() == null ? null : userAddressRepository
+                .findByAddressIdAndUserId(payment.getAddressId(), payment.getUserId()).orElse(null);
+        if (address == null) throw new BusinessException(ErrorCode.VALIDATION_ERROR,
+                "기존 결제의 배송지를 확인할 수 없습니다. 결제를 종료하고 배송지를 다시 선택해 주세요.");
+        payment.captureShipping(new PaymentShippingSnapshot(address.getRecipientName(), address.getRecipientPhone(),
+                address.getZipcode(), address.getAddress1(), address.getAddress2(), address.getDeliveryRequest()), null);
+    }
+
+    private PaymentShippingSnapshot storedSnapshot(Payment payment) {
+        PaymentShippingSnapshot snapshot = payment.getShippingSnapshot();
+        if (snapshot == null) throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
+                "외부 결제 전 배송지 확정이 누락되었습니다. 거래 결과 대조가 필요합니다.");
+        return snapshot;
     }
 
     private void validateApprovalCandidate(Payment payment, String expectedMethod) {
@@ -412,15 +431,6 @@ public class PaymentService {
     private Payment findOwnedPayment(Long userId, Long paymentId) {
         return paymentRepository.findByPaymentIdAndUserId(paymentId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_ACCESS_DENIED));
-    }
-
-    public record ParticipationSnapshot(
-            String recipientName,
-            String recipientPhone,
-            String zipcode,
-            String address1,
-            String address2
-    ) {
     }
 
     @Transactional
