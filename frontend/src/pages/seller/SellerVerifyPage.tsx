@@ -12,6 +12,7 @@ import { BrandMark } from '@/shared/ui/BrandMark'
 import { Button } from '@/shared/ui/Button'
 import { FieldRow, TextField } from '@/shared/ui/Field'
 import { Panel } from '@/shared/ui/Panel'
+import { PhoneField } from '@/shared/ui/PhoneField'
 
 type Step = 'account' | 'profile'
 
@@ -159,12 +160,12 @@ export default function SellerVerifyPage() {
                 <Panel className="mt16" title="2. 판매자 정보" description="상호와 반품 수취 주소를 등록합니다">
                   <TextField label="상호명" required value={businessName} onChange={on(setBusinessName)} />
                   <FieldRow className="mt8">
-                    <TextField
+                    <PhoneField
                       label="대표 연락처"
                       inputMode="numeric"
                       placeholder="010-0000-0000"
                       value={businessPhone}
-                      onChange={on(setBusinessPhone)}
+                      onValueChange={setBusinessPhone}
                     />
                     <TextField label="예금주" required value={accountHolder} onChange={on(setAccountHolder)} />
                   </FieldRow>
