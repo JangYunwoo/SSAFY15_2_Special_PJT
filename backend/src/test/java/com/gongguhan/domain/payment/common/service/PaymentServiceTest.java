@@ -87,6 +87,9 @@ class PaymentServiceTest {
     @Test
     void prepareReturnsExistingPaymentOnIdempotentRetry() {
         Payment existing = mock(Payment.class);
+        when(existing.getUserId()).thenReturn(USER_ID);
+        when(existing.getAddressId()).thenReturn(10L);
+        when(existing.getPrepareCryptoAssetId()).thenReturn(null);
         when(existing.getGroupBuyId()).thenReturn(GROUP_BUY_ID);
         when(existing.getPaymentId()).thenReturn(PAYMENT_ID);
         when(existing.getMethod()).thenReturn("CARD");
@@ -107,6 +110,9 @@ class PaymentServiceTest {
         // 새로고침하면 클라이언트가 만든 멱등키가 사라져 같은 화면에서도 새 키로 온다.
         // 그때마다 자리를 새로 잡으면 사용자가 자기 자신 때문에 정원을 채운다.
         Payment activeSlot = mock(Payment.class);
+        when(activeSlot.getUserId()).thenReturn(USER_ID);
+        when(activeSlot.getAddressId()).thenReturn(10L);
+        when(activeSlot.getPrepareCryptoAssetId()).thenReturn(null);
         when(activeSlot.getMethod()).thenReturn("CARD");
         when(activeSlot.isExpired(any())).thenReturn(false);
         when(activeSlot.getPaymentId()).thenReturn(PAYMENT_ID);

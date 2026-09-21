@@ -22,6 +22,7 @@ public enum ErrorCode {
     GROUP_BUY_FULL(HttpStatus.CONFLICT, "참여자와 유효 결제 슬롯이 목표 인원에 도달했습니다."),
     DUPLICATE_PARTICIPATION(HttpStatus.CONFLICT, "이미 참여한 공동구매입니다."),
     PAYMENT_ALREADY_PROCESSED(HttpStatus.CONFLICT, "이미 완료되었거나 실패한 결제입니다."),
+    PAYMENT_REQUEST_CONFLICT(HttpStatus.CONFLICT, "기존 결제 요청과 공동구매·결제수단·배송지·자산이 일치하지 않습니다."),
     PAYMENT_SLOT_EXPIRED(HttpStatus.CONFLICT, "결제 가능 시간이 만료되었습니다."),
     INVALID_STATE_TRANSITION(HttpStatus.CONFLICT, "허용되지 않은 상태 전이입니다."),
     DUPLICATE_TRACKING_NUMBER(HttpStatus.CONFLICT, "이미 등록된 송장번호입니다."),

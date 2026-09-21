@@ -47,6 +47,10 @@ public class Payment extends BaseTimeEntity {
     @Column(name = "address_id")
     private Long addressId;
 
+    /** Original prepare request asset; quote creation must not change the retry contract. */
+    @Column(name = "prepare_crypto_asset_id")
+    private Long prepareCryptoAssetId;
+
     @Column(name = "participation_id")
     private Long participationId;
 
@@ -109,12 +113,23 @@ public class Payment extends BaseTimeEntity {
         this.status = STATUS_PROCESSING;
     }
 
+
     public static Payment prepare(Long groupBuyId, Long userId, Long addressId, String method,
                                    long krwAmount, LocalDateTime slotExpiresAt,
                                    String idempotencyKey) {
         return new Payment(groupBuyId, userId, addressId, method, krwAmount, slotExpiresAt,
                 idempotencyKey);
     }
+
+    public static Payment prepare(Long groupBuyId, Long userId, Long addressId, String method,
+                                  long krwAmount, LocalDateTime slotExpiresAt, String idempotencyKey,
+                                  Long cryptoAssetId) {
+        Payment payment = prepare(groupBuyId, userId, addressId, method, krwAmount, slotExpiresAt, idempotencyKey);
+        payment.prepareCryptoAssetId = cryptoAssetId;
+        return payment;
+    }
+
+    public Long getPrepareCryptoAssetId() { return prepareCryptoAssetId; }
 
     public void markPaid(Long participationId, LocalDateTime approvedAt) {
         if (isCardApprovalInFlight()) { cardApprovalStatus = "COMPLETED"; }
