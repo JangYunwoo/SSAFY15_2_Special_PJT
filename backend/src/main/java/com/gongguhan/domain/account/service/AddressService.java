@@ -53,6 +53,9 @@ public class AddressService {
         UserAddress address = findOwned(userId, addressId);
         address.update(request.recipientName(), request.recipientPhone(), request.zipcode(),
                 request.address1(), request.address2(), request.deliveryRequest());
+        if (request.hasDeliveryRequest()) {
+            address.replaceDeliveryRequest(request.deliveryRequest());
+        }
         if (Boolean.TRUE.equals(request.isDefault()) && !address.isDefault()) {
             clearExistingDefault(userId);
             address.markDefault();
