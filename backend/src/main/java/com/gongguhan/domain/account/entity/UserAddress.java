@@ -98,6 +98,11 @@ public class UserAddress extends BaseTimeEntity {
         this.isDefault = true;
     }
 
+    /** 필드 존재 여부를 확인한 PATCH 서비스만 호출한다. null은 요청사항 삭제다. */
+    public void replaceDeliveryRequest(String deliveryRequest) {
+        this.deliveryRequest = deliveryRequest;
+    }
+
     public void clearDefault() {
         this.isDefault = false;
     }
