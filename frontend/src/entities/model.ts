@@ -87,7 +87,7 @@ export const GROUP_BUY_STATUS_DISPLAY: Record<GroupBuyStatus, Display> = {
 export const PAYMENT_STATUS_DISPLAY: Record<PaymentStatus, Display> = {
   PROCESSING: { label: '결제 진행중', tone: 'live' },
   PAID: { label: '결제 완료', tone: 'ok' },
-  FAILED: { label: '승인 실패', tone: 'alert' },
+  FAILED: { label: '결제 종료', tone: 'alert' },
   EXPIRED: { label: '시간 만료', tone: 'neutral' },
   REFUNDED: { label: '환불', tone: 'keep' },
 }

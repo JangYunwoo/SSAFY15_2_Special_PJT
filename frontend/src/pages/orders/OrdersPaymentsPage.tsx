@@ -45,8 +45,8 @@ export default function OrdersPaymentsPage() {
           </QueryBoundary>
 
           <p className="small muted mt16" style={{ marginBottom: 0, lineHeight: 1.8 }}>
-            참여 내역에는 결제를 마친 건만 나옵니다. 승인에 실패했거나 시간이 지나 취소된 결제는
-            이곳에서만 확인할 수 있습니다.
+            참여 내역에는 결제를 마친 건만 나옵니다. 결제 종료에는 사용자 이탈·수단 변경·승인 실패가
+            포함될 수 있으며, 이 상태만으로 실제 승인 요청 여부를 판단할 수 없습니다.
           </p>
         </div>
       </section>
