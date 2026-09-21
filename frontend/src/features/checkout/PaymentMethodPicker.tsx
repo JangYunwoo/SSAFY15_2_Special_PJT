@@ -16,14 +16,15 @@ const NOTES: Record<PaymentMethod, string> = {
 }
 
 interface PaymentMethodPickerProps {
-  value: PaymentMethod
+  value: PaymentMethod | null
+  disabled?: boolean
   onChange: (method: PaymentMethod) => void
   /** 각 수단을 펼쳤을 때 보여줄 입력 영역 */
   bodies: Record<PaymentMethod, ReactNode>
 }
 
 /** 세로로 쌓이고 선택 시 펼쳐지는 결제수단 목록 (.pay-list) */
-export function PaymentMethodPicker({ value, onChange, bodies }: PaymentMethodPickerProps) {
+export function PaymentMethodPicker({ value, onChange, bodies, disabled }: PaymentMethodPickerProps) {
   const options: Option[] = (['CARD', 'KAKAOPAY', 'CRYPTO'] as const).map((method) => ({
     method,
     note: NOTES[method],
@@ -41,6 +42,7 @@ export function PaymentMethodPicker({ value, onChange, bodies }: PaymentMethodPi
               className="pay-tab"
               role="radio"
               aria-checked={selected}
+              disabled={disabled}
               onClick={() => {
                 onChange(option.method)
               }}

@@ -42,9 +42,9 @@ export const paymentApi = {
     api.post<Payment>(`/payments/${paymentId}/card/approve`, body, { idempotencyKey }),
 
   /** KAKA-01 */
-  kakaoReady: (paymentId: Id) =>
+  kakaoReady: (paymentId: Id, idempotencyKey = newIdempotencyKey()) =>
     api.post<KakaoPayReady>(`/payments/${paymentId}/kakaopay/ready`, undefined, {
-      idempotencyKey: newIdempotencyKey(),
+      idempotencyKey,
     }),
 
   /** KAKA-02 pg_token 으로 승인 후 참여 확정 */
