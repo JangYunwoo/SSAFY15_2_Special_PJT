@@ -1,6 +1,7 @@
 package com.gongguhan.domain.payment.crypto.service;
 
 import com.gongguhan.domain.payment.common.entity.Payment;
+import com.gongguhan.domain.payment.common.service.PaymentService;
 import com.gongguhan.domain.payment.common.repository.PaymentRepository;
 import com.gongguhan.domain.payment.crypto.dto.CryptoAssetResponse;
 import com.gongguhan.domain.payment.crypto.dto.CryptoQuoteRequest;
@@ -24,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 /**
  * 지원 자산 조회(CRYP-01)와 Quote 발급(CRYP-02).
@@ -45,6 +47,7 @@ public class CryptoQuoteService {
     private final ExchangeRateProvider exchangeRateProvider;
     private final PolicyService policyService;
     private final Clock clock;
+    private final PaymentService paymentService;
 
     public CryptoQuoteService(CryptoAssetRepository cryptoAssetRepository,
                                CryptoWalletRepository cryptoWalletRepository,
@@ -52,7 +55,7 @@ public class CryptoQuoteService {
                                PaymentRepository paymentRepository,
                                ExchangeRateProvider exchangeRateProvider,
                                PolicyService policyService,
-                               Clock clock) {
+                               Clock clock, PaymentService paymentService) {
         this.cryptoAssetRepository = cryptoAssetRepository;
         this.cryptoWalletRepository = cryptoWalletRepository;
         this.cryptoQuoteRepository = cryptoQuoteRepository;
@@ -60,6 +63,7 @@ public class CryptoQuoteService {
         this.exchangeRateProvider = exchangeRateProvider;
         this.policyService = policyService;
         this.clock = clock;
+        this.paymentService = paymentService;
     }
 
     /** CRYP-01. 활성 자산만 노출한다. */
@@ -79,8 +83,10 @@ public class CryptoQuoteService {
      * @throws BusinessException 결제 건이 본인 것이 아니거나, 코인 결제가 아니거나,
      *                           슬롯이 이미 끝났을 때
      */
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public CryptoQuoteResponse issueQuote(Long userId, Long paymentId, CryptoQuoteRequest request) {
+        // 송금에 필요한 견적을 보여 주기 전에 레거시 배송지도 확정한다.
+        paymentService.getApprovalContext(userId, paymentId, METHOD_CRYPTO);
         LocalDateTime now = LocalDateTime.now(clock);
 
         Payment payment = paymentRepository.findByPaymentIdAndUserId(paymentId, userId)

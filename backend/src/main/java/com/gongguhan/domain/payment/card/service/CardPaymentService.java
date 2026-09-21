@@ -1,8 +1,6 @@
 package com.gongguhan.domain.payment.card.service;
 
 import com.gongguhan.domain.account.entity.User;
-import com.gongguhan.domain.account.entity.UserAddress;
-import com.gongguhan.domain.account.repository.UserAddressRepository;
 import com.gongguhan.domain.account.repository.UserRepository;
 import com.gongguhan.domain.payment.card.dto.CardApproveRequest;
 import com.gongguhan.domain.payment.card.entity.CardPayment;
@@ -43,7 +41,6 @@ public class CardPaymentService {
 
     private final PaymentRepository paymentRepository;
     private final UserRepository userRepository;
-    private final UserAddressRepository userAddressRepository;
     private final CardPaymentRepository cardPaymentRepository;
     private final PaymentService paymentService;
     private final PolicyService policyService;
@@ -55,7 +52,6 @@ public class CardPaymentService {
 
     public CardPaymentService(PaymentRepository paymentRepository,
                                UserRepository userRepository,
-                               UserAddressRepository userAddressRepository,
                                CardPaymentRepository cardPaymentRepository,
                                PaymentService paymentService,
                                PolicyService policyService,
@@ -65,7 +61,6 @@ public class CardPaymentService {
                                Clock clock, CardApprovalRecordService approvalRecords) {
         this.paymentRepository = paymentRepository;
         this.userRepository = userRepository;
-        this.userAddressRepository = userAddressRepository;
         this.cardPaymentRepository = cardPaymentRepository;
         this.paymentService = paymentService;
         this.policyService = policyService;
@@ -81,6 +76,7 @@ public class CardPaymentService {
         Payment payment = paymentRepository.findByPaymentIdAndUserId(paymentId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_ACCESS_DENIED));
         validateApprovable(payment);
+        paymentService.getApprovalContext(userId, paymentId, METHOD_CARD);
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "사용자를 찾을 수 없습니다."));
@@ -114,12 +110,8 @@ public class CardPaymentService {
 
             cardPaymentRepository.save(buildCardPayment(payment, user, request, response.rec(), institutionTxNo));
 
-            UserAddress address = userAddressRepository.findById(payment.getAddressId())
-                    .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "배송지를 찾을 수 없습니다."));
             // 원자성 규칙 6번 - 승인 성공 후 짧은 트랜잭션에서 참여·에스크로를 함께 확정한다.
-            paymentService.completePayment(paymentId, new PaymentService.ParticipationSnapshot(
-                    address.getRecipientName(), address.getRecipientPhone(),
-                    address.getZipcode(), address.getAddress1(), address.getAddress2()));
+            paymentService.completePayment(paymentId);
         } catch (RuntimeException exception) {
             // 결과 기록이 실패해도 먼저 커밋한 PROCESSING 실행권이 재승인을 차단한다.
             try {

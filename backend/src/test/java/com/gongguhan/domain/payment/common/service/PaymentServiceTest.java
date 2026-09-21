@@ -435,11 +435,6 @@ class PaymentServiceTest {
         verify(payment, never()).markExpired();
     }
 
-    private PaymentService.ParticipationSnapshot snapshot() {
-        return new PaymentService.ParticipationSnapshot(
-                "홍길동", "010-1234-5678", "06236", "서울시 강남구", "101동 101호");
-    }
-
     private Payment historyPayment(Long paymentId, Long groupBuyId) {
         Payment payment = mock(Payment.class);
         when(payment.getPaymentId()).thenReturn(paymentId);
@@ -465,7 +460,7 @@ class PaymentServiceTest {
         when(paymentRepository.findForUpdateByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment));
 
         BusinessException exception = assertThrows(BusinessException.class,
-                () -> paymentService.completePayment(PAYMENT_ID, snapshot()));
+                () -> paymentService.completePayment(PAYMENT_ID));
 
         assertEquals(ErrorCode.PAYMENT_ALREADY_PROCESSED, exception.getErrorCode());
         verify(groupBuySlotPort, never()).confirm(any());
@@ -479,7 +474,7 @@ class PaymentServiceTest {
         when(paymentRepository.findForUpdateByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment));
 
         BusinessException exception = assertThrows(BusinessException.class,
-                () -> paymentService.completePayment(PAYMENT_ID, snapshot()));
+                () -> paymentService.completePayment(PAYMENT_ID));
 
         assertEquals(ErrorCode.PAYMENT_SLOT_EXPIRED, exception.getErrorCode());
         verify(groupBuySlotPort, never()).confirm(any());
@@ -488,6 +483,8 @@ class PaymentServiceTest {
     @Test
     void completePaymentConfirmsSlotCreatesParticipationHoldsEscrowAndMarksPaid() {
         Payment payment = mock(Payment.class);
+        when(payment.getShippingSnapshot()).thenReturn(new com.gongguhan.domain.payment.common.entity.PaymentShippingSnapshot(
+                "홍길동", "010-1234-5678", "06236", "서울시 강남구", "101동 101호", "문 앞"));
         when(payment.isProcessing()).thenReturn(true);
         when(payment.isExpired(any())).thenReturn(false);
         when(payment.getGroupBuyId()).thenReturn(GROUP_BUY_ID);
@@ -502,7 +499,7 @@ class PaymentServiceTest {
                 new ParticipationWriterPort.ParticipationRecord(300L, GROUP_BUY_ID, USER_ID);
         when(participationWriterPort.create(any())).thenReturn(participationRecord);
 
-        paymentService.completePayment(PAYMENT_ID, snapshot());
+        paymentService.completePayment(PAYMENT_ID);
 
         ArgumentCaptor<ParticipationWriterPort.ParticipationCreateCommand> commandCaptor =
                 ArgumentCaptor.forClass(ParticipationWriterPort.ParticipationCreateCommand.class);

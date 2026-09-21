@@ -64,7 +64,7 @@ class CardPaymentServiceTest {
         ssafyApiLogService = mock(SsafyApiLogService.class);
         Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
         cardPaymentService = new CardPaymentService(
-                paymentRepository, userRepository, userAddressRepository, cardPaymentRepository,
+                paymentRepository, userRepository, cardPaymentRepository,
                 paymentService, policyService, ssafyCardApiClient, ssafyApiLogService,
                 new ObjectMapper(), clock, mock(CardApprovalRecordService.class));
     }
@@ -193,7 +193,7 @@ class CardPaymentServiceTest {
 
         assertEquals(ErrorCode.EXTERNAL_PAYMENT_ERROR, exception.getErrorCode());
         verify(paymentService).failPayment(PAYMENT_ID, "A1054");
-        verify(paymentService, never()).completePayment(any(), any());
+        verify(paymentService, never()).completePayment(any());
         verify(cardPaymentRepository, never()).save(any());
         verify(ssafyApiLogService).record(eq("createCreditCardTransaction"), eq(INSTITUTION_TX_NO),
                 eq("PAYMENT"), eq(PAYMENT_ID), any(), eq("A1054"), eq("카드번호가 유효하지 않습니다."), eq(declined));
@@ -210,14 +210,6 @@ class CardPaymentServiceTest {
                 eq("1005518816096479"), eq("725"), eq(1L), eq(54000L)))
                 .thenReturn(successResponse());
 
-        UserAddress address = mock(UserAddress.class);
-        when(address.getRecipientName()).thenReturn("홍길동");
-        when(address.getRecipientPhone()).thenReturn("010-1234-5678");
-        when(address.getZipcode()).thenReturn("06236");
-        when(address.getAddress1()).thenReturn("서울시 강남구");
-        when(address.getAddress2()).thenReturn("101동 101호");
-        when(userAddressRepository.findById(ADDRESS_ID)).thenReturn(Optional.of(address));
-
         cardPaymentService.approve(USER_ID, PAYMENT_ID, request());
 
         ArgumentCaptor<CardPayment> cardPaymentCaptor = ArgumentCaptor.forClass(CardPayment.class);
@@ -227,10 +219,9 @@ class CardPaymentServiceTest {
         assertEquals("************6479", saved.getCardNoMasked());
         assertEquals(12L, saved.getTransactionUniqueNo());
 
-        ArgumentCaptor<PaymentService.ParticipationSnapshot> snapshotCaptor =
-                ArgumentCaptor.forClass(PaymentService.ParticipationSnapshot.class);
-        verify(paymentService).completePayment(eq(PAYMENT_ID), snapshotCaptor.capture());
-        assertEquals("홍길동", snapshotCaptor.getValue().recipientName());
+        verify(paymentService).getApprovalContext(USER_ID, PAYMENT_ID, "CARD");
+        verify(paymentService).completePayment(PAYMENT_ID);
+        verifyNoInteractions(userAddressRepository);
         verify(paymentService, never()).failPayment(any(), any());
         verify(ssafyApiLogService).record(eq("createCreditCardTransaction"), eq(INSTITUTION_TX_NO),
                 eq("PAYMENT"), eq(PAYMENT_ID), any(), eq("H0000"), eq("정상처리 되었습니다."), any());

@@ -61,6 +61,7 @@ class CryptoWalletProofIntegrationTest {
                 VALUES(?,?,1,1,'CRYPTO',1000,?,'Y',?,'PROCESSING',NOW(),NOW())
                 """, id, id, now.plusMinutes(10), "proof-" + id);
         jdbc.update("UPDATE payments SET prepare_crypto_asset_id=? WHERE payment_id=?", id, id);
+        jdbc.update("UPDATE payments SET shipping_recipient_name='QA',shipping_recipient_phone='01000000000',shipping_zipcode='00000',shipping_address1='QA' WHERE payment_id=?",id);
         jdbc.update("""
                 INSERT INTO crypto_assets(asset_id,symbol,chain_id,chain_name,token_contract,decimals,required_confirmations,enabled,created_at)
                 VALUES(?, ?,80002,'Polygon Amoy','0xcccccccccccccccccccccccccccccccccccccccc',6,5,TRUE,NOW())

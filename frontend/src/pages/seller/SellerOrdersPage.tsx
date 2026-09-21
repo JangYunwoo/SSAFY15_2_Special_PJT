@@ -174,6 +174,7 @@ function DeliveryTable({ board, groupBuyId }: { board: DeliveryBoard; groupBuyId
                   <span className="small">
                     ({delivery.zipcode}) {delivery.address1} {delivery.address2}
                   </span>
+                  {delivery.deliveryRequest && <p className="small muted">배송 요청: {delivery.deliveryRequest}</p>}
                 </td>
                 <td>
                   <StateChip tone={display.tone}>{display.label}</StateChip>

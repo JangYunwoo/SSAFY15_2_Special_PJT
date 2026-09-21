@@ -11,8 +11,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.gongguhan.domain.account.entity.UserAddress;
-import com.gongguhan.domain.account.repository.UserAddressRepository;
 import com.gongguhan.domain.payment.common.entity.Payment;
 import com.gongguhan.domain.payment.common.repository.PaymentRepository;
 import com.gongguhan.domain.payment.common.service.PaymentService;
@@ -78,7 +76,6 @@ class CryptoTxRecordServiceTest {
     private CryptoDepositRecorder depositRecorder;
     private CryptoQuoteRepository cryptoQuoteRepository;
     private PaymentRepository paymentRepository;
-    private UserAddressRepository userAddressRepository;
     private PaymentService paymentService;
     private CryptoTxRecordService service;
 
@@ -97,12 +94,11 @@ class CryptoTxRecordServiceTest {
         depositRecorder = mock(CryptoDepositRecorder.class);
         cryptoQuoteRepository = mock(CryptoQuoteRepository.class);
         paymentRepository = mock(PaymentRepository.class);
-        userAddressRepository = mock(UserAddressRepository.class);
         paymentService = mock(PaymentService.class);
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
 
         service = new CryptoTxRecordService(cryptoPaymentRepository, cryptoDepositRepository,
-                depositRecorder, cryptoQuoteRepository, paymentRepository, userAddressRepository,
+                depositRecorder, cryptoQuoteRepository, paymentRepository,
                 paymentService, clock);
     }
 
@@ -141,16 +137,6 @@ class CryptoTxRecordServiceTest {
         return wallet;
     }
 
-    private UserAddress address() {
-        UserAddress address = mock(UserAddress.class);
-        when(address.getRecipientName()).thenReturn("받는사람");
-        when(address.getRecipientPhone()).thenReturn("010-1111-2222");
-        when(address.getZipcode()).thenReturn("06236");
-        when(address.getAddress1()).thenReturn("서울 강남구 테헤란로 1");
-        when(address.getAddress2()).thenReturn("101호");
-        return address;
-    }
-
     /** 정상 입금 1건이 담긴 성공 영수증. */
     private ChainClient.ReceiptView successReceipt(String from, String to, BigInteger amount,
                                                     String token) {
@@ -160,11 +146,8 @@ class CryptoTxRecordServiceTest {
 
     /** 협력 객체를 정상 경로로 세운다. Quote claim 성공. */
     private void givenRecordable(Payment payment) {
-        UserAddress addr = address();
         when(paymentRepository.findForUpdateByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment));
         when(cryptoQuoteRepository.claim(eq(QUOTE_ID), any(LocalDateTime.class))).thenReturn(1);
-        when(userAddressRepository.findByAddressIdAndUserId(ADDRESS_ID, USER_ID))
-                .thenReturn(Optional.of(addr));
     }
 
     private CryptoPayment record(Payment payment, ChainClient.ReceiptView receipt,
@@ -207,7 +190,7 @@ class CryptoTxRecordServiceTest {
                 successReceipt(BUYER_WALLET, RECEIVE_WALLET, RAW_AMOUNT, TOKEN), TX_BLOCK);
 
         assertEquals(1, result.getConfirmations());
-        verify(paymentService, never()).completePayment(anyLong(), any());
+        verify(paymentService, never()).completePayment(anyLong());
     }
 
     @Test
@@ -222,7 +205,7 @@ class CryptoTxRecordServiceTest {
 
         assertEquals(5, result.getConfirmations());
         assertTrue(result.isConfirmed());
-        verify(paymentService).completePayment(eq(PAYMENT_ID), any());
+        verify(paymentService).completePayment(eq(PAYMENT_ID));
     }
 
     @Test
@@ -236,7 +219,7 @@ class CryptoTxRecordServiceTest {
         assertEquals(null, result.getReceiptStatus());
         verify(cryptoPaymentRepository).save(result);
         verify(cryptoDepositRepository, never()).save(any());
-        verify(paymentService, never()).completePayment(anyLong(), any());
+        verify(paymentService, never()).completePayment(anyLong());
     }
 
     // ------------------------------------------------------------------
@@ -254,7 +237,7 @@ class CryptoTxRecordServiceTest {
 
         assertEquals(ErrorCode.CRYPTO_AMOUNT_MISMATCH, e.getErrorCode());
         verify(cryptoDepositRepository, never()).save(any());
-        verify(paymentService, never()).completePayment(anyLong(), any());
+        verify(paymentService, never()).completePayment(anyLong());
     }
 
     @Test
@@ -406,17 +389,14 @@ class CryptoTxRecordServiceTest {
                 PAYMENT_ID, usdt(), quote(), wallet(), BUYER_WALLET, TX_HASH);
         cryptoPayment.applyReceipt(true, TX_BLOCK);
 
-        UserAddress addr = address();
         when(cryptoPaymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(cryptoPayment));
         when(paymentRepository.findForUpdateByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment));
-        when(userAddressRepository.findByAddressIdAndUserId(ADDRESS_ID, USER_ID))
-                .thenReturn(Optional.of(addr));
 
         boolean completed = service.refreshConfirmations(PAYMENT_ID, TX_BLOCK + 4);
 
         assertTrue(completed);
         assertEquals(5, cryptoPayment.getConfirmations());
-        verify(paymentService).completePayment(eq(PAYMENT_ID), any());
+        verify(paymentService).completePayment(eq(PAYMENT_ID));
     }
 
     @Test
@@ -437,7 +417,7 @@ class CryptoTxRecordServiceTest {
         // 확정하면 자리는 남에게 넘어갔는데 참여 건이 생겨 인원이 초과된다.
         assertTrue(!completed);
         verify(paymentService).failPayment(PAYMENT_ID, "SLOT_EXPIRED_BEFORE_CONFIRMATION");
-        verify(paymentService, never()).completePayment(anyLong(), any());
+        verify(paymentService, never()).completePayment(anyLong());
     }
 
     @Test
@@ -455,6 +435,6 @@ class CryptoTxRecordServiceTest {
         boolean completed = service.refreshConfirmations(PAYMENT_ID, TX_BLOCK + 100);
 
         assertTrue(!completed);
-        verify(paymentService, never()).completePayment(anyLong(), any());
+        verify(paymentService, never()).completePayment(anyLong());
     }
 }

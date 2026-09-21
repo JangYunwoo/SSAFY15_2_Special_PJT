@@ -52,6 +52,7 @@ public class ParticipationQueryRepository {
                    pt.zipcode,
                    pt.address1,
                    pt.address2,
+                   pt.delivery_request,
                    d.shipped_at
               FROM participations pt
               JOIN group_buys gb ON gb.group_buy_id = pt.group_buy_id
@@ -124,6 +125,7 @@ public class ParticipationQueryRepository {
                 rs.getString("zipcode"),
                 rs.getString("address1"),
                 rs.getString("address2"),
+                rs.getString("delivery_request"),
                 toLocalDateTime(rs.getTimestamp("shipped_at")));
     }
 
@@ -161,6 +163,7 @@ public class ParticipationQueryRepository {
             String zipcode,
             String address1,
             String address2,
+            String deliveryRequest,
             LocalDateTime shippedAt
     ) {
     }

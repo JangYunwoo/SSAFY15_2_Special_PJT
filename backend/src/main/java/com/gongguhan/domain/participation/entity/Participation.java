@@ -64,6 +64,11 @@ public class Participation {
 
     private String address2;
 
+    @Column(name = "delivery_request", length = 100)
+    private String deliveryRequest;
+
+    public String getDeliveryRequest() { return deliveryRequest; }
+
     @Column(nullable = false, length = 20)
     private String status;
 
@@ -132,6 +137,16 @@ public class Participation {
                                         String zipcode, String address1, String address2, LocalDateTime joinedAt) {
         return new Participation(groupBuyId, userId, shareAmount, shippingFee, totalAmount,
                 recipientName, recipientPhone, zipcode, address1, address2, joinedAt);
+    }
+
+    /** 결제 시점 배송 요청과 UTC 참여 시각을 함께 보존한다. */
+    public static Participation create(Long groupBuyId, Long userId, long shareAmount, long shippingFee,
+            long totalAmount, String recipientName, String recipientPhone, String zipcode,
+            String address1, String address2, String deliveryRequest, LocalDateTime joinedAt) {
+        Participation participation = new Participation(groupBuyId, userId, shareAmount, shippingFee, totalAmount,
+                recipientName, recipientPhone, zipcode, address1, address2, joinedAt);
+        participation.deliveryRequest = deliveryRequest;
+        return participation;
     }
 
     /** 모집 완료 판정 시 일괄 전환된다 (PAID → FULFILLED). */

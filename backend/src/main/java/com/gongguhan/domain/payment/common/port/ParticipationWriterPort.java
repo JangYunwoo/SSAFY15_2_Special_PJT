@@ -24,8 +24,15 @@ public interface ParticipationWriterPort {
             String recipientPhone,
             String zipcode,
             String address1,
-            String address2
+            String address2,
+            String deliveryRequest
     ) {
+        public ParticipationCreateCommand(Long groupBuyId, Long userId, long shareAmount, long shippingFee,
+                long totalAmount, String recipientName, String recipientPhone, String zipcode,
+                String address1, String address2) {
+            this(groupBuyId, userId, shareAmount, shippingFee, totalAmount, recipientName, recipientPhone,
+                    zipcode, address1, address2, null);
+        }
     }
 
     record ParticipationRecord(

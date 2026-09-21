@@ -39,8 +39,8 @@ class PaymentRecruitmentWindowTest {
         groups = mock(GroupBuyRepository.class);
         payments = mock(PaymentRepository.class);
         var addresses = mock(UserAddressRepository.class);
-        var address = mock(UserAddress.class);
-        when(address.getAddressId()).thenReturn(10L);
+        var address = UserAddress.create(1L, "테스트", "01000000000", "00000", "주소", "상세", null, false);
+        ReflectionTestUtils.setField(address, "addressId", 10L);
         when(addresses.findByAddressIdAndUserId(10L, 1L)).thenReturn(Optional.of(address));
         transaction = new PaymentSlotReservationTransaction(groups, mock(ParticipationWriterPort.class), payments,
                 addresses, Clock.fixed(Instant.parse("2026-09-21T06:00:00Z"), ZoneOffset.UTC));

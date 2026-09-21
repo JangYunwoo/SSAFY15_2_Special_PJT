@@ -10,6 +10,8 @@ export interface PaymentAmount {
 
 /** PAY-01 결제 준비 요청 */
 export interface PreparePaymentRequest {
+  /** null/생략은 주소 기본값, 빈 문자열은 배송 요청 없음. */
+  deliveryRequest?: string | null
   method: PaymentMethod
   addressId: Id
   /** 코인 결제일 때만 채웁니다. */

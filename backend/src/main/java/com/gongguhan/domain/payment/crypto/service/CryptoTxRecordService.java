@@ -1,7 +1,5 @@
 package com.gongguhan.domain.payment.crypto.service;
 
-import com.gongguhan.domain.account.entity.UserAddress;
-import com.gongguhan.domain.account.repository.UserAddressRepository;
 import com.gongguhan.domain.payment.common.entity.Payment;
 import com.gongguhan.domain.payment.common.repository.PaymentRepository;
 import com.gongguhan.domain.payment.common.service.PaymentService;
@@ -44,7 +42,6 @@ public class CryptoTxRecordService {
     private final CryptoDepositRecorder depositRecorder;
     private final CryptoQuoteRepository cryptoQuoteRepository;
     private final PaymentRepository paymentRepository;
-    private final UserAddressRepository userAddressRepository;
     private final PaymentService paymentService;
     private final Clock clock;
 
@@ -53,7 +50,6 @@ public class CryptoTxRecordService {
                                   CryptoDepositRecorder depositRecorder,
                                   CryptoQuoteRepository cryptoQuoteRepository,
                                   PaymentRepository paymentRepository,
-                                  UserAddressRepository userAddressRepository,
                                   PaymentService paymentService,
                                   Clock clock) {
         this.cryptoPaymentRepository = cryptoPaymentRepository;
@@ -61,7 +57,6 @@ public class CryptoTxRecordService {
         this.depositRecorder = depositRecorder;
         this.cryptoQuoteRepository = cryptoQuoteRepository;
         this.paymentRepository = paymentRepository;
-        this.userAddressRepository = userAddressRepository;
         this.paymentService = paymentService;
         this.clock = clock;
     }
@@ -338,43 +333,18 @@ public class CryptoTxRecordService {
      *
      * <p>참여 건 생성·에스크로 HELD·인원 확정은 결제 공통의
      * {@link PaymentService#completePayment}가 한 트랜잭션에서 처리한다.
-     * 여기서는 배송지 스냅샷만 만들어 넘긴다.
+     * 배송지는 공통 결제에 저장된 준비 시점 스냅샷을 사용한다.
      */
     private void completePayment(Payment payment, CryptoPayment cryptoPayment,
                                   LocalDateTime now) {
         // payment.getPaymentId() 대신 crypto_payments 의 PK 를 쓴다. 이 값은 호출 측이
         // 명시적으로 넘긴 ID 에서 온 것이라 항상 채워져 있다.
         Long paymentId = cryptoPayment.getPaymentId();
-        paymentService.completePayment(paymentId, buildSnapshot(payment));
+        paymentService.completePayment(paymentId);
         cryptoPayment.markConfirmed(now);
         log.info("코인 결제 확정 payment={} txHash={} confirmations={}/{}",
                 paymentId, cryptoPayment.getTxHash(),
                 cryptoPayment.getConfirmations(), cryptoPayment.getRequiredConfirmations());
-    }
-
-    /**
-     * 배송지 스냅샷을 만든다.
-     *
-     * <p>{@code payments.address_id}로 다시 읽는다. {@code user_addresses}는 수정
-     * 메서드가 없는 불변 엔티티라 결제 시작 시점과 같은 값이 나온다.
-     */
-    private PaymentService.ParticipationSnapshot buildSnapshot(Payment payment) {
-        if (payment.getAddressId() == null) {
-            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR,
-                    "결제 건에 배송지가 없습니다. paymentId=" + payment.getPaymentId());
-        }
-        UserAddress address = userAddressRepository
-                .findByAddressIdAndUserId(payment.getAddressId(), payment.getUserId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR,
-                        "결제 시작 시 선택한 배송지를 찾을 수 없습니다. addressId="
-                                + payment.getAddressId()));
-
-        return new PaymentService.ParticipationSnapshot(
-                address.getRecipientName(),
-                address.getRecipientPhone(),
-                address.getZipcode(),
-                address.getAddress1(),
-                address.getAddress2());
     }
 
 }

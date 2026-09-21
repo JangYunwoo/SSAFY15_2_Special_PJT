@@ -69,7 +69,8 @@ class CryptoQuoteServiceTest {
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         cryptoQuoteService = new CryptoQuoteService(
                 cryptoAssetRepository, cryptoWalletRepository, cryptoQuoteRepository,
-                paymentRepository, exchangeRateProvider, policyService, clock);
+                paymentRepository, exchangeRateProvider, policyService, clock,
+                mock(com.gongguhan.domain.payment.common.service.PaymentService.class));
     }
 
     // ------------------------------------------------------------------

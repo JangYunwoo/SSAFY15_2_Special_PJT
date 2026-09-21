@@ -56,8 +56,8 @@ class KakaoPayParticipationRefundIntegrationTest {
                 slot_expires_at,slot_marker,idempotency_key,status,created_at,updated_at)
                 VALUES (?,?,100,501,'KAKAOPAY',1000,?,'Y',?,'PROCESSING',NOW(),NOW())
                 """, id, id, LocalDateTime.now(clock).plusMinutes(5), UUID.randomUUID().toString());
-        var paid = payments.completePayment(id, new PaymentService.ParticipationSnapshot(
-                "QA", "01000000000", "00000", "QA", "QA"));
+        jdbc.update("UPDATE payments SET shipping_recipient_name='QA',shipping_recipient_phone='01000000000',shipping_zipcode='00000',shipping_address1='QA',shipping_address2='QA' WHERE payment_id=?",id);
+        var paid = payments.completePayment(id);
         jdbc.update("""
                 INSERT INTO kakaopay_payments(payment_id,tid,aid,total_amount,tax_free_amount)
                 VALUES (?,?,?,1000,0)

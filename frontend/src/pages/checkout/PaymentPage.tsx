@@ -50,6 +50,7 @@ export default function PaymentPage() {
 function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
   const navigate = useNavigate()
   const addressId = useCheckoutStore((state) => state.addressId)
+  const deliveryRequest = useCheckoutStore((state) => state.deliveryRequest)
   const checkoutGroupBuyId = useCheckoutStore((state) => state.groupBuyId)
   const selectedAddressId = checkoutGroupBuyId === groupBuy.id ? addressId : null
 
@@ -69,6 +70,8 @@ function PaymentForm({ groupBuy }: { groupBuy: GroupBuyDetail }) {
   const slot = usePaymentSlot({
     groupBuyId: groupBuy.id,
     addressId: selectedAddressId,
+    // 배송 화면에서 '없음'을 선택한 null은 주소 기본값으로 돌아가지 않도록 빈 값 전송.
+    deliveryRequest: deliveryRequest ?? '',
     method,
     cryptoAssetId: method === 'CRYPTO' ? cryptoAssetId : null,
   })

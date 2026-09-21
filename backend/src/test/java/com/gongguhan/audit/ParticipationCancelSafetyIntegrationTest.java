@@ -41,7 +41,8 @@ class ParticipationCancelSafetyIntegrationTest {
         long id=ids.incrementAndGet();
         jdbc.update("INSERT INTO group_buys(group_buy_id,product_id,seller_id,target_participants,unit_share_amount,shipping_fee,current_participants,reserved_slots,recruit_end_at,status,version,created_at,updated_at) VALUES(?,501,10,5,1000,0,0,1,?,'RECRUITING',0,NOW(),NOW())",id,LocalDateTime.now(clock).plusDays(1));
         jdbc.update("INSERT INTO payments(payment_id,group_buy_id,user_id,address_id,method,krw_amount,slot_expires_at,slot_marker,idempotency_key,status,created_at,updated_at) VALUES(?,?,100,501,'CARD',1000,?,'Y',?,'PROCESSING',NOW(),NOW())",id,id,LocalDateTime.now(clock).plusMinutes(5),UUID.randomUUID().toString());
-        var paid=payments.completePayment(id,new PaymentService.ParticipationSnapshot("QA","01000000000","00000","QA","QA"));
+        jdbc.update("UPDATE payments SET shipping_recipient_name='QA',shipping_recipient_phone='01000000000',shipping_zipcode='00000',shipping_address1='QA',shipping_address2='QA' WHERE payment_id=?",id);
+        var paid=payments.completePayment(id);
         when(provider.cancel(any())).thenReturn(CardRefundPort.CardRefundResult.canceled(1000,"H0000","QA"));
         return new Fixture(id,Long.parseLong(paid.participationId()));
     }

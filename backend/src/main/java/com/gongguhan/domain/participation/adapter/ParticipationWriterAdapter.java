@@ -39,7 +39,8 @@ public class ParticipationWriterAdapter implements ParticipationWriterPort {
                 command.groupBuyId(), command.userId(),
                 command.shareAmount(), command.shippingFee(), command.totalAmount(),
                 command.recipientName(), command.recipientPhone(), command.zipcode(),
-                command.address1(), command.address2(), LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
+                command.address1(), command.address2(), command.deliveryRequest(),
+                LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
         participationRepository.saveAndFlush(participation);
         return new ParticipationRecord(
                 participation.getParticipationId(), participation.getGroupBuyId(), participation.getUserId());

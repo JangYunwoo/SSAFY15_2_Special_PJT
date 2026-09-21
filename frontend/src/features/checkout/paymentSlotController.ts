@@ -3,6 +3,7 @@ import type { Payment, PreparePaymentRequest } from '@/entities/payment/model'
 import { ApiError } from '@/shared/api/errors'
 
 export interface SlotSelection {
+  deliveryRequest?: string | null
   groupBuyId: string
   addressId: string
   method: PaymentMethod
@@ -31,7 +32,7 @@ export interface SlotSnapshot {
 
 export function selectionKey(selection: SlotSelection | null): string {
   return JSON.stringify(selection && [selection.groupBuyId, selection.addressId,
-    selection.method, selection.cryptoAssetId])
+    selection.method, selection.cryptoAssetId, selection.deliveryRequest ?? null])
 }
 
 export function isUsablePayment(

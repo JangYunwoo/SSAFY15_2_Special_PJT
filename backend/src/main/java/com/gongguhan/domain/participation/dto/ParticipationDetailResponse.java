@@ -34,6 +34,7 @@ public record ParticipationDetailResponse(
         String zipcode,
         String address1,
         String address2,
+        String deliveryRequest,
         List<ParticipationHistoryEntry> history,
         boolean canCancel,
         boolean canConfirm,
