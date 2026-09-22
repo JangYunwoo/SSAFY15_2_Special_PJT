@@ -1,0 +1,497 @@
+{
+  "date": "2026-09-22",
+  "purpose": "User-requested assignment and active sprint reconciliation; no product implementation resumed",
+  "assignee": {
+    "name": "김태민",
+    "accountId": "712020:9f82fe9c-90b5-4974-9b28-27f0d81505f6"
+  },
+  "sprint": {
+    "id": 58076,
+    "name": "S15P21B2 1 스프린트 5",
+    "state": "active",
+    "boardId": 15300
+  },
+  "verifiedCount": 48,
+  "issues": [
+    {
+      "key": "S15P21B205-174",
+      "summary": "[FE][B07] 코인 자산 선택 전 결제 준비 요청 방지",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 139,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/139",
+      "mergeCommit": "0e32ee78c8167a7d13f6bee357bd4b8131562019"
+    },
+    {
+      "key": "S15P21B205-175",
+      "summary": "[BE/FE][B01] 카카오 취소·실패 콜백 state 검증 연결",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 140,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/140",
+      "mergeCommit": "94b16ac2ba28561bfb34001eb962536e2766e116"
+    },
+    {
+      "key": "S15P21B205-176",
+      "summary": "[BE][B27] 일반 참여 취소 카카오 환불의 불필요한 반품 번호 검증 제거",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 141,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/141",
+      "mergeCommit": "d3eaa50c1ef994bece20b377093492f51d899ec5"
+    },
+    {
+      "key": "S15P21B205-177",
+      "summary": "[BE][B11] 참여 취소 검증 실패 후 상태가 먼저 확정되는 문제 수정",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 143,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/143",
+      "mergeCommit": "3101c92fd9455034b4c2710c5ae1506da9337c98"
+    },
+    {
+      "key": "S15P21B205-178",
+      "summary": "[BE][B20] 관리자와 구매자의 동일 숫자 ID 권한 경계 분리",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 144,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/144",
+      "mergeCommit": "a0cc722ff9ecad580fd54437d5232e3fab493e70"
+    },
+    {
+      "key": "S15P21B205-179",
+      "summary": "[BE][B19] 같은 초 토큰 충돌 및 동시 refresh 중복 발급 차단",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 145,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/145",
+      "mergeCommit": "248b4a806f5e69c08b4bcbf9b2519947fbec274c"
+    },
+    {
+      "key": "S15P21B205-180",
+      "summary": "[BE][B21] 허용되지 않은 HTTP 메서드의 500 응답을 405로 교정",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 146,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/146",
+      "mergeCommit": "c6c92dfb710787fcbec34240635986876f1a6376"
+    },
+    {
+      "key": "S15P21B205-181",
+      "summary": "[FE] 전화번호 입력에 자동 하이픈 적용 및 숫자 API 계약 유지",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 147,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/147",
+      "mergeCommit": "e3cb0044694d75dfbbb01bba9a1bb04619ef95d3"
+    },
+    {
+      "key": "S15P21B205-182",
+      "summary": "[FE] 실제 주소 검색 팝업으로 우편번호·기본주소 자동 입력",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 148,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/148",
+      "mergeCommit": "1a4b9c65c133dc6bda35904ba62182c5a602c506"
+    },
+    {
+      "key": "S15P21B205-183",
+      "summary": "공동구매 생성 화면에서 새 상품 등록으로 이동할 수 없는 흐름 수정",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 149,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/149",
+      "mergeCommit": "20af4cbfa68a4acda99a836511318aa190d41479"
+    },
+    {
+      "key": "S15P21B205-184",
+      "summary": "AI 추천 응답 경계 검증 및 잘못된 결과의 대체 추천 보장",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 150,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/150",
+      "mergeCommit": "03f78eb7b1b53b2bcbbd8a096fdf3ff72402b931"
+    },
+    {
+      "key": "S15P21B205-185",
+      "summary": "계정 전환 시 추천 세션·추천 조회 캐시를 사용자별로 분리",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 151,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/151",
+      "mergeCommit": "ce43a8eba053eac340baad702ba2e67735be7e0d"
+    },
+    {
+      "key": "S15P21B205-186",
+      "summary": "추천 세션 최초 생성 경합에서 소유권 검사를 원자적으로 보장",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 152,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/152",
+      "mergeCommit": "aa1969870cbdc8607a9964c7ea8bfd3ee1e8f984"
+    },
+    {
+      "key": "S15P21B205-187",
+      "summary": "결제수단 전환 슬롯 경합 및 종료 결제 재사용 방지",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 154,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/154",
+      "mergeCommit": "a9fa9c104dc02531a3c7c21a068d9ac3d8a85ba5"
+    },
+    {
+      "key": "S15P21B205-188",
+      "summary": "[B16] 결제 종료·완료의 동시 상태 전이를 잠금으로 직렬화",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 155,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/155",
+      "mergeCommit": "8cb1daec881f1ac6709700e9340d60f36fc3a116"
+    },
+    {
+      "key": "S15P21B205-189",
+      "summary": "[B12] 반품 환불을 공통 원장과 수단별 실행기로 연결",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 159,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/159",
+      "mergeCommit": "a0a2a8337e70c5be449c3df5dd58ede23788e3c6"
+    },
+    {
+      "key": "S15P21B205-190",
+      "summary": "추천 이벤트 배열의 null 항목을 400 입력 오류로 거부",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 153,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/153",
+      "mergeCommit": "6074d5ed338b19ea2b2be318ac594aadf547c646"
+    },
+    {
+      "key": "S15P21B205-191",
+      "summary": "추천 후보에서 모집 전·종료된 공동구매 제외",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 157,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/157",
+      "mergeCommit": "97c255e69532c61ae882ff1ff0a44f048af04992"
+    },
+    {
+      "key": "S15P21B205-192",
+      "summary": "판매자 주문 화면 이동 시 선택 공동구매 보존",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 156,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/156",
+      "mergeCommit": "c85ed565a494c48ffa7a912528bb0ce4ac00e579"
+    },
+    {
+      "key": "S15P21B205-193",
+      "summary": "추천 기준 시점 이후 미래 이벤트의 선호도·학습·구매 감점 반영 차단",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 158,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/158",
+      "mergeCommit": "bd8210340e8b065b78eb7a3fb9910fa0b01a5882"
+    },
+    {
+      "key": "S15P21B205-194",
+      "summary": "카드 승인 실행권을 영속화하여 중복 승인 및 취소·만료 경합 차단",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 162,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/162",
+      "mergeCommit": "52edb83aada656366924857161f9d84cf7630a76"
+    },
+    {
+      "key": "S15P21B205-195",
+      "summary": "B18 결제 준비 슬롯 발급 시 모집 시작·마감 경계 검증",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 161,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/161",
+      "mergeCommit": "1d2ec48c3320aa398fd0bee1c42ad2afc1d73abb"
+    },
+    {
+      "key": "S15P21B205-196",
+      "summary": "결제 배송지 단계 복귀 시 선택 및 요청사항 보존",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 160,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/160",
+      "mergeCommit": "ce3e1c6e57a720841af13610260d85c27a3eba14"
+    },
+    {
+      "key": "S15P21B205-197",
+      "summary": "배송지 PATCH 요청사항의 명시적 null 삭제 지원",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 163,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/163",
+      "mergeCommit": "29e679da086c406402693d1655943d3aa1fb3e13"
+    },
+    {
+      "key": "S15P21B205-198",
+      "summary": "[C04] 반품·구매확정·정산 대상 선정의 참여 잠금 경계 통일",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 164,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/164",
+      "mergeCommit": "4f759f264a8d3d36f6e2e7bf5d37aa9dfbf9a152"
+    },
+    {
+      "key": "S15P21B205-199",
+      "summary": "C02 코인 실패 처리의 공통 슬롯 게이트 해제 누락 수정",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 166,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/166",
+      "mergeCommit": "e4179227b73b823fde0af5c943f8b15578835663"
+    },
+    {
+      "key": "S15P21B205-200",
+      "summary": "좁은 화면에서 헤더 메뉴와 버튼 가로 넘침 방지",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 165,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/165",
+      "mergeCommit": "47174c222c09ddc521b74f4054c0558376171e23"
+    },
+    {
+      "key": "S15P21B205-201",
+      "summary": "[B13/C06] 모집 실패 환불과 미실행 예약 복구의 영속 스캔",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 169,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/169",
+      "mergeCommit": "b365ddac14a2e0ab7186a6d0144db3450ffd4d7b"
+    },
+    {
+      "key": "S15P21B205-202",
+      "summary": "정산 이체 실행권과 보류 경합을 DB에서 직렬화",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 170,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/170",
+      "mergeCommit": "4c66d45afcb0ac2ddddc59a8cd7ca08a5c1c585a"
+    },
+    {
+      "key": "S15P21B205-203",
+      "summary": "이미 만료된 결제 슬롯 해제 후 새 준비 재개",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 167,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/167",
+      "mergeCommit": "8f21e4ef0b963e7b9fa184d84d2d10066bbb63ca"
+    },
+    {
+      "key": "S15P21B205-204",
+      "summary": "C03 코인 결제 송신 지갑 소유권 서명 검증과 일회용 challenge",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 173,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/173",
+      "mergeCommit": "95d2a2fcd825ad0579bee46950410add8cc54abe"
+    },
+    {
+      "key": "S15P21B205-205",
+      "summary": "승인 시도 없는 종료 결제를 승인 실패로 오표시하지 않음",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 168,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/168",
+      "mergeCommit": "c39f8838cc1c768bf5600c2e35cc3dfa96a08f8b"
+    },
+    {
+      "key": "S15P21B205-206",
+      "summary": "결제 이력에 참여 환불 상태와 완료 금액 표시",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 171,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/171",
+      "mergeCommit": "186dadf444ebd3974411e6f72533b7f1b84ec0d7"
+    },
+    {
+      "key": "S15P21B205-207",
+      "summary": "결제 준비 멱등키의 소유자·요청 본문 불일치 재사용 차단",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 174,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/174",
+      "mergeCommit": "85e9199ea2f7997b26e05218c9e60da8c4ca4664"
+    },
+    {
+      "key": "S15P21B205-208",
+      "summary": "반품 후 배송비 잔액 정산 및 0원 환불 종결",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 175,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/175",
+      "mergeCommit": "de1d1167338a9b6c0ede2277617124e9b2ab6978"
+    },
+    {
+      "key": "S15P21B205-209",
+      "summary": "참여 생성 시각을 호스트 시간대와 무관한 UTC로 기록",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 172,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/172",
+      "mergeCommit": "65a29ef54173f3ab055b3666dac5ada2b4ffc587"
+    },
+    {
+      "key": "S15P21B205-210",
+      "summary": "배송 상태 전이와 참여 이의제기 보류 갱신 경합 직렬화",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 176,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/176",
+      "mergeCommit": "8902037c8b58c14426411645625d23aa551d47c4"
+    },
+    {
+      "key": "S15P21B205-211",
+      "summary": "결제 준비 배송지 스냅샷과 일회성 배송 요청사항을 모든 결제수단에 보존",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 181,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/181",
+      "mergeCommit": "301eef91c031775d47d27f5f3fff62ffc933d9ce"
+    },
+    {
+      "key": "S15P21B205-212",
+      "summary": "[BE] 코인 원선택 자산을 견적·지갑 증명·최종 등록까지 일관되게 검증",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 177,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/177",
+      "mergeCommit": "52f05f2960797e7176a218b76ca19b687bdf4e68"
+    },
+    {
+      "key": "S15P21B205-213",
+      "summary": "[P1] 미매칭 코인 입금 환불의 결과 불명 재송신 및 종결 실패 방어",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 178,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/178",
+      "mergeCommit": "841582ee8633eb8ca9daacb8b43f551771fa6dec"
+    },
+    {
+      "key": "S15P21B205-214",
+      "summary": "판매 철회 시 필수 위반 후보가 생성되지 않는 이벤트 연결 누락",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 179,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/179",
+      "mergeCommit": "24fcf68a88f5f327010a4a22411ff24c57bfb719"
+    },
+    {
+      "key": "S15P21B205-215",
+      "summary": "[BE] 판매자 위반 확정·기각·취소 경합과 누적 횟수 유실 방지",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 180,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/180",
+      "mergeCommit": "462ca8f44891985f47a56d834e2f4c6f0567df0c"
+    },
+    {
+      "key": "S15P21B205-216",
+      "summary": "[P1] 종료 코인 결제의 기존 입금 추적과 컨펌 전 환불 차단",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 183,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/183",
+      "mergeCommit": "7c9805516d2dbe38ed81b6a84bfd9978649f7f63"
+    },
+    {
+      "key": "S15P21B205-217",
+      "summary": "판매 철회 환불 도중 예외 발생 시 뒤 참여자의 환불 원장과 복구 작업 누락",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 182,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/182",
+      "mergeCommit": "4fdb81022a3e2f189c84cec517bcfdc9846c4909"
+    },
+    {
+      "key": "S15P21B205-218",
+      "summary": "[BE] 모집 종료·판매 철회 후 결제 슬롯 종료가 롤백되는 오류",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 184,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/184",
+      "mergeCommit": "017cc73cd3dbbdf3ae206d6fed48592a7a1d99c4"
+    },
+    {
+      "key": "S15P21B205-219",
+      "summary": "종료된 공동구매의 잔여 PROCESSING 결제에서 새 외부 승인·코인 견적 발급 차단",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 185,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/185",
+      "mergeCommit": "635a787b821c3096ab15a3f17d88329bcd1c91b7"
+    },
+    {
+      "key": "S15P21B205-220",
+      "summary": "DevelopV2 버그 수정 통합 회귀 및 완료·잔여 범위 기록 갱신",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 187,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/187",
+      "mergeCommit": "e58696528d167214fd184059d2cde890c148d353"
+    },
+    {
+      "key": "S15P21B205-221",
+      "summary": "[P1][FR-PAY-26] 반환 대상·완료 코인 입금을 새 결제에 재사용하지 못하도록 방어",
+      "status": "완료",
+      "assignee": "김태민",
+      "sprintId": 58076,
+      "mr": 186,
+      "mrUrl": "https://lab.ssafy.com/s15-fintech-finance-sub1/S15P21B205/-/merge_requests/186",
+      "mergeCommit": "acfec448800c05016429505e48a06ddfa5b9c68f"
+    }
+  ]
+}
