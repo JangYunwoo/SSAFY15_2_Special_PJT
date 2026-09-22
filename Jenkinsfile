@@ -11,8 +11,16 @@ pipeline {
         stage('Checkout') {
             steps {
                 deleteDir()
-                checkout scm
-                script { env.RELEASE_SHA = sh(script: 'git rev-parse HEAD', returnStdout: true).trim() }
+                script {
+                    // Explicit checkout returns SCM variables; skipDefaultCheckout does not
+                    // automatically export them into the Declarative environment.
+                    def checkedOut = checkout scm
+                    env.GIT_BRANCH = checkedOut.GIT_BRANCH ?: ''
+                    env.RELEASE_SHA = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
+                    if (env.JOB_NAME == 'gongguhan-DevelopV2' && env.GIT_BRANCH != 'origin/DevelopV2') {
+                        error('Production checkout must explicitly identify origin/DevelopV2')
+                    }
+                }
             }
         }
         stage('Frontend test and build') {
@@ -33,7 +41,9 @@ pipeline {
             steps { sh 'bash deploy/jenkins/ci.sh images' }
         }
         stage('Deploy DevelopV2') {
-            when { expression { env.JOB_NAME == 'gongguhan-DevelopV2' && env.GIT_BRANCH == 'origin/DevelopV2' } }
+            // A missing/wrong branch is a failure (checked above and in deploy.py),
+            // not a silently skipped "successful" production deployment.
+            when { expression { env.JOB_NAME == 'gongguhan-DevelopV2' } }
             steps { sh 'python3 deploy/jenkins/deploy.py "$RELEASE_SHA"' }
         }
     }
