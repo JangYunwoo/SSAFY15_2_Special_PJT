@@ -194,7 +194,8 @@ public class RecommendationRepository {
     public List<RecommendationTrainingEvent> findTrainingEvents(int limit) {
         List<RecommendationTrainingEvent> result = new ArrayList<>();
         result.addAll(jdbcTemplate.query("""
-                SELECT e.user_id,
+                SELECT e.session_id,
+                       e.user_id,
                        e.group_buy_id,
                        e.event_type,
                        e.occurred_at,
@@ -213,7 +214,16 @@ public class RecommendationRepository {
                 """, Map.of("limit", limit), this::mapStoredEvent));
 
         result.addAll(jdbcTemplate.query("""
-                SELECT part.user_id,
+                SELECT COALESCE((
+                           SELECT e.session_id
+                             FROM recommendation_events e
+                            WHERE e.user_id = part.user_id
+                              AND e.group_buy_id = part.group_buy_id
+                              AND e.occurred_at <= part.joined_at
+                            ORDER BY e.occurred_at DESC
+                            LIMIT 1
+                       ), CONCAT('purchase-', part.participation_id)) AS session_id,
+                       part.user_id,
                        part.group_buy_id,
                        part.joined_at AS occurred_at,
                        p.product_id,
@@ -274,6 +284,7 @@ public class RecommendationRepository {
 
     private RecommendationTrainingEvent mapStoredEvent(ResultSet resultSet, int rowNum) throws SQLException {
         return new RecommendationTrainingEvent(
+                resultSet.getString("session_id"),
                 resultSet.getLong("user_id"),
                 resultSet.getLong("group_buy_id"),
                 resultSet.getLong("product_id"),
@@ -291,6 +302,7 @@ public class RecommendationRepository {
         long productPrice = resultSet.getLong("product_price");
         OffsetDateTime occurredAt = utc(resultSet, "occurred_at");
         return new RecommendationTrainingEvent(
+                resultSet.getString("session_id"),
                 resultSet.getLong("user_id"),
                 resultSet.getLong("group_buy_id"),
                 resultSet.getLong("product_id"),

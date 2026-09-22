@@ -10,7 +10,7 @@
 | --- | --- |
 | 프론트엔드 | React 19, Vite |
 | 백엔드 | Java 21, Spring Boot 4.1.1, Spring Data JPA, QueryDSL, Spring Security + JWT |
-| AI | Python 3.12, FastAPI, Gemini(Vertex AI), pandas, scikit-learn |
+| AI | Python 3.12, FastAPI, Gemini(Vertex AI), pandas, LightGBM, scikit-learn |
 | DB | MySQL 8.0 (Flyway 마이그레이션) |
 | 캐시 | Redis 7 |
 | 객체 저장소 | AWS S3, MinIO(로컬 통합 테스트) |

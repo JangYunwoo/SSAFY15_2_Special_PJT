@@ -26,6 +26,7 @@ class Candidate(BaseModel):
 
 
 class Event(BaseModel):
+    session_id: str | None = None
     user_id: int
     group_buy_id: int
     product_id: int
@@ -67,6 +68,7 @@ def rank(request: RankRequest) -> RankResponse:
     if events.empty:
         events = pd.DataFrame(
             columns=[
+                "session_id",
                 "user_id",
                 "group_buy_id",
                 "product_id",

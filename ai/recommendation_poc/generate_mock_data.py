@@ -76,6 +76,7 @@ def create_events(rng: random.Random, products: list[dict], count_per_user: int 
                 event_type = "IMPRESSION"
             events.append({
                 "event_id": event_id,
+                "session_id": f"mock-{user_id}-{index // 8 + 1}",
                 "user_id": user_id,
                 "group_buy_id": product["group_buy_id"],
                 "event_type": event_type,

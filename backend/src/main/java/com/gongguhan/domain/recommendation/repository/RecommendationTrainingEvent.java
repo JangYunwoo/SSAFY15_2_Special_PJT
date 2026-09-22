@@ -3,6 +3,7 @@ package com.gongguhan.domain.recommendation.repository;
 import java.time.OffsetDateTime;
 
 public record RecommendationTrainingEvent(
+        String sessionId,
         long userId,
         long groupBuyId,
         long productId,
