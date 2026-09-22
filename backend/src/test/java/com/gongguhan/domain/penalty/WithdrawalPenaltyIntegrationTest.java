@@ -47,11 +47,11 @@ class WithdrawalPenaltyIntegrationTest {
 
     @Test void externalRefundFailureDoesNotEraseCommittedCandidate() {
         long id = fixture();
-        when(refunds.refundParticipation(anyLong(), anyLong(), any())).thenThrow(new IllegalStateException("QA refund unavailable"));
-        assertThatThrownBy(() -> withdrawal.withdraw(id, id, "재고 부족")).isInstanceOf(IllegalStateException.class);
+        when(refunds.resumePersisted(anyLong())).thenThrow(new IllegalStateException("QA refund unavailable"));
+        assertThatCode(() -> withdrawal.withdraw(id, id, "재고 부족")).doesNotThrowAnyException();
         assertThat(status(id)).isEqualTo("CANCELED");
         assertThat(candidateCount(id)).isEqualTo(1);
-        verify(refunds, times(1)).refundParticipation(eq(id), eq(1000L), any());
+        verify(refunds, times(1)).resumePersisted(anyLong());
     }
 
     @Test void rollbackRemovesCancellationAndCandidateTogether() {

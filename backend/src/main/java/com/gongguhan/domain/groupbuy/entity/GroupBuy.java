@@ -96,6 +96,10 @@ public class GroupBuy extends BaseTimeEntity {
     protected GroupBuy() {
     }
 
+    public Long getVersion() {
+        return version;
+    }
+
     public static GroupBuy create(
             Long productId,
             Long sellerId,
