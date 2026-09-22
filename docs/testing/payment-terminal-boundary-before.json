@@ -1,0 +1,23 @@
+{
+  "issue": "S15P21B205-219",
+  "baselineCommit": "301eef91c031775d47d27f5f3fff62ffc933d9ce",
+  "testClass": "com.gongguhan.audit.TerminalGroupBuyPaymentBoundaryIntegrationTest",
+  "productCodeWasUnmodified": true,
+  "tests": 18,
+  "failures": 15,
+  "errors": 0,
+  "skipped": 0,
+  "passed": 3,
+  "terminalStates": ["FAILED", "CANCELED", "FULFILLED"],
+  "mockExternalBoundaryReached": {
+    "CARD": 3,
+    "KAKAO_READY": 3,
+    "KAKAO_APPROVE": 3,
+    "CRYPTO_QUOTE": 3
+  },
+  "unexpectedProofIssuance": 3,
+  "expectedError": "GROUP_BUY_NOT_RECRUITING",
+  "externalNetworkCalls": 0,
+  "localOriginalXml": "backend/build/terminal-boundary-before.xml",
+  "originalXmlSha256": "A09237475F7601970755044AE63BC101D7846DA52A7BA778604F046218602893"
+}
