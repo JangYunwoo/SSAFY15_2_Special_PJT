@@ -56,6 +56,11 @@ class CryptoWalletProofIntegrationTest {
         id = IDS.incrementAndGet();
         LocalDateTime now = LocalDateTime.now(clock);
         jdbc.update("""
+                INSERT INTO group_buys(group_buy_id,product_id,seller_id,target_participants,unit_share_amount,
+                shipping_fee,current_participants,reserved_slots,recruit_start_at,recruit_end_at,status,version,created_at,updated_at)
+                VALUES(?,501,10,5,1000,0,0,1,?,?,'RECRUITING',0,NOW(),NOW())
+                """, id, now.minusHours(1), now.plusDays(1));
+        jdbc.update("""
                 INSERT INTO payments(payment_id,group_buy_id,user_id,address_id,method,krw_amount,slot_expires_at,
                 slot_marker,idempotency_key,status,created_at,updated_at)
                 VALUES(?,?,1,1,'CRYPTO',1000,?,'Y',?,'PROCESSING',NOW(),NOW())

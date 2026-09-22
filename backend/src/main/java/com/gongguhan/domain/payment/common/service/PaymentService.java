@@ -366,6 +366,11 @@ public class PaymentService {
         Payment payment = paymentRepository.findForUpdateByPaymentIdAndUserId(paymentId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_ACCESS_DENIED));
         validateApprovalCandidate(payment, expectedMethod);
+        // 결제 TTL이 남아 있어도 이미 종료된 공구에 새 외부 승인/견적을 시작하지 않는다.
+        // 모집 종료 시각만 지난 RECRUITING 공구의 기존 유효 슬롯은 현재 정책대로 유지한다.
+        if (!"RECRUITING".equals(groupBuySlotPort.get(payment.getGroupBuyId()).status())) {
+            throw new BusinessException(ErrorCode.GROUP_BUY_NOT_RECRUITING);
+        }
         ensureShippingSnapshot(payment);
         return new ApprovalContext(
                 payment.getPaymentId(), payment.getGroupBuyId(), payment.getUserId(),
