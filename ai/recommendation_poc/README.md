@@ -15,7 +15,7 @@ streamlit run recommendation_poc/demo.py
 행동 로그 시뮬레이터에서 상품과 행동을 선택하면 추천 순위가 다시 계산됩니다.
 `로그 초기화`를 누르면 원본 목업 로그로 돌아갑니다.
 
-- `recommender.py`: scikit-learn 로지스틱 회귀 기반 추천 코어
+- `recommender.py`: LightGBM Learning-to-Rank 기반 추천 코어
 - `demo.py`: 나중에 React로 대체할 임시 화면
 - `mock_data/`: 나중에 Java 백엔드와 DB 응답으로 대체할 데이터
 - `generate_mock_data.py`: 사용자 3명 × 행동 로그 150건을 재생성
@@ -31,6 +31,11 @@ streamlit run recommendation_poc/demo.py
 현재 행동의 정답이 입력에 섞이는 데이터 누수를 막습니다.
 
 FastAPI의 `POST /api/v1/recommendations/rank`가 백엔드에서 받은 후보와 행동 로그를
-정렬합니다. 학습 행이 20개 미만이거나 양성·음성 두 클래스가 모두 없으면 초기 가중치를
-사용합니다. AI 서버가 꺼져 있으면 Spring 백엔드가 모집률 순으로 대체하므로 홈 화면은
-계속 동작합니다.
+정렬합니다. 한 세션에 함께 노출된 상품을 하나의 순위 학습 그룹으로 구성하고,
+`IMPRESSION=0`, `CLICK·DETAIL_VIEW=1`, `PURCHASE=3`을 관련도 정답으로 사용합니다.
+같은 세션에서 같은 상품에 행동이 여러 번 발생하면 가장 높은 관련도만 사용합니다.
+
+유효 학습 행이 40개 미만이거나 비교 가능한 세션이 5개 미만이면 초기 가중치를
+사용합니다. LightGBM이 학습된 경우 응답의 `feature_weights`는 회귀계수가 아니라
+각 특징의 정규화된 gain 중요도입니다. AI 서버가 꺼져 있으면 Spring 백엔드가 모집률
+순으로 대체하므로 홈 화면은 계속 동작합니다.

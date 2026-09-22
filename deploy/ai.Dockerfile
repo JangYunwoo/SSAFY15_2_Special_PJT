@@ -13,6 +13,11 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
+# LightGBM Linux wheel이 사용하는 OpenMP 런타임.
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
 # 의존성 먼저 설치해 레이어 캐시를 살린다.
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt

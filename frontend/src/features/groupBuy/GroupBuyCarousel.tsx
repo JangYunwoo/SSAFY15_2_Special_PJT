@@ -74,8 +74,6 @@ export function GroupBuyCarousel({
       moved: false,
     }
     suppressClickRef.current = false
-    root.setPointerCapture(event.pointerId)
-    setDragging(true)
   }
 
   const moveDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -84,10 +82,15 @@ export function GroupBuyCarousel({
     if (root === null || drag?.pointerId !== event.pointerId) return
     const distance = event.clientX - drag.startX
     if (Math.abs(distance) > 5) {
-      drag.moved = true
-      suppressClickRef.current = true
+      if (!drag.moved) {
+        drag.moved = true
+        suppressClickRef.current = true
+        root.setPointerCapture(event.pointerId)
+        setDragging(true)
+      }
+      event.preventDefault()
     }
-    root.scrollLeft = drag.startScrollLeft - distance
+    if (drag.moved) root.scrollLeft = drag.startScrollLeft - distance
   }
 
   const endDrag = (event: ReactPointerEvent<HTMLDivElement>) => {

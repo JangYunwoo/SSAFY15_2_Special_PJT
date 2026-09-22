@@ -80,7 +80,7 @@ st.dataframe(
     hide_index=True,
 )
 
-with st.expander("모델이 학습한 공통 가중치"):
+with st.expander("모델의 특징 중요도"):
     st.dataframe(result.feature_weights, use_container_width=True, hide_index=True)
 
 st.subheader(f"{user_id}번 사용자의 선호 프로필")
