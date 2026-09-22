@@ -193,6 +193,9 @@ public class RecommendationRepository {
 
     public List<RecommendationTrainingEvent> findTrainingEvents(int limit) {
         List<RecommendationTrainingEvent> result = new ArrayList<>();
+        // 진행 중 세션이 즉시 학습에 섞이지 않도록 1초 유예 컷오프를 둔다. DB 종속 함수
+        // (MySQL DATE_SUB/UTC_TIMESTAMP) 대신 UTC 기준값을 계산해 바인딩한다(동작 동일, 이식성 확보).
+        Timestamp cutoff = timestamp(OffsetDateTime.now(ZoneOffset.UTC).minusSeconds(1));
         result.addAll(jdbcTemplate.query("""
                 SELECT e.user_id,
                        e.group_buy_id,
@@ -207,10 +210,10 @@ public class RecommendationRepository {
                   FROM recommendation_events e
                   JOIN recommendation_sessions s ON s.session_id = e.session_id
                  WHERE s.ended_at IS NOT NULL
-                    OR s.last_event_at <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 SECOND)
+                    OR s.last_event_at <= :cutoff
                  ORDER BY e.occurred_at DESC
                  LIMIT :limit
-                """, Map.of("limit", limit), this::mapStoredEvent));
+                """, Map.of("limit", limit, "cutoff", cutoff), this::mapStoredEvent));
 
         result.addAll(jdbcTemplate.query("""
                 SELECT part.user_id,
@@ -222,7 +225,11 @@ public class RecommendationRepository {
                        p.price AS list_price,
                        gb.product_price,
                        gb.target_participants,
-                       gb.current_participants,
+                       (SELECT COUNT(*) FROM participations pp
+                         WHERE pp.group_buy_id = part.group_buy_id
+                           AND pp.joined_at <= part.joined_at
+                           AND pp.status IN ('PAID', 'FULFILLED', 'SHIPPING', 'DELIVERED', 'CONFIRMED', 'SETTLED')
+                       ) AS participants_at_join,
                        gb.recruit_end_at
                   FROM participations part
                   JOIN group_buys gb ON gb.group_buy_id = part.group_buy_id
@@ -286,6 +293,18 @@ public class RecommendationRepository {
                 resultSet.getDouble("deadline_urgency"));
     }
 
+    /**
+     * 과거 구매(PURCHASE) 이벤트의 특징은 <b>구매 당시</b> 값이어야 학습 라벨이 왜곡되지 않는다.
+     *
+     * <p>모집률은 현재 누적 참여자수({@code gb.current_participants})가 아니라 {@code joined_at}
+     * 기준으로 재집계한 <b>당시 참여수</b>({@code participants_at_join})를 쓴다. 이미 모집이 끝난
+     * 공구의 모든 구매를 ~100% 참여율로 라벨하던 시점 불일치를 없앤다.
+     *
+     * <p>마감임박도는 이미 과거 {@code occurredAt}(=joined_at)과 마감시각으로 계산하므로 시점
+     * 정합적이라 그대로 둔다. 할인율은 당시 정가({@code products.price})가 스냅샷으로 저장돼
+     * 있지 않아(판매자가 정가를 바꾼 경우에만 왜곡되는 별개 엣지) 여기서 재구성하지 않는다 -
+     * 저장되지 않은 당시값을 현재값으로 지어내지 않는다.
+     */
     private RecommendationTrainingEvent mapPurchaseEvent(ResultSet resultSet, int rowNum) throws SQLException {
         long listPrice = resultSet.getLong("list_price");
         long productPrice = resultSet.getLong("product_price");
@@ -298,7 +317,7 @@ public class RecommendationRepository {
                 occurredAt,
                 resultSet.getString("brand"),
                 nullableLong(resultSet, "category_id"),
-                ratio(resultSet.getInt("current_participants"), resultSet.getInt("target_participants")),
+                ratio(resultSet.getInt("participants_at_join"), resultSet.getInt("target_participants")),
                 listPrice <= 0 ? 0 : clamp((listPrice - productPrice) * 1.0 / listPrice),
                 deadlineUrgency(occurredAt, utc(resultSet, "recruit_end_at")));
     }
