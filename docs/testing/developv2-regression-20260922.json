@@ -1,0 +1,35 @@
+{
+  "date": "2026-09-22",
+  "timezone": "Asia/Seoul",
+  "testedSource": "5a8ad1355722fcf09c649a97452697e92b76552e",
+  "backend": {
+    "exitCode": 0,
+    "xmlSuites": 131,
+    "tests": 900,
+    "passed": 897,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 3,
+    "skips": { "Redis": 2, "S3": 1 },
+    "bootJar": "passed",
+    "testAndBuildElapsedSeconds": 128,
+    "javaVersion": "21",
+    "testDatabase": "H2",
+    "testJvmMaxHeap": "2g",
+    "springTestContextCacheMaxSize": 64,
+    "externalFinanceAndChain": "mocked"
+  },
+  "frontend": {
+    "testFiles": 24,
+    "testsPassed": 177,
+    "typecheck": "passed",
+    "lint": "passed",
+    "build": "passed"
+  },
+  "ai": { "testsPassed": 15, "deprecationWarnings": 7, "exitCode": 0 },
+  "deploymentPerformed": false,
+  "liveFinancialRetryPerformed": false,
+  "mysqlFlywayV17ThroughV22Verified": false,
+  "performanceBenchmarkPerformed": false,
+  "notes": "Intermediate runtime and shared-H2 failures are retained in the individual study documents. This is a correctness regression, not proof that every product bug is absent."
+}

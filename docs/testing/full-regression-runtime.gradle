@@ -1,0 +1,10 @@
+// Optional local regression runtime only; does not change the application JVM.
+// Usage from backend: gradlew.bat --init-script ../docs/testing/full-regression-runtime.gradle test
+allprojects {
+    tasks.withType(org.gradle.api.tasks.testing.Test).configureEach {
+        maxHeapSize = '2g'
+        // Several contexts share the test H2 database with create-drop. Evicting
+        // one while another still uses that database would drop its schema.
+        systemProperty 'spring.test.context.cache.maxSize', '64'
+    }
+}
