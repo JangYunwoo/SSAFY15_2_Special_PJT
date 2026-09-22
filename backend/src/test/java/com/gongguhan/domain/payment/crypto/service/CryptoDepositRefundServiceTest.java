@@ -85,6 +85,7 @@ class CryptoDepositRefundServiceTest {
         when(deposit.getFromAddress()).thenReturn(SENDER);
         when(deposit.getRawAmount()).thenReturn(RAW_AMOUNT);
         when(deposit.getAssetAmount()).thenReturn(ASSET_AMOUNT);
+        when(deposit.getConfirmations()).thenReturn(5);
         return deposit;
     }
 
@@ -92,6 +93,7 @@ class CryptoDepositRefundServiceTest {
         CryptoAsset asset = mock(CryptoAsset.class);
         when(asset.getAssetId()).thenReturn(ASSET_ID);
         when(asset.getSymbol()).thenReturn(SYMBOL);
+        when(asset.getRequiredConfirmations()).thenReturn(5);
         return asset;
     }
 

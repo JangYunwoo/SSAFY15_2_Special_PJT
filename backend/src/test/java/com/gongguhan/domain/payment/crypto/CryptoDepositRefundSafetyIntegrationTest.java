@@ -135,6 +135,7 @@ class CryptoDepositRefundSafetyIntegrationTest {
         jdbc.update("INSERT INTO crypto_assets(asset_id,symbol,chain_id,chain_name,token_contract,decimals,required_confirmations,enabled,created_at) VALUES(?,'QA',80002,'QA',?,6,5,TRUE,NOW())",assetId,token);
         CryptoDeposit deposit=CryptoDeposit.detected(80002,String.format("0x%064x",assetId),0,100,token,SENDER,RECEIVER,new BigInteger("5000000"),new BigDecimal("5"),6,LocalDateTime.now(ZoneOffset.UTC));
         deposit.markUnmatched("QA",LocalDateTime.now(ZoneOffset.UTC));
+        deposit.updateConfirmations(5);
         return deposits.save(deposit).getDepositId();
     }
 }

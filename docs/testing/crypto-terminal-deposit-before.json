@@ -1,0 +1,14 @@
+{
+  "issue": "S15P21B205-216",
+  "baseline": "8902037",
+  "environment": "Java 21 / Spring JPA / H2 MySQL mode; no live RPC or token transfers",
+  "tests": 3,
+  "failures": 3,
+  "scenarios": [
+    "EXPIRED payment with submitted txHash excluded from awaiting-receipt query",
+    "applyLateReceipt on EXPIRED payment leaves zero deposit rows",
+    "Known receipt before expiration excluded from pending-confirmation query"
+  ],
+  "observedAtUtc": "2026-09-21T08:34:29Z",
+  "note": "Separate preserved baseline failure evidence; not a deployment trade."
+}

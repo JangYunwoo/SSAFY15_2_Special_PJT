@@ -134,7 +134,10 @@ public class CryptoTxRecordService {
         cryptoPayment.updateConfirmations(
                 ChainClient.calculateConfirmations(latestBlock, receipt.blockNumber()));
 
-        if (cryptoPayment.isConfirmed()) {
+        if (payment.isExpired(now)) {
+            paymentService.failPayment(paymentId, "SLOT_EXPIRED_BEFORE_CONFIRMATION");
+            classifyTerminalDeposits(paymentId, now, false);
+        } else if (cryptoPayment.isConfirmed()) {
             completePayment(payment, cryptoPayment, now);
         }
         return cryptoPayment;
@@ -153,7 +156,7 @@ public class CryptoTxRecordService {
      */
     @Transactional
     public void markDepositRefunded(Long depositId) {
-        CryptoDeposit deposit = cryptoDepositRepository.findById(depositId)
+        CryptoDeposit deposit = cryptoDepositRepository.findForUpdate(depositId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND,
                         "입금 건을 찾을 수 없습니다. depositId=" + depositId));
         deposit.markRefunded();
@@ -162,46 +165,74 @@ public class CryptoTxRecordService {
 
     @Transactional
     public boolean refreshConfirmations(Long paymentId, long latestBlock) {
-        CryptoPayment cryptoPayment = cryptoPaymentRepository.findById(paymentId).orElse(null);
-        if (cryptoPayment == null || cryptoPayment.getBlockNumber() == null) {
-            return false;
-        }
-
         Payment payment = paymentRepository.findForUpdateByPaymentId(paymentId).orElse(null);
-        if (payment == null || !payment.isProcessing()) {
-            return false;   // 이미 완료·실패·만료됨. 폴링이 배치와 겹치는 정상 상황이다.
-        }
-
-        LocalDateTime now = LocalDateTime.now(clock);
-
-        // 슬롯이 만료된 뒤 컨펌이 도달하는 경우가 있다. 이때 결제를 확정하면
-        // 자리는 이미 남에게 넘어갔는데 참여 건을 만들게 되어 인원이 초과된다.
-        // FR-SLT-10 대로 결제를 폐기하고 환불 대상으로 남긴다.
-        if (payment.isExpired(now)) {
-            paymentService.failPayment(paymentId, "SLOT_EXPIRED_BEFORE_CONFIRMATION");
-            log.warn("슬롯 만료 후 컨펌 도달 - 환불 대상 payment={}", paymentId);
+        CryptoPayment cryptoPayment = cryptoPaymentRepository.findById(paymentId).orElse(null);
+        if (payment == null || cryptoPayment == null || cryptoPayment.getBlockNumber() == null
+                || !CryptoPayment.RECEIPT_SUCCESS.equals(cryptoPayment.getReceiptStatus())) {
             return false;
         }
-
+        LocalDateTime now = LocalDateTime.now(clock);
         cryptoPayment.updateConfirmations(
                 ChainClient.calculateConfirmations(latestBlock, cryptoPayment.getBlockNumber()));
 
-        if (!cryptoPayment.isConfirmed()) {
+        if (!payment.isProcessing()) {
+            if (!Payment.STATUS_PAID.equals(payment.getStatus())) {
+                classifyTerminalDeposits(paymentId, now, true);
+            }
             return false;
         }
+        if (payment.isExpired(now)) {
+            paymentService.failPayment(paymentId, "SLOT_EXPIRED_BEFORE_CONFIRMATION");
+            classifyTerminalDeposits(paymentId, now, true);
+            return false;
+        }
+        if (!cryptoPayment.isConfirmed()) { return false; }
         completePayment(payment, cryptoPayment, now);
         return true;
+    }
+
+    /** 종료 결제의 이전 MATCHED 입금은 반환 후보로 옮기되 슬롯·참여를 되살리지 않는다. */
+    private void classifyTerminalDeposits(Long paymentId, LocalDateTime now, boolean needsFreshReceipt) {
+        for (CryptoDeposit candidate : cryptoDepositRepository.findByPaymentId(paymentId)) {
+            CryptoDeposit deposit = cryptoDepositRepository.findForUpdate(candidate.getDepositId()).orElseThrow();
+            if (CryptoDeposit.STATUS_MATCHED.equals(deposit.getStatus())) {
+                deposit.markUnmatched("결제 종료 후 확인된 입금: 관리자 원금 반환 대상", now);
+                // 과거 영수증+현재 블록 높이만으로 환불 확정을 추정하지 않는다.
+                if (needsFreshReceipt) { deposit.updateConfirmations(0); }
+            }
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<CryptoDeposit> findUnconfirmedDeposits(long chainId, org.springframework.data.domain.Pageable page) {
+        return cryptoDepositRepository.findUnconfirmedRefundCandidates(chainId, page);
+    }
+
+    /** 외부에서 새로 읽은 영수증을 원본 로그와 대조한 뒤 반환용 컨펌을 기록한다. */
+    @Transactional
+    public void refreshDepositConfirmations(Long depositId, ChainClient.ReceiptView receipt, long latestBlock) {
+        CryptoDeposit deposit = cryptoDepositRepository.findForUpdate(depositId).orElse(null);
+        if (deposit == null || !java.util.List.of(CryptoDeposit.STATUS_UNMATCHED,
+                CryptoDeposit.STATUS_UNDERPAID, CryptoDeposit.STATUS_OVERPAID).contains(deposit.getStatus())) {
+            return;
+        }
+        boolean valid = receipt != null && receipt.success() && receipt.transfers().stream().anyMatch(t ->
+                t.logIndex() == deposit.getLogIndex()
+                        && t.tokenContract().equalsIgnoreCase(deposit.getTokenContract())
+                        && t.from().equalsIgnoreCase(deposit.getFromAddress())
+                        && t.to().equalsIgnoreCase(deposit.getToAddress())
+                        && t.rawAmount().equals(deposit.rawAmountValue()));
+        if (!valid) { deposit.updateConfirmations(0); return; }
+        deposit.observeConfirmedReceipt(receipt.blockNumber(),
+                ChainClient.calculateConfirmations(latestBlock, receipt.blockNumber()));
     }
 
     /** 영수증을 뒤늦게 확인한 건에 결과를 반영한다 (폴링). */
     @Transactional
     public void applyLateReceipt(Long paymentId, ChainClient.ReceiptView receipt, long latestBlock) {
-        CryptoPayment cryptoPayment = cryptoPaymentRepository.findById(paymentId).orElse(null);
-        if (cryptoPayment == null || cryptoPayment.getReceiptStatus() != null) {
-            return;
-        }
         Payment payment = paymentRepository.findForUpdateByPaymentId(paymentId).orElse(null);
-        if (payment == null || !payment.isProcessing()) {
+        CryptoPayment cryptoPayment = cryptoPaymentRepository.findById(paymentId).orElse(null);
+        if (payment == null || cryptoPayment == null || cryptoPayment.getReceiptStatus() != null) {
             return;
         }
 
@@ -209,7 +240,7 @@ public class CryptoTxRecordService {
         cryptoPayment.applyReceipt(receipt.success(), receipt.blockNumber());
 
         if (!receipt.success()) {
-            paymentService.failPayment(paymentId, "TX_REVERTED");
+            if (payment.isProcessing()) { paymentService.failPayment(paymentId, "TX_REVERTED"); }
             return;
         }
 
@@ -219,14 +250,19 @@ public class CryptoTxRecordService {
         } catch (BusinessException e) {
             // 폴링 경로에서는 예외를 던져도 받을 사용자가 없다. 결제를 실패로
             // 확정하고 사유를 남겨 관리자가 확인하게 한다.
-            paymentService.failPayment(paymentId, "TX_VERIFICATION_FAILED: " + e.getMessage());
+            if (payment.isProcessing()) {
+                paymentService.failPayment(paymentId, "TX_VERIFICATION_FAILED: " + e.getMessage());
+            }
             log.warn("폴링 중 트랜잭션 검증 실패 payment={}", paymentId, e);
             return;
         }
 
         cryptoPayment.updateConfirmations(
                 ChainClient.calculateConfirmations(latestBlock, receipt.blockNumber()));
-        if (cryptoPayment.isConfirmed()) {
+        if (!payment.isProcessing() || payment.isExpired(now)) {
+            if (payment.isProcessing()) { paymentService.failPayment(paymentId, "SLOT_EXPIRED_BEFORE_CONFIRMATION"); }
+            if (!Payment.STATUS_PAID.equals(payment.getStatus())) { classifyTerminalDeposits(paymentId, now, false); }
+        } else if (cryptoPayment.isConfirmed()) {
             completePayment(payment, cryptoPayment, now);
         }
     }

@@ -144,6 +144,12 @@ public class CryptoDeposit {
         this.confirmations = Math.max(0, confirmations);
     }
 
+    /** 새 영수증에서 원본 로그를 다시 확인한 경우에만 블록 위치와 컨펌을 함께 갱신한다. */
+    public void observeConfirmedReceipt(long blockNumber, int confirmations) {
+        this.blockNumber = blockNumber;
+        updateConfirmations(confirmations);
+    }
+
     private static String normalize(String value) {
         return value == null ? null : value.toLowerCase();
     }

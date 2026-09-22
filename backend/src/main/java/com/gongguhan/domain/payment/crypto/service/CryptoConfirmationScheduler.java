@@ -65,8 +65,9 @@ public class CryptoConfirmationScheduler {
 
         List<CryptoPayment> awaitingReceipt = cryptoPaymentRepository.findAwaitingReceipt(page);
         List<CryptoPayment> pending = cryptoPaymentRepository.findPendingConfirmation(page);
+        var unmatched = cryptoTxRecordService.findUnconfirmedDeposits(properties.chainId(), page);
 
-        if (awaitingReceipt.isEmpty() && pending.isEmpty()) {
+        if (awaitingReceipt.isEmpty() && pending.isEmpty() && unmatched.isEmpty()) {
             return;   // 할 일이 없으면 RPC 를 부르지 않는다.
         }
 
@@ -81,6 +82,16 @@ public class CryptoConfirmationScheduler {
 
         int receiptResolved = resolveLateReceipts(awaitingReceipt, latestBlock);
         int completed = advanceConfirmations(pending, latestBlock);
+        // 결제 상세가 롤백된 미달/초과 입금도 독립 원장을 기준으로 추적한다.
+        for (var deposit : unmatched) {
+            try {
+                var receipt = chainClient.findReceipt(deposit.getTxHash());
+                cryptoTxRecordService.refreshDepositConfirmations(
+                        deposit.getDepositId(), receipt.orElse(null), latestBlock);
+            } catch (RuntimeException error) {
+                log.warn("반환 대상 입금 컨펌 조회 실패 depositId={}", deposit.getDepositId(), error);
+            }
+        }
 
         if (receiptResolved > 0 || completed > 0) {
             log.info("컨펌 폴링 완료 block={} 영수증확인={}건 결제확정={}건",

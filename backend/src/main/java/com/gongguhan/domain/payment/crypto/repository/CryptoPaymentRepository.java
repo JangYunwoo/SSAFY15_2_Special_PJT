@@ -19,8 +19,8 @@ public interface CryptoPaymentRepository extends JpaRepository<CryptoPayment, Lo
      * 컨펌 폴링 대상 (5초 주기).
      *
      * <p>영수증이 성공으로 확인됐고 아직 필요 컨펌 수에 못 미친 건만 가져온다.
-     * 상위 결제가 PROCESSING 인 것으로 한정해, 이미 완료·실패·만료된 건을 계속
-     * 조회하지 않는다.
+     * 결제 실패·만료와 입금 추적 종료는 다르다. 종료 결제도 이미 제출한 거래가
+     * 충분히 확인될 때까지 추적하며, 참여를 만들지 않고 반환 대상으로 분류한다.
      *
      * <p>페이지로 끊는 이유: RPC 호출이 건당 1회 이상 발생한다. 밀린 건이 수백 개면
      * 한 주기에 다 처리하려다 노드 호출 한도에 걸리고, 5초 주기를 넘겨 다음 실행과
@@ -33,7 +33,7 @@ public interface CryptoPaymentRepository extends JpaRepository<CryptoPayment, Lo
               and cp.confirmations < cp.requiredConfirmations
               and cp.paymentId in (
                   select p.paymentId from Payment p
-                   where p.status = 'PROCESSING'
+                   where p.status IN ('PROCESSING', 'EXPIRED', 'FAILED')
               )
             order by cp.paymentId asc
            """)
@@ -51,7 +51,7 @@ public interface CryptoPaymentRepository extends JpaRepository<CryptoPayment, Lo
               and cp.receiptStatus is null
               and cp.paymentId in (
                   select p.paymentId from Payment p
-                   where p.status = 'PROCESSING'
+                   where p.status IN ('PROCESSING', 'EXPIRED', 'FAILED')
               )
             order by cp.paymentId asc
            """)
