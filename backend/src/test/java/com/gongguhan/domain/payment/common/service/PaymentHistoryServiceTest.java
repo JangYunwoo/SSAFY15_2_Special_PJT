@@ -23,7 +23,7 @@ class PaymentHistoryServiceTest {
     }
     private PaymentResponse payment(String paymentId, String participation) {
         return new PaymentResponse(paymentId, "10", "PAID", "KAKAOPAY",
-                new PaymentResponse.AmountResponse(1000, 0, 1000, "KRW"), "2026-09-21T01:00:00Z", 0, participation);
+                new PaymentResponse.AmountResponse(1000, 0, 1000, "KRW"), "2026-09-21T01:00:00Z", 0, participation, null);
     }
 
     @Test void returnsApprovalAndRefundTogetherUsingSingleBatch() {

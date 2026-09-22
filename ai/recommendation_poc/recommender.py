@@ -3,9 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pandas as pd
-from sklearn.linear_model import LogisticRegression
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
+from lightgbm import LGBMRanker
 
 
 EVENT_WEIGHTS = {
@@ -28,6 +26,8 @@ FALLBACK_WEIGHTS = {
     "discount_rate": 0.08,
     "deadline_urgency": 0.10,
 }
+MIN_TRAINING_ROWS = 40
+MIN_TRAINING_GROUPS = 5
 
 
 @dataclass
@@ -96,61 +96,126 @@ def build_user_profile(events: pd.DataFrame, user_id: int, now: pd.Timestamp) ->
     )
 
 
+def _with_session_ids(events: pd.DataFrame) -> pd.DataFrame:
+    """예전 CSV처럼 session_id가 없는 입력은 8건씩 임시 세션으로 묶는다."""
+    events = events.copy()
+    fallback_index = events.groupby("user_id").cumcount().floordiv(8).astype(str)
+    fallback_ids = "legacy-" + events["user_id"].astype(str) + "-" + fallback_index
+    if "session_id" not in events:
+        events["session_id"] = fallback_ids
+        return events
+    missing = events["session_id"].isna() | events["session_id"].astype(str).str.strip().eq("")
+    events.loc[missing, "session_id"] = fallback_ids.loc[missing]
+    return events
+
+
 def _training_rows(events: pd.DataFrame) -> pd.DataFrame:
-    """각 행동 직전의 선호도만 사용해 정답 유출을 막은 학습 행을 만든다."""
-    rows: list[dict[str, float | int]] = []
+    """세션 직전 선호도와 세션 내 상품 순위 정답을 만든다."""
+    rows: list[dict[str, float | int | str]] = []
     ordered = events.loc[events["event_type"].isin(EVENT_WEIGHTS)].copy()
     if ordered.empty:
-        return pd.DataFrame(columns=[*FEATURE_COLUMNS, "engaged"])
+        return pd.DataFrame(columns=["session_id", "group_buy_id", *FEATURE_COLUMNS, "relevance"])
     ordered["occurred_at"] = pd.to_datetime(ordered["occurred_at"], utc=True)
     ordered = ordered.sort_values(["user_id", "occurred_at"])
+    ordered = _with_session_ids(ordered)
 
     for _, user_events in ordered.groupby("user_id", sort=False):
         brand_scores: dict[object, float] = {}
         category_scores: dict[object, float] = {}
-        for event in user_events.itertuples(index=False):
-            brand_affinity = _normalized(brand_scores).get(event.brand, 0.0)
-            category_affinity = _normalized(category_scores).get(event.category_id, 0.0)
-            rows.append(
-                {
-                    "brand_affinity": brand_affinity,
-                    "category_affinity": category_affinity,
-                    "recruitment_rate": float(event.recruitment_rate),
-                    "discount_rate": float(event.discount_rate),
-                    "deadline_urgency": float(event.deadline_urgency),
-                    "engaged": int(event.event_type != "IMPRESSION"),
-                }
+        session_order = (
+            user_events.groupby("session_id")["occurred_at"].min().sort_values().index
+        )
+        for session_id in session_order:
+            session_events = user_events.loc[user_events["session_id"] == session_id].copy()
+            session_events["relevance"] = (
+                session_events["event_type"].map(EVENT_WEIGHTS).fillna(0).astype(int)
             )
-            score = EVENT_WEIGHTS[event.event_type]
-            if score > 0:
-                if event.brand is not None:
-                    brand_scores[event.brand] = brand_scores.get(event.brand, 0.0) + score
-                if event.category_id is not None:
-                    category_scores[event.category_id] = (
-                        category_scores.get(event.category_id, 0.0) + score
+            session_items = (
+                session_events.sort_values("occurred_at")
+                .groupby("group_buy_id", as_index=False)
+                .agg(
+                    brand=("brand", "first"),
+                    category_id=("category_id", "first"),
+                    recruitment_rate=("recruitment_rate", "first"),
+                    discount_rate=("discount_rate", "first"),
+                    deadline_urgency=("deadline_urgency", "first"),
+                    relevance=("relevance", "max"),
+                )
+            )
+            normalized_brands = _normalized(brand_scores)
+            normalized_categories = _normalized(category_scores)
+            for item in session_items.itertuples(index=False):
+                rows.append(
+                    {
+                        "session_id": str(session_id),
+                        "group_buy_id": int(item.group_buy_id),
+                        "brand_affinity": normalized_brands.get(item.brand, 0.0),
+                        "category_affinity": normalized_categories.get(item.category_id, 0.0),
+                        "recruitment_rate": float(item.recruitment_rate),
+                        "discount_rate": float(item.discount_rate),
+                        "deadline_urgency": float(item.deadline_urgency),
+                        "relevance": int(item.relevance),
+                    }
+                )
+
+            # 현재 세션의 정답은 특징에 섞지 않고, 다음 세션부터 선호도에 반영한다.
+            for item in session_items.itertuples(index=False):
+                score = float(item.relevance)
+                if score <= 0:
+                    continue
+                if pd.notna(item.brand):
+                    brand_scores[item.brand] = brand_scores.get(item.brand, 0.0) + score
+                if pd.notna(item.category_id):
+                    category_scores[item.category_id] = (
+                        category_scores.get(item.category_id, 0.0) + score
                     )
-    return pd.DataFrame(rows)
 
-
-def train_model(events: pd.DataFrame) -> Pipeline | None:
-    dataset = _training_rows(events)
-    if len(dataset) < 20 or dataset["engaged"].nunique() < 2:
-        return None
-    model = Pipeline(
-        [
-            ("scale", StandardScaler()),
-            (
-                "model",
-                LogisticRegression(
-                    max_iter=1000,
-                    random_state=42,
-                    class_weight="balanced",
-                ),
-            ),
-        ]
+    dataset = pd.DataFrame(rows)
+    if dataset.empty:
+        return pd.DataFrame(columns=["session_id", "group_buy_id", *FEATURE_COLUMNS, "relevance"])
+    group_stats = dataset.groupby("session_id")["relevance"].agg(["size", "nunique"])
+    eligible = group_stats.loc[(group_stats["size"] >= 2) & (group_stats["nunique"] >= 2)].index
+    return dataset.loc[dataset["session_id"].isin(eligible)].sort_values(
+        ["session_id", "group_buy_id"]
     )
-    model.fit(dataset[FEATURE_COLUMNS], dataset["engaged"])
+
+
+def train_model(events: pd.DataFrame) -> LGBMRanker | None:
+    dataset = _training_rows(events)
+    group_sizes = dataset.groupby("session_id", sort=False).size().tolist()
+    if len(dataset) < MIN_TRAINING_ROWS or len(group_sizes) < MIN_TRAINING_GROUPS:
+        return None
+    model = LGBMRanker(
+        objective="lambdarank",
+        metric="ndcg",
+        n_estimators=100,
+        learning_rate=0.05,
+        num_leaves=15,
+        max_depth=5,
+        min_child_samples=10,
+        reg_lambda=1.0,
+        random_state=42,
+        importance_type="gain",
+        verbosity=-1,
+    )
+    model.fit(
+        dataset[FEATURE_COLUMNS],
+        dataset["relevance"],
+        group=group_sizes,
+        eval_at=[8],
+    )
     return model
+
+
+def _feature_importance(model: LGBMRanker) -> dict[str, float]:
+    importance = model.booster_.feature_importance(importance_type="gain").astype(float)
+    total = float(importance.sum())
+    if total <= 0:
+        return {feature: 0.0 for feature in FEATURE_COLUMNS}
+    return {
+        feature: float(value / total)
+        for feature, value in zip(FEATURE_COLUMNS, importance, strict=True)
+    }
 
 
 def recommend(
@@ -211,9 +276,13 @@ def recommend(
         weights = FALLBACK_WEIGHTS
         model_type = "HEURISTIC_FALLBACK"
     else:
-        ranked["score"] = model.predict_proba(ranked[FEATURE_COLUMNS])[:, 1]
-        weights = dict(zip(FEATURE_COLUMNS, model.named_steps["model"].coef_[0], strict=True))
-        model_type = "LOGISTIC_REGRESSION"
+        raw_score = pd.Series(model.predict(ranked[FEATURE_COLUMNS]), index=ranked.index)
+        score_range = float(raw_score.max() - raw_score.min())
+        ranked["score"] = (
+            (raw_score - raw_score.min()) / score_range if score_range > 0 else 0.5
+        )
+        weights = _feature_importance(model)
+        model_type = "LIGHTGBM_RANKER"
 
     purchases = events.loc[
         (events["user_id"] == user_id) & (events["event_type"] == "PURCHASE")

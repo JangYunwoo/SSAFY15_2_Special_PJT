@@ -38,5 +38,13 @@ public enum RefundReason {
      * <p>금액 불일치·기간 만료 등으로 결제에 붙이지 못한 입금을 돌려보냅니다.
      * 참여 건이 없고 {@code deposit_id} 만 있습니다.
      */
-    UNMATCHED_DEPOSIT
+    UNMATCHED_DEPOSIT,
+
+    /**
+     * 결제 승인 후 공동구매가 종료돼 참여 확정이 불가능해진 결제의 환불.
+     *
+     * <p>외부 청구는 성공했으나 그 사이 판매 철회·모집 종료로 공구가 끝나 참여가 만들어지지
+     * 않았습니다. 참여 건이 없어 {@code participation_id} 없이 {@code payment_id} 로 연결합니다.
+     */
+    GROUP_BUY_TERMINATED
 }

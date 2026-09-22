@@ -19,6 +19,7 @@ import com.gongguhan.domain.account.repository.UserRepository;
 import com.gongguhan.domain.payment.card.dto.CardApproveRequest;
 import com.gongguhan.domain.payment.card.entity.CardPayment;
 import com.gongguhan.domain.payment.card.repository.CardPaymentRepository;
+import com.gongguhan.domain.payment.common.dto.PaymentResponse;
 import com.gongguhan.domain.payment.common.entity.Payment;
 import com.gongguhan.domain.payment.common.repository.PaymentRepository;
 import com.gongguhan.domain.payment.common.service.PaymentService;
@@ -193,7 +194,7 @@ class CardPaymentServiceTest {
 
         assertEquals(ErrorCode.EXTERNAL_PAYMENT_ERROR, exception.getErrorCode());
         verify(paymentService).failPayment(PAYMENT_ID, "A1054");
-        verify(paymentService, never()).completePayment(any());
+        verify(paymentService, never()).completeOrScheduleRefund(any());
         verify(cardPaymentRepository, never()).save(any());
         verify(ssafyApiLogService).record(eq("createCreditCardTransaction"), eq(INSTITUTION_TX_NO),
                 eq("PAYMENT"), eq(PAYMENT_ID), any(), eq("A1054"), eq("카드번호가 유효하지 않습니다."), eq(declined));
@@ -209,6 +210,10 @@ class CardPaymentServiceTest {
                 eq(INSTITUTION_TX_NO), eq("00100"), eq("001"), eq("userkey-abc"),
                 eq("1005518816096479"), eq("725"), eq(1L), eq(54000L)))
                 .thenReturn(successResponse());
+        when(paymentService.completeOrScheduleRefund(PAYMENT_ID)).thenReturn(new PaymentResponse(
+                String.valueOf(PAYMENT_ID), "1", "PAID", "CARD",
+                new PaymentResponse.AmountResponse(54000, 0, 54000, "KRW"),
+                "2026-01-01T00:05:00Z", 0, "300", null));
 
         cardPaymentService.approve(USER_ID, PAYMENT_ID, request());
 
@@ -220,7 +225,7 @@ class CardPaymentServiceTest {
         assertEquals(12L, saved.getTransactionUniqueNo());
 
         verify(paymentService).getApprovalContext(USER_ID, PAYMENT_ID, "CARD");
-        verify(paymentService).completePayment(PAYMENT_ID);
+        verify(paymentService).completeOrScheduleRefund(PAYMENT_ID);
         verifyNoInteractions(userAddressRepository);
         verify(paymentService, never()).failPayment(any(), any());
         verify(ssafyApiLogService).record(eq("createCreditCardTransaction"), eq(INSTITUTION_TX_NO),

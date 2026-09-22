@@ -73,6 +73,27 @@ public class RefundLedgerService {
                         participationId, amount, reasonType, refundMethod, now()))));
     }
 
+    /**
+     * 참여 없이 결제 단위로 환불을 개시합니다.
+     *
+     * <p>외부 승인은 성공했으나 공구 종료로 참여 확정이 롤백된 고립 결제가 이 경로입니다.
+     * 참여 건이 없어 {@code payment_id} 로 중복을 막습니다. 같은 결제에 이미 진행 중이거나
+     * 완료된 환불이 있으면 새로 만들지 않고 그 환불을 그대로 돌려줍니다({@link #openForParticipation}
+     * 과 같은 멱등 규칙).
+     */
+    @Transactional
+    public OpenResult openForPayment(Long paymentId, long amount,
+                                     RefundReason reasonType, RefundMethod refundMethod) {
+        return refundRepository.findActiveByPaymentId(paymentId)
+                .map(existing -> {
+                    log.info("이미 처리 중인 환불이 있어 새로 만들지 않습니다. refundId={} paymentId={}",
+                            existing.getRefundId(), paymentId);
+                    return OpenResult.existing(existing);
+                })
+                .orElseGet(() -> OpenResult.created(insert(Refund.forPayment(
+                        paymentId, amount, reasonType, refundMethod, now()))));
+    }
+
     /** 반품 환불을 개시합니다 (FR-RTN-17). 반품 ID 를 남겨 환불액 근거를 되짚게 합니다. */
     @Transactional
     public OpenResult openForReturn(Long returnId, Long participationId, long amount,

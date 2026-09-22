@@ -1,6 +1,7 @@
 package com.gongguhan.domain.payment.kakaopay.service;
 
 import com.gongguhan.domain.payment.common.dto.PaymentResponse;
+import com.gongguhan.domain.payment.common.entity.Payment;
 import com.gongguhan.domain.payment.common.service.PaymentService;
 import com.gongguhan.domain.payment.kakaopay.dto.KakaoPayApproveRequest;
 import com.gongguhan.domain.payment.kakaopay.dto.KakaoPayReadyResponse;
@@ -109,7 +110,14 @@ public class KakaoPayService {
                         request.pgToken()));
 
         // 외부 응답의 TID·주문·사용자·금액 검증과 내부 상태 확정은 한 트랜잭션에서 재검증한다.
-        return recordService.complete(userId, claims, approved);
+        PaymentResponse response = recordService.complete(userId, claims, approved);
+
+        // 청구는 성공했으나 공구 종료로 확정 대신 환불이 예약된 경우: 상세 기록은 이미 커밋됐고,
+        // 트랜잭션 밖인 여기서 사용자 대면 예외로 알린다.
+        if (Payment.RECONCILE_REFUND_REQUIRED.equals(response.reconcileState())) {
+            throw new BusinessException(ErrorCode.GROUP_BUY_TERMINATED_REFUND_SCHEDULED);
+        }
+        return response;
     }
 
     public void cancelFlow(Long userId, Long paymentId, String state) {

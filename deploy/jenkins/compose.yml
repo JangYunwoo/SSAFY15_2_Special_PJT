@@ -1,0 +1,46 @@
+name: gongguhan-ci
+services:
+  controller:
+    build:
+      context: .
+      dockerfile: controller.Dockerfile
+    image: gongguhan-ci/controller:bootstrap
+    restart: unless-stopped
+    cpus: 1.0
+    mem_limit: 2g
+    ports: ["127.0.0.1:8088:8080"]
+    environment:
+      JAVA_OPTS: -Djenkins.install.runSetupWizard=false -Xms256m -Xmx1200m
+    volumes:
+      - jenkins-home:/var/jenkins_home
+      - ./bootstrap.groovy:/usr/share/jenkins/ref/init.groovy.d/bootstrap.groovy:ro
+      - /opt/gongguhan-ci/secrets:/run/gongguhan-secrets:ro
+    networks: [ci]
+  agent:
+    build:
+      context: .
+      dockerfile: agent.Dockerfile
+    image: gongguhan-ci/agent:bootstrap
+    restart: unless-stopped
+    cpus: 1.0
+    mem_limit: 1g
+    group_add: ["${DOCKER_GID:?Set Docker socket group ID}"]
+    environment:
+      JENKINS_URL: http://controller:8080
+      JENKINS_AGENT_NAME: gongguhan-ci-agent
+      JENKINS_SECRET: "@/run/agent-secret"
+      JENKINS_WEB_SOCKET: "true"
+      JENKINS_AGENT_WORKDIR: /opt/gongguhan-ci/workspace
+    volumes:
+      - /opt/gongguhan-ci/workspace:/opt/gongguhan-ci/workspace
+      - /opt/gongguhan-ci/releases:/opt/gongguhan-ci/releases
+      - /opt/gongguhan-ci/state:/opt/gongguhan-ci/state
+      - /opt/gongguhan-ci/secrets/agent-secret:/run/agent-secret:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /home/ubuntu/S15P21B205:/home/ubuntu/S15P21B205:ro
+    depends_on: [controller]
+    networks: [ci]
+networks:
+  ci: {}
+volumes:
+  jenkins-home: {}

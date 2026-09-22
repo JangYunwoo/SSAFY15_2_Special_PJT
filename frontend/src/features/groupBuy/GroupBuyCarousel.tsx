@@ -97,12 +97,13 @@ export function GroupBuyCarousel({
       // 어차피 suppressClickRef 로 막습니다.
       if (!drag.moved) {
         drag.moved = true
+        suppressClickRef.current = true
         root.setPointerCapture(event.pointerId)
         setDragging(true)
       }
-      suppressClickRef.current = true
+      event.preventDefault()
     }
-    root.scrollLeft = drag.startScrollLeft - distance
+    if (drag.moved) root.scrollLeft = drag.startScrollLeft - distance
   }
 
   const endDrag = (event: ReactPointerEvent<HTMLDivElement>) => {

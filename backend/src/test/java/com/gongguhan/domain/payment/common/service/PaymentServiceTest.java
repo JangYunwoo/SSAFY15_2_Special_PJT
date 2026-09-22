@@ -494,7 +494,8 @@ class PaymentServiceTest {
         // 응답 조립에 쓰이는 슬롯 만료 시각도 스텁이 필요하다.
         when(payment.getSlotExpiresAt()).thenReturn(LocalDateTime.now());
         when(paymentRepository.findForUpdateByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment));
-        when(groupBuySlotPort.confirm(GROUP_BUY_ID)).thenReturn(slotView());
+        when(groupBuySlotPort.confirmForCompletion(GROUP_BUY_ID))
+                .thenReturn(GroupBuySlotPort.ConfirmOutcome.confirmed(slotView()));
         ParticipationWriterPort.ParticipationRecord participationRecord =
                 new ParticipationWriterPort.ParticipationRecord(300L, GROUP_BUY_ID, USER_ID);
         when(participationWriterPort.create(any())).thenReturn(participationRecord);

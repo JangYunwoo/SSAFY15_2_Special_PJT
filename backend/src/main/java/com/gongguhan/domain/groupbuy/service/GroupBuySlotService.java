@@ -73,6 +73,25 @@ public class GroupBuySlotService {
         return snapshot(groupBuy);
     }
 
+    /**
+     * 완료 경계 전용. 락을 잡고 모집 상태를 먼저 확인해, 종료된 공구면 예외 대신
+     * {@code confirmed=false} 결과를 돌려준다(호출 트랜잭션 오염 방지). 모집 중이면
+     * {@link #confirm}과 동일하게 참여를 확정하고 목표 도달 판정까지 수행한다.
+     */
+    @Transactional
+    public ConfirmForCompletion confirmForCompletion(Long groupBuyId) {
+        GroupBuy groupBuy = findWithLock(groupBuyId);
+        if (!groupBuy.isRecruiting()) {
+            return new ConfirmForCompletion(false, snapshot(groupBuy));
+        }
+        groupBuy.confirmParticipant();
+        groupBuyRecruitmentService.judgeTargetReached(groupBuy);
+        return new ConfirmForCompletion(true, snapshot(groupBuy));
+    }
+
+    public record ConfirmForCompletion(boolean confirmed, GroupBuySlotSnapshot snapshot) {
+    }
+
     private GroupBuy find(Long groupBuyId) {
         return groupBuyRepository.findById(groupBuyId)
                 .orElseThrow(() -> notFound());

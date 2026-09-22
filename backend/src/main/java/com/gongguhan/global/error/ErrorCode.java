@@ -19,6 +19,7 @@ public enum ErrorCode {
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "대상 자원을 찾을 수 없습니다."),
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "지원하지 않는 HTTP 요청 방식입니다."),
     GROUP_BUY_NOT_RECRUITING(HttpStatus.CONFLICT, "모집 중인 공동구매가 아닙니다."),
+    GROUP_BUY_TERMINATED_REFUND_SCHEDULED(HttpStatus.CONFLICT, "결제 승인 후 공동구매가 종료되어 환불이 예약되었습니다."),
     GROUP_BUY_FULL(HttpStatus.CONFLICT, "참여자와 유효 결제 슬롯이 목표 인원에 도달했습니다."),
     DUPLICATE_PARTICIPATION(HttpStatus.CONFLICT, "이미 참여한 공동구매입니다."),
     PAYMENT_ALREADY_PROCESSED(HttpStatus.CONFLICT, "이미 완료되었거나 실패한 결제입니다."),

@@ -95,7 +95,7 @@
           <input id="email" placeholder="you@example.com" autocomplete="username" />
           <label>비밀번호</label>
           <input id="password" type="password" placeholder="비밀번호" autocomplete="current-password" />
-          <input id="apiBase" type="hidden" value="http://localhost:8080/api/v1" />
+          <input id="apiBase" type="hidden" value="" />
           <button class="block" id="loginBtn" style="margin-top:20px;">로그인</button>
           <div class="err" id="loginErr"></div>
         </section>
@@ -116,7 +116,17 @@
   <script>
     const $ = (id) => document.getElementById(id);
     let token = null;
-    let apiBase = 'http://localhost:8080/api/v1';
+
+    // API 주소 자동 결정:
+    // - 배포처럼 실제 호스트(예: j15b205.p.ssafy.io)에서 서빙되면 같은 오리진의 /api/v1 로
+    //   보낸다. Nginx 가 백엔드로 프록시하므로 CORS 가 필요 없다.
+    // - 로컬(file:// 로 직접 열거나 정적서버 localhost/127.0.0.1 로 열 때)이면 로컬 백엔드(8080)로.
+    function defaultApiBase() {
+      const h = location.hostname;
+      const isLocal = location.protocol === 'file:' || h === '' || h === 'localhost' || h === '127.0.0.1';
+      return isLocal ? 'http://localhost:8080/api/v1' : (location.origin + '/api/v1');
+    }
+    let apiBase = defaultApiBase();
 
     // 창 분기: 폰 크기 팝업이거나 작은 창이면 폰 모드(꽉 채움), 큰 창이면 목업 + 팝업 버튼.
     (function routeWindow() {
@@ -147,7 +157,9 @@
 
     async function login() {
       $('loginErr').textContent = '';
-      apiBase = $('apiBase').value.trim().replace(/\/$/, '');
+      // 숨은 입력에 값이 있으면(수동 override) 그걸 쓰고, 없으면 자동 결정값 유지.
+      const override = $('apiBase').value.trim().replace(/\/$/, '');
+      if (override) apiBase = override;
       try {
         const res = await fetch(apiBase + '/auth/login', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
