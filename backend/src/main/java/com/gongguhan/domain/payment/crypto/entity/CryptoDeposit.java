@@ -33,7 +33,7 @@ public class CryptoDeposit {
     public static final String STATUS_UNMATCHED = "UNMATCHED";
     /** 견적보다 적게 보냄. 결제로 인정하지 않는다. */
     public static final String STATUS_UNDERPAID = "UNDERPAID";
-    /** 견적보다 많이 보냄. 결제는 인정하되 초과분은 환불 대상. */
+    /** 견적보다 많이 보냄. 결제로 인정하지 않고 수신 원금 전체가 반환 대상. */
     public static final String STATUS_OVERPAID = "OVERPAID";
     public static final String STATUS_REFUNDED = "REFUNDED";
 

@@ -341,8 +341,22 @@ public class CryptoTxRecordService {
     private void recordDeposit(CryptoPayment cryptoPayment, ChainClient.TransferLog transfer,
                                 ChainClient.ReceiptView receipt, long latestBlock,
                                 LocalDateTime now) {
-        if (cryptoDepositRepository.existsByTxHashAndLogIndex(
-                cryptoPayment.getTxHash(), transfer.logIndex())) {
+        CryptoDeposit existing = cryptoDepositRepository.findForUpdateByTxHashAndLogIndex(
+                cryptoPayment.getTxHash(), transfer.logIndex()).orElse(null);
+        if (existing != null) {
+            // UNIQUE는 중복 행 삽입만 막는다. 이미 반환 대상인 입금을 읽고 그냥 통과하면
+            // 새 결제의 참여/에스크로가 만들어지므로 상태와 원래 매칭 소유권도 검증한다.
+            boolean sameMatch = CryptoDeposit.STATUS_MATCHED.equals(existing.getStatus())
+                    && cryptoPayment.getPaymentId().equals(existing.getPaymentId())
+                    && existing.getChainId() == cryptoPayment.getChainId()
+                    && existing.getTokenContract().equalsIgnoreCase(transfer.tokenContract())
+                    && existing.getFromAddress().equalsIgnoreCase(transfer.from())
+                    && existing.getToAddress().equalsIgnoreCase(transfer.to())
+                    && existing.rawAmountValue().equals(transfer.rawAmount());
+            if (!sameMatch) {
+                throw new BusinessException(ErrorCode.CRYPTO_AMOUNT_MISMATCH,
+                        "이미 기록된 입금은 다른 결제에 재사용할 수 없습니다. 기존 입금 상태를 확인해 주세요.");
+            }
             return;
         }
 
