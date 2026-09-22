@@ -102,7 +102,7 @@ class KakaoPayServiceTest {
         PaymentResponse completed = new PaymentResponse(
                 "9001", "701", "PAID", "KAKAOPAY",
                 new PaymentResponse.AmountResponse(50_000, 4_000, 54_000, "KRW"),
-                "2026-09-11T00:05:00Z", 0, "8001");
+                "2026-09-11T00:05:00Z", 0, "8001", null);
         when(recordService.complete(USER_ID, claims, approved)).thenReturn(completed);
 
         PaymentResponse response = service.approve(USER_ID, new KakaoPayApproveRequest(
@@ -123,7 +123,7 @@ class KakaoPayServiceTest {
         PaymentResponse completed = new PaymentResponse(
                 "9001", "701", "PAID", "KAKAOPAY",
                 new PaymentResponse.AmountResponse(50_000, 4_000, 54_000, "KRW"),
-                "2026-09-11T00:05:00Z", 0, "8001");
+                "2026-09-11T00:05:00Z", 0, "8001", null);
         when(recordService.isCompleted(PAYMENT_ID, "nonce")).thenReturn(true);
         when(paymentService.getCompletedPayment(USER_ID, PAYMENT_ID, "KAKAOPAY"))
                 .thenReturn(completed);

@@ -81,7 +81,9 @@ public class KakaoPayRecordService {
                 approved.tid(), approved.partnerOrderId(), approved.partnerUserId(),
                 approved.totalAmount());
 
-        PaymentResponse response = paymentService.completeOwnedPayment(
+        // 확정 직전 공구가 종료됐어도 예외로 롤백하지 않고 환불 예약 결과를 돌려받는다. 덕분에
+        // 같은 트랜잭션에서 markApproved(외부 승인 aid/tid)가 함께 커밋되어 환불에 필요한 증거가 보존된다.
+        PaymentResponse response = paymentService.completeOwnedPaymentOrScheduleRefund(
                 userId, claims.paymentId(), METHOD_KAKAOPAY);
         detail.markApproved(
                 approved.aid(), approved.vatAmount(), approved.paymentMethodType(),

@@ -13,7 +13,8 @@ public record PaymentResponse(
         AmountResponse amount,
         String slotExpiresAt,
         long remainingSeconds,
-        String participationId
+        String participationId,
+        String reconcileState
 ) {
 
     public record AmountResponse(
@@ -43,6 +44,7 @@ public record PaymentResponse(
                 payment.isProcessing() ? remainingSeconds : 0,
                 payment.getParticipationId() == null
                         ? null
-                        : String.valueOf(payment.getParticipationId()));
+                        : String.valueOf(payment.getParticipationId()),
+                payment.getReconcileState());
     }
 }

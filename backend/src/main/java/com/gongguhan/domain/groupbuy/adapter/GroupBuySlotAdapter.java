@@ -45,6 +45,16 @@ public class GroupBuySlotAdapter implements GroupBuySlotPort {
         return toPort(groupBuySlotService.confirm(groupBuyId));
     }
 
+    @Override
+    public ConfirmOutcome confirmForCompletion(Long groupBuyId) {
+        GroupBuySlotService.ConfirmForCompletion result =
+                groupBuySlotService.confirmForCompletion(groupBuyId);
+        GroupBuySlot slot = toPort(result.snapshot());
+        return result.confirmed()
+                ? ConfirmOutcome.confirmed(slot)
+                : ConfirmOutcome.notRecruiting(slot);
+    }
+
     private GroupBuySlot toPort(GroupBuySlotSnapshot snapshot) {
         return new GroupBuySlot(
                 snapshot.groupBuyId(),

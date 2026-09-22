@@ -5,6 +5,7 @@ import com.gongguhan.domain.account.repository.UserRepository;
 import com.gongguhan.domain.payment.card.dto.CardApproveRequest;
 import com.gongguhan.domain.payment.card.entity.CardPayment;
 import com.gongguhan.domain.payment.card.repository.CardPaymentRepository;
+import com.gongguhan.domain.payment.common.dto.PaymentResponse;
 import com.gongguhan.domain.payment.common.entity.Payment;
 import com.gongguhan.domain.payment.common.repository.PaymentRepository;
 import com.gongguhan.domain.payment.common.service.PaymentService;
@@ -91,6 +92,7 @@ public class CardPaymentService {
 
         // 별도 트랜잭션으로 실행권을 먼저 커밋한다. 외부 호출 중 DB 잠금은 유지하지 않는다.
         approvalRecords.claim(userId, paymentId, institutionTxNo);
+        PaymentResponse result;
         try {
             // 외부 호출은 DB 트랜잭션 밖에서 수행한다(원자성 규칙 5번).
             SsafyCardApiClient.SsafyCardTransactionResponse response = ssafyCardApiClient.createCreditCardTransaction(
@@ -111,7 +113,9 @@ public class CardPaymentService {
             cardPaymentRepository.save(buildCardPayment(payment, user, request, response.rec(), institutionTxNo));
 
             // 원자성 규칙 6번 - 승인 성공 후 짧은 트랜잭션에서 참여·에스크로를 함께 확정한다.
-            paymentService.completePayment(paymentId);
+            // 확정 직전 공구가 종료됐으면 예외로 UNKNOWN 처리하지 않고, 외부 청구 성공을
+            // 환불 대상(REFUND_REQUIRED)으로 durable하게 기록한 결과를 돌려받는다.
+            result = paymentService.completeOrScheduleRefund(paymentId);
         } catch (RuntimeException exception) {
             // 결과 기록이 실패해도 먼저 커밋한 PROCESSING 실행권이 재승인을 차단한다.
             try {
@@ -120,6 +124,12 @@ public class CardPaymentService {
                 exception.addSuppressed(recordFailure);
             }
             throw exception;
+        }
+
+        // 청구는 성공했으나 공구 종료로 확정 대신 환불이 예약된 경우: DB 상태는 이미 커밋됐고,
+        // catch(UNKNOWN)에 걸리지 않도록 여기서 사용자 대면 예외로 알린다.
+        if (Payment.RECONCILE_REFUND_REQUIRED.equals(result.reconcileState())) {
+            throw new BusinessException(ErrorCode.GROUP_BUY_TERMINATED_REFUND_SCHEDULED);
         }
     }
 

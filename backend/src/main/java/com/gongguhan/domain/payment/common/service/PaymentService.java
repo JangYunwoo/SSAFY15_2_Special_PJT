@@ -318,6 +318,22 @@ public class PaymentService {
      */
     @Transactional
     public PaymentResponse completePayment(Long paymentId) {
+        // 코인/레거시 경로: 승인 후 공구가 종료됐으면 기존대로 예외를 던진다(동작 불변).
+        return complete(paymentId, false);
+    }
+
+    /**
+     * 카드/카카오페이 승인 성공 후 호출한다. {@link #completePayment}와 달리, 확정 직전에
+     * 공구가 종료됐으면(외부 청구는 이미 성공) 예외로 롤백하지 않고 결제를 환불 대상으로
+     * durable하게 기록한 뒤 그 상태를 담은 응답을 돌려준다. 호출 측이 응답의 reconcileState로
+     * 환불 예약을 판별한다.
+     */
+    @Transactional
+    public PaymentResponse completeOrScheduleRefund(Long paymentId) {
+        return complete(paymentId, true);
+    }
+
+    private PaymentResponse complete(Long paymentId, boolean scheduleRefundOnTerminated) {
         Payment payment = paymentRepository.findForUpdateByPaymentId(paymentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "결제를 찾을 수 없습니다."));
         if (!payment.isProcessing()) {
@@ -334,12 +350,23 @@ public class PaymentService {
         // 레거시도 승인/견적 이전에 확정되어야 한다. 사후 주소록 조회는 하지 않는다.
         PaymentShippingSnapshot snapshot = storedSnapshot(payment);
 
-        // GroupBuySlotPort.confirm은 findWithLockByGroupBuyId(비관적 락)로 재조회 후
-        // confirmParticipant()까지 한 번에 수행한다 - completePayment 전체가 하나의
-        // 트랜잭션이라 이 시점에 먼저 호출해도(참여·에스크로 생성 실패 시 롤백되어) 예전과
-        // 동일하게 원자적이다. 마지막 슬롯이면 즉시 FULFILLED 판정도 함께 일어난다(예전엔
-        // 배치가 다음 주기에 판정했음 - 부수 개선).
-        GroupBuySlotPort.GroupBuySlot groupBuySlot = groupBuySlotPort.confirm(payment.getGroupBuyId());
+        // confirmForCompletion은 findWithLockByGroupBuyId(비관적 락)로 재조회 후, 모집 중이면
+        // confirmParticipant()까지 한 번에 수행한다 - complete 전체가 하나의 트랜잭션이라 이
+        // 시점에 먼저 호출해도(참여·에스크로 생성 실패 시 롤백되어) 원자적이다. 모집 중이 아니면
+        // (외부 승인 성공 후 판매철회/모집종료로 공구가 종료된 경합) 예외로 트랜잭션을 오염시키지
+        // 않고 notRecruiting 결과를 돌려준다.
+        GroupBuySlotPort.ConfirmOutcome outcome = groupBuySlotPort.confirmForCompletion(payment.getGroupBuyId());
+        if (outcome.notRecruiting()) {
+            if (!scheduleRefundOnTerminated) {
+                // 코인/레거시 경로는 기존 동작(예외 롤백)을 유지한다.
+                throw new BusinessException(ErrorCode.GROUP_BUY_NOT_RECRUITING);
+            }
+            // 외부 청구는 성공했으나 확정 불가 - 결과 불명이 아니라 환불이 필요한 건으로 기록한다.
+            // 참여·에스크로는 만들지 않고, 종료된 공구가 이미 슬롯을 회수했으므로 슬롯 해제도 하지 않는다.
+            payment.markRefundRequired("GROUP_BUY_TERMINATED_AFTER_CHARGE");
+            return PaymentResponse.from(payment, outcome.slot(), LocalDateTime.now(clock));
+        }
+        GroupBuySlotPort.GroupBuySlot groupBuySlot = outcome.slot();
 
         ParticipationWriterPort.ParticipationRecord participation = participationWriterPort.create(
                 new ParticipationWriterPort.ParticipationCreateCommand(
@@ -400,6 +427,19 @@ public class PaymentService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_ACCESS_DENIED));
         validateApprovalCandidate(payment, expectedMethod);
         return completePayment(paymentId);
+    }
+
+    /**
+     * 소유권을 검증한 뒤 {@link #completeOrScheduleRefund}로 확정한다. 카카오페이처럼 승인
+     * 상세 기록과 내부 확정을 한 트랜잭션에서 처리하는 경로가, 공구 종료 경합에서도 예외로
+     * 상세 기록까지 롤백되지 않도록 환불 예약 결과를 돌려받는다.
+     */
+    @Transactional
+    public PaymentResponse completeOwnedPaymentOrScheduleRefund(Long userId, Long paymentId, String expectedMethod) {
+        Payment payment = paymentRepository.findForUpdateByPaymentIdAndUserId(paymentId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_ACCESS_DENIED));
+        validateApprovalCandidate(payment, expectedMethod);
+        return completeOrScheduleRefund(paymentId);
     }
 
     /** 외부 호출 전의 짧은 트랜잭션에서만 레거시 결제 주소를 보정한다. */
