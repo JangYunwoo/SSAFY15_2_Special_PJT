@@ -8,7 +8,8 @@ import {
 } from '@/entities/groupBuy/model'
 import { scrollToListTop, toPageIndex } from '@/shared/lib/hooks/usePageParam'
 
-const DEFAULT_SORT: GroupBuySort = 'popular'
+// 마감 임박순이 기본입니다 (S15P21B205-227). 바꾸면 GROUP_BUY_SORT 의 첫 항목도 함께 맞추세요.
+const DEFAULT_SORT: GroupBuySort = 'deadline'
 export const ALL_CATEGORIES = 'all'
 
 function isSort(value: string | null): value is GroupBuySort {

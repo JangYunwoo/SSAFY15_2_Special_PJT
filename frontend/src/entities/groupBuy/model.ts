@@ -45,9 +45,16 @@ export interface GroupBuyDetail extends GroupBuySummary {
   sellerSuspended: boolean
 }
 
+/**
+ * 정렬 메뉴에 나오는 순서이기도 합니다.
+ *
+ * 마감 임박순을 맨 앞이자 기본값으로 둡니다 (S15P21B205-227). 공동구매는
+ * 모집 기한이 지나면 참여 자체가 불가능해서, 목록에서 먼저 보여줘야 하는 것은
+ * 인기 있는 건이 아니라 곧 닫히는 건입니다.
+ */
 export const GROUP_BUY_SORT = [
-  'popular',
   'deadline',
+  'popular',
   'newest',
   'oldest',
   'priceAsc',
