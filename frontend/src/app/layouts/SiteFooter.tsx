@@ -33,7 +33,7 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
           <div className="foot-col">
             <span className="foot-col-title">서비스</span>
             <nav className="foot-col-list" aria-label="서비스 바로가기">
-              <Link to="/">공동구매</Link>
+              <Link to="/">둘러보기</Link>
               <Link to="/about">서비스 소개</Link>
               <Link to="/seller">판매자센터</Link>
             </nav>
@@ -69,3 +69,4 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
     </footer>
   )
 }
+
