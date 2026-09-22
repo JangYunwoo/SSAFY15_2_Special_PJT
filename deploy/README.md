@@ -3,6 +3,10 @@
 단일 EC2(`j15b205.p.ssafy.io`)에 **Nginx + 백엔드 + AI + MySQL + Redis** 를 Docker Compose 로 올리는 산출물 모음입니다.
 설계 배경·근거·대안 비교는 [`../docs/infra/서버_아키텍처_설계서.md`](../docs/infra/서버_아키텍처_설계서.md) 를 먼저 읽으세요.
 
+## DevelopV2 자동 배포
+
+Jenkins 구성과 비공개 접속, 테스트·배포 차단 조건, V24 마이그레이션 검증, 실패 복구 및 실제 적용 상태는 [CI/CD 학습·운영 기록](../docs/infra/jenkins-cicd-study.md)을 확인하세요. 아래 수동 배포 절차는 초기 설치·장애 대응용입니다. Jenkins 활성화 후에는 수동 배포와 자동 배포를 동시에 실행하지 마세요. 실제 배포 SHA는 기존 서버 체크아웃이 아니라 `/opt/gongguhan-ci/state/current.json`과 실행 이미지로 확인합니다.
+
 ## 구성 파일
 
 | 파일 | 역할 |
