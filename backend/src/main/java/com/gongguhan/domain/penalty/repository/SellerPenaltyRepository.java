@@ -22,6 +22,15 @@ public interface SellerPenaltyRepository extends JpaRepository<SellerPenalty, Lo
     boolean existsByGroupBuyIdAndReasonType(Long groupBuyId, String reasonType);
 
     /**
+     * 해당 공동구매에 특정 상태의 위반이 있는지.
+     *
+     * <p>정산 도메인이 "위반이 확정(CONFIRMED)된 공구인가" 를 확인해 판매자 지급을 보류할
+     * 때 씁니다. 확정 위반 공구의 정산은 자동으로 판매자에게 지급하지 않고 환불 가능한
+     * 상태로 묶습니다({@code group_buy_id} 단위 - 판매자의 다른 공구에는 영향이 없습니다).
+     */
+    boolean existsByGroupBuyIdAndStatus(Long groupBuyId, String status);
+
+    /**
      * 판매자의 확정 위반 횟수 (PEN-01, FR-PEN-09~12).
      *
      * <p><b>누적의 기준은 이 값입니다.</b> {@code seller_profiles.penalty_count} 는 상품

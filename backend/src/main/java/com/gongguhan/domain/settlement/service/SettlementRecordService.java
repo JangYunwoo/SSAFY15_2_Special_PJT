@@ -4,6 +4,7 @@ import com.gongguhan.domain.escrow.service.EscrowService;
 import com.gongguhan.domain.groupbuy.repository.GroupBuyRepository;
 import com.gongguhan.domain.participation.entity.Participation;
 import com.gongguhan.domain.participation.repository.ParticipationRepository;
+import com.gongguhan.domain.penalty.repository.SellerPenaltyRepository;
 import com.gongguhan.domain.settlement.entity.Settlement;
 import com.gongguhan.domain.settlement.entity.SettlementItem;
 import com.gongguhan.domain.settlement.event.SettlementCompletedEvent;
@@ -43,13 +44,15 @@ public class SettlementRecordService {
     private final ApplicationEventPublisher events;
     private final SettlementTargetRepository targetRepository;
     private final GroupBuyRepository groupBuyRepository;
+    private final SellerPenaltyRepository penaltyRepository;
 
     public SettlementRecordService(SettlementRepository settlementRepository,
                                    SettlementItemRepository settlementItemRepository,
                                    ParticipationRepository participationRepository,
                                    EscrowService escrowService,
                                    ApplicationEventPublisher events, SettlementTargetRepository targetRepository,
-                                   GroupBuyRepository groupBuyRepository) {
+                                   GroupBuyRepository groupBuyRepository,
+                                   SellerPenaltyRepository penaltyRepository) {
         this.settlementRepository = settlementRepository;
         this.settlementItemRepository = settlementItemRepository;
         this.participationRepository = participationRepository;
@@ -57,6 +60,7 @@ public class SettlementRecordService {
         this.events = events;
         this.targetRepository = targetRepository;
         this.groupBuyRepository = groupBuyRepository;
+        this.penaltyRepository = penaltyRepository;
     }
 
     /**
@@ -211,6 +215,31 @@ public class SettlementRecordService {
         Settlement settlement = load(settlementId);
         settlement.hold(truncate(reason));
         log.info("정산 보류 settlementId={} reason={}", settlementId, reason);
+        return settlement;
+    }
+
+    /**
+     * 위반이 확정된 공구의 정산이면 실행권을 잡기 전에 보류합니다.
+     *
+     * <p>확인과 보류를 한 트랜잭션에서 처리합니다 — 실행권({@code claimTransfer})을 잡은 뒤에는
+     * {@link Settlement#hold}가 거부되기 때문입니다. 실행 대상(PENDING·미claim)만 보류하므로
+     * 이미 지급 완료(COMPLETED)됐거나 이미 보류 중인 정산은 건드리지 않습니다 — 지급된 돈을
+     * 되돌리는 클로백은 없습니다. 실제 환불은 관리자의 기존 보류·환불 도구로 처리합니다.
+     *
+     * @return 보류한 정산. 대상이 아니면(위반 미확정이거나 실행 대상이 아님) {@code null}.
+     */
+    @Transactional
+    public Settlement holdIfSellerPenalized(Long settlementId) {
+        Settlement settlement = load(settlementId);
+        if (!settlement.isExecutable()) {
+            return null;
+        }
+        if (!penaltyRepository.existsByGroupBuyIdAndStatus(settlement.getGroupBuyId(), "CONFIRMED")) {
+            return null;
+        }
+        settlement.hold("판매자 위반 확정으로 정산 보류");
+        log.info("판매자 위반 확정으로 정산 보류 settlementId={} groupBuyId={}",
+                settlementId, settlement.getGroupBuyId());
         return settlement;
     }
 
