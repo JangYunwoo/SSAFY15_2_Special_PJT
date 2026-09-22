@@ -14,6 +14,10 @@ import org.springframework.data.repository.query.Param;
 
 public interface GroupBuyRepository extends JpaRepository<GroupBuy, Long> {
 
+    /** 철회 참여 목록 조회 전 버전. 엔티티를 미리 관리 상태로 만들지 않는다. */
+    @Query("SELECT g.version FROM GroupBuy g WHERE g.groupBuyId = :groupBuyId")
+    Optional<Long> findVersionByGroupBuyId(@Param("groupBuyId") Long groupBuyId);
+
     boolean existsByProductIdAndStatusIn(Long productId, Collection<String> statuses);
 
     List<GroupBuy> findByProductIdInAndStatusIn(
