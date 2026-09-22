@@ -67,6 +67,11 @@ public class SettlementTargetRepository {
                    SELECT 1 FROM settlement_items si
                     WHERE si.participation_id = p.participation_id
                )
+               AND NOT EXISTS (
+                   SELECT 1 FROM seller_penalties sp
+                    WHERE sp.group_buy_id = p.group_buy_id
+                      AND sp.status = 'CONFIRMED'
+               )
              ORDER BY p.group_buy_id, p.participation_id
             """;
 
@@ -83,7 +88,12 @@ public class SettlementTargetRepository {
                    p.status,
                    p.settlement_eligible_at,
                    COALESCE(e.status, 'NONE') AS escrow_status,
-                   COALESCE(e.refunded_amount, 0) AS refunded_amount
+                   COALESCE(e.refunded_amount, 0) AS refunded_amount,
+                   EXISTS (
+                       SELECT 1 FROM seller_penalties sp
+                        WHERE sp.group_buy_id = p.group_buy_id
+                          AND sp.status = 'CONFIRMED'
+                   ) AS has_confirmed_penalty
               FROM participations p
               LEFT JOIN escrows e ON e.participation_id = p.participation_id
              WHERE p.group_buy_id = :groupBuyId
@@ -147,7 +157,8 @@ public class SettlementTargetRepository {
         return new ExcludedParticipation(
                 rs.getLong("participation_id"),
                 participationStatus,
-                resolveReason(participationStatus, escrowStatus, refunded, eligibleAt));
+                resolveReason(participationStatus, escrowStatus, refunded, eligibleAt,
+                        rs.getBoolean("has_confirmed_penalty")));
     }
 
     /**
@@ -157,12 +168,18 @@ public class SettlementTargetRepository {
      * <b>반품</b>이라고 말해야 이해됩니다. 더 구체적인 사유를 먼저 봅니다.
      */
     private String resolveReason(String participationStatus, String escrowStatus,
-                                 long refundedAmount, java.sql.Timestamp eligibleAt) {
+                                 long refundedAmount, java.sql.Timestamp eligibleAt,
+                                 boolean hasConfirmedPenalty) {
         if (refundedAmount > 0) {
             return ExcludedReason.PARTIAL_REFUND;
         }
         if ("REFUNDED".equals(escrowStatus)) {
             return ExcludedReason.REFUNDED;
+        }
+        // 위반이 확정된 공구는 판매자에게 자동 지급하지 않고 보류한다. 반품·미확정보다
+        // 먼저 이 사유를 보여, "왜 정산이 안 됐나" 에 제재 사실을 먼저 답한다.
+        if (hasConfirmedPenalty) {
+            return ExcludedReason.SELLER_PENALIZED;
         }
         if ("RETURNING".equals(participationStatus) || "RETURNED".equals(participationStatus)) {
             return ExcludedReason.RETURNED;
@@ -189,6 +206,8 @@ public class SettlementTargetRepository {
         public static final String REFUNDED = "REFUNDED";
         /** 부분 환불됨. 배송비 잔액 근거가 검증된 건만 별도 정산한다. */
         public static final String PARTIAL_REFUND = "PARTIAL_REFUND";
+        /** 판매자 위반이 확정돼 정산 보류. 환불 가능한 상태로 묶어 관리자 검토·환불 대상이 된다. */
+        public static final String SELLER_PENALIZED = "SELLER_PENALIZED";
 
         private ExcludedReason() {
         }

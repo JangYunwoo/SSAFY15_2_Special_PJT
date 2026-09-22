@@ -115,6 +115,16 @@ public class SettlementTransferService {
     /** 재시도 배치가 부르는 경로. 사람의 조작이 아니라 감사 로그를 남기지 않습니다. */
     @Transactional(propagation = Propagation.NEVER)
     public Settlement execute(Long settlementId) {
+        // 위반이 확정된 공구의 정산은 판매자에게 자동 지급하지 않고 보류한다. 정산 명세가
+        // 이미 만들어진 뒤(에스크로 해제 후) 위반이 확정된 경우가 여기 걸린다. 실행권(claim)
+        // 을 잡으면 보류가 거부되므로, claim 전에 한 트랜잭션에서 확인·보류한다. 이미 지급
+        // 완료(COMPLETED)나 보류 중인 건은 실행 대상이 아니라 건드리지 않으므로(PENDING·미claim
+        // 만 보류) 지급된 돈을 되돌리는 클로백은 없다. 실제 환불은 관리자 기존 도구로 처리한다.
+        Settlement penaltyHeld = recordService.holdIfSellerPenalized(settlementId);
+        if (penaltyHeld != null) {
+            return penaltyHeld;
+        }
+
         Settlement settlement = recordService.loadExecutable(settlementId);
 
         String platformAccount = policyService.getString(PolicyKey.SSAFY_PLATFORM_ACCOUNT_NO);
