@@ -1,5 +1,5 @@
 import { useState, type ChangeEvent } from 'react'
-import { Navigate, useNavigate } from 'react-router'
+import { Link, Navigate, useNavigate } from 'react-router'
 import { useMutation } from '@tanstack/react-query'
 
 import { authApi } from '@/entities/auth/api'
@@ -87,7 +87,10 @@ export default function SellerVerifyPage() {
     <>
       <header className="gnb">
         <div className="inner">
-          <span className="brand"><BrandMark /></span>
+          {/* 로고는 홈으로 돌아가는 유일한 출구입니다. span 이라 눌러도 아무 일이 없었습니다 (S15P21B205-232) */}
+          <Link className="brand" to="/">
+            <BrandMark />
+          </Link>
           <span className="badge">판매자센터</span>
         </div>
       </header>
