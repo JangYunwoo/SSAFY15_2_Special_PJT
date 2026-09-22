@@ -382,15 +382,29 @@ public class CryptoTxRecordService {
      * 결제를 확정한다.
      *
      * <p>참여 건 생성·에스크로 HELD·인원 확정은 결제 공통의
-     * {@link PaymentService#completePayment}가 한 트랜잭션에서 처리한다.
+     * {@link PaymentService#completeIfRecruiting}가 한 트랜잭션에서 처리한다.
      * 배송지는 공통 결제에 저장된 준비 시점 스냅샷을 사용한다.
+     *
+     * <p>확정 직전 공구가 종료(판매철회·모집종료)됐으면 참여를 만들 수 없다. 이때
+     * {@code completeIfRecruiting}는 예외를 던지지 않으므로(예외를 던지면 이 트랜잭션이
+     * 롤백돼 방금 기록한 MATCHED 입금까지 사라진다) 온체인 입금 관측을 보존한 채
+     * {@link #classifyTerminalDeposits}로 반환 후보(UNMATCHED)로 재분류하고 결제를 종결한다.
      */
     private void completePayment(Payment payment, CryptoPayment cryptoPayment,
                                   LocalDateTime now) {
         // payment.getPaymentId() 대신 crypto_payments 의 PK 를 쓴다. 이 값은 호출 측이
         // 명시적으로 넘긴 ID 에서 온 것이라 항상 채워져 있다.
         Long paymentId = cryptoPayment.getPaymentId();
-        paymentService.completePayment(paymentId);
+        PaymentService.CompletionOutcome outcome = paymentService.completeIfRecruiting(paymentId);
+        if (outcome == PaymentService.CompletionOutcome.GROUP_TERMINATED) {
+            // 입금 확정 직전 공구가 종료됨. 참여/슬롯/PAID를 되살리지 않고, 온체인 입금은
+            // 반환 후보로 분류만 한다. 실제 원금 반환은 관리자 주도(CryptoDepositRefundService).
+            paymentService.failPayment(paymentId, "GROUP_BUY_TERMINATED_BEFORE_CONFIRMATION");
+            classifyTerminalDeposits(paymentId, now, false);
+            log.info("공구 종료로 코인 확정 불가 - 입금 반환 후보로 분류 payment={} txHash={}",
+                    paymentId, cryptoPayment.getTxHash());
+            return;
+        }
         cryptoPayment.markConfirmed(now);
         log.info("코인 결제 확정 payment={} txHash={} confirmations={}/{}",
                 paymentId, cryptoPayment.getTxHash(),

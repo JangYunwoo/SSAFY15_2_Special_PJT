@@ -366,8 +366,38 @@ public class PaymentService {
             payment.markRefundRequired("GROUP_BUY_TERMINATED_AFTER_CHARGE");
             return PaymentResponse.from(payment, outcome.slot(), LocalDateTime.now(clock));
         }
-        GroupBuySlotPort.GroupBuySlot groupBuySlot = outcome.slot();
+        return finalizeConfirmed(payment, snapshot, outcome.slot());
+    }
 
+    /**
+     * 코인 확정 전용 진입점. {@link #completePayment}(예외)·{@link #completeOrScheduleRefund}
+     * (환불 표시)와 달리, 확정 직전 공구가 종료됐으면 예외도 표시도 하지 않고
+     * {@link CompletionOutcome#GROUP_TERMINATED}만 돌려준다 - 호출 측(코인)이 온체인 입금을
+     * 보존·분류하고 결제를 종결한다. 모집 중이면 참여·에스크로·결제를 확정한다.
+     */
+    @Transactional
+    public CompletionOutcome completeIfRecruiting(Long paymentId) {
+        Payment payment = paymentRepository.findForUpdateByPaymentId(paymentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "결제를 찾을 수 없습니다."));
+        if (!payment.isProcessing()) {
+            throw new BusinessException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
+        }
+        if (payment.isExpired(LocalDateTime.now(clock)) && !payment.isCardApprovalInFlight()) {
+            throw new BusinessException(ErrorCode.PAYMENT_SLOT_EXPIRED);
+        }
+        PaymentShippingSnapshot snapshot = storedSnapshot(payment);
+        GroupBuySlotPort.ConfirmOutcome outcome = groupBuySlotPort.confirmForCompletion(payment.getGroupBuyId());
+        if (outcome.notRecruiting()) {
+            // 표시/예외 없이 트랜잭션을 살려 둔다. 호출 측이 온체인 입금을 보존·분류한다.
+            return CompletionOutcome.GROUP_TERMINATED;
+        }
+        finalizeConfirmed(payment, snapshot, outcome.slot());
+        return CompletionOutcome.COMPLETED;
+    }
+
+    /** 모집 중이 확인된 뒤 참여·에스크로·결제를 하나의 트랜잭션으로 확정한다. */
+    private PaymentResponse finalizeConfirmed(Payment payment, PaymentShippingSnapshot snapshot,
+                                              GroupBuySlotPort.GroupBuySlot groupBuySlot) {
         ParticipationWriterPort.ParticipationRecord participation = participationWriterPort.create(
                 new ParticipationWriterPort.ParticipationCreateCommand(
                         payment.getGroupBuyId(), payment.getUserId(),
@@ -383,6 +413,9 @@ public class PaymentService {
         payment.markPaid(participation.participationId(), LocalDateTime.now(clock));
         return PaymentResponse.from(payment, groupBuySlot, LocalDateTime.now(clock));
     }
+
+    /** 코인 확정 결과. 모집 중이면 확정, 종료됐으면 호출 측이 입금 반환을 처리한다. */
+    public enum CompletionOutcome { COMPLETED, GROUP_TERMINATED }
 
     /**
      * 결제수단 어댑터가 공통 결제 내부 엔티티나 주소 저장소를 직접 참조하지 않고
