@@ -63,6 +63,16 @@ export function GroupBuyCarousel({
     }
   }, [itemSignature, items, onItemVisible])
 
+  /**
+   * 마우스를 누른 시점에는 아직 아무것도 잡지 않습니다.
+   *
+   * 예전에는 여기서 바로 setPointerCapture 를 걸었습니다. 그러면 드래그하지
+   * 않고 그냥 카드를 눌러도 캡처가 살아 있는 상태로 click 이 뜨고, 브라우저는
+   * click 의 대상을 캡처한 요소(이 캐러셀 div)로 바꿔버립니다. 카드의 <a> 가
+   * 클릭을 받지 못해 상세 페이지로 넘어가지 않았습니다.
+   *
+   * 그래서 캡처는 실제로 끌기 시작한 뒤(moveDrag 의 임계값 통과)에만 겁니다.
+   */
   const startDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.pointerType !== 'mouse' || event.button !== 0) return
     const root = scrollRef.current
@@ -74,8 +84,6 @@ export function GroupBuyCarousel({
       moved: false,
     }
     suppressClickRef.current = false
-    root.setPointerCapture(event.pointerId)
-    setDragging(true)
   }
 
   const moveDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -84,7 +92,14 @@ export function GroupBuyCarousel({
     if (root === null || drag?.pointerId !== event.pointerId) return
     const distance = event.clientX - drag.startX
     if (Math.abs(distance) > 5) {
-      drag.moved = true
+      // 임계값을 처음 넘은 순간에만 캡처를 잡습니다. 여기서부터는 끌기이므로
+      // 포인터가 카드 밖으로 나가도 스크롤이 따라와야 하고, 뒤따르는 click 은
+      // 어차피 suppressClickRef 로 막습니다.
+      if (!drag.moved) {
+        drag.moved = true
+        root.setPointerCapture(event.pointerId)
+        setDragging(true)
+      }
       suppressClickRef.current = true
     }
     root.scrollLeft = drag.startScrollLeft - distance
