@@ -70,7 +70,11 @@ function OrdersView({ items }: { items: readonly ParticipationSummary[] }) {
   const defaultAddress = addresses.data?.find((item) => item.isDefault) ?? addresses.data?.[0]
 
   if (items.length === 0) {
-    return <EmptyState>참여한 공동구매가 아직 없습니다.</EmptyState>
+    return (
+      <EmptyState title="아직 참여한 공동구매가 없습니다" action={{ to: '/', label: '둘러보기' }}>
+        마음에 드는 공동구매에 참여하면 모집 현황부터 배송까지 여기에서 한번에 볼 수 있습니다.
+      </EmptyState>
+    )
   }
 
   return (
@@ -129,4 +133,3 @@ function OrdersView({ items }: { items: readonly ParticipationSummary[] }) {
     </>
   )
 }
-

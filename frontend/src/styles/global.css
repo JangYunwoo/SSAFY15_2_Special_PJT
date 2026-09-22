@@ -220,6 +220,13 @@ button,input,select,textarea{font:inherit;color:inherit;}
   padding:56px 24px;text-align:center;font-size:13px;color:var(--muted);
   border-radius:var(--radius-box);
 }
+/*
+ * 빈 자리에 제목·설명·다음 행동을 함께 둘 때의 간격 (S15P21B205-230).
+ * .empty 가 글자 크기를 작게 잡아 두어, 제목만 본문 색·굵기로 끌어올립니다.
+ */
+.empty-title{margin:0;font-size:15px;font-weight:700;color:var(--ink);}
+.empty-desc{margin:0;line-height:1.7;}
+.empty-title + .empty-desc{margin-top:8px;}
 
 /* ---------- 결제 단계 헤더 (로고만) ---------- */
 .head-label{margin-left:10px;font-size:14px;color:var(--ink2);}

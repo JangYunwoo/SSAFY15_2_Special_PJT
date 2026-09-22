@@ -38,10 +38,17 @@ export function GroupBuyListPage() {
         <QueryBoundary query={query}>
           {(result) =>
             result.items.length === 0 ? (
-              <EmptyState>
+              <EmptyState
+                title={
+                  keyword ? `'${keyword}' 검색 결과가 없습니다` : '이 카테고리에는 아직 없습니다'
+                }
+                {...(isFiltered
+                  ? { action: { to: '/group-buys', label: '전체 공동구매 보기' } }
+                  : {})}
+              >
                 {keyword
-                  ? `'${keyword}' 검색 결과가 없습니다.`
-                  : '해당 카테고리에 진행 중인 공동구매가 없습니다.'}
+                  ? '다른 검색어를 넣거나 카테고리를 넓혀 보세요.'
+                  : '다른 카테고리에는 모집 중인 공동구매가 있을 수 있습니다.'}
               </EmptyState>
             ) : (
               <>

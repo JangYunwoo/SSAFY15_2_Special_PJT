@@ -3,18 +3,48 @@ import type { ReactNode } from 'react'
 import { toMessage } from '@/shared/api/errors'
 import { cx } from '@/shared/lib/cx'
 
-import { Button } from './Button'
+import { Button, ButtonLink } from './Button'
 
-/** 검색·필터 결과가 없을 때 (.empty) */
+export interface EmptyStateAction {
+  to: string
+  label: string
+}
+
+/**
+ * 비어 있는 목록 자리 (.empty).
+ *
+ * 처음 온 사람에게는 이 화면이 서비스의 첫인상입니다 (S15P21B205-230).
+ * "참여한 공동구매가 아직 없습니다" 한 줄만 두면 맞는 말이지만 다음에 뭘 해야
+ * 하는지가 없어, 막 가입한 사람이 여기서 멈춥니다. 그래서 제목 · 설명 · 다음
+ * 행동 세 가지를 한 컴포넌트에서 받습니다.
+ *
+ * 셋 다 선택입니다. 관리자·판매자의 운영 화면처럼 "없음"이 정상이고 권할 행동도
+ * 없는 자리에서는 예전처럼 문장 하나만 넘기면 됩니다. 빈 목록마다 버튼을 다는
+ * 것이 목적이 아니라, 달아야 할 곳에서 같은 모양으로 달리게 하는 것이 목적입니다.
+ */
 export function EmptyState({
   children,
   className,
+  title,
+  action,
 }: {
-  children: ReactNode
+  children?: ReactNode
   /** 앞 요소와 붙어 보일 때 여백을 주기 위해 (예: mt24) */
   className?: string | undefined
+  title?: string | undefined
+  action?: EmptyStateAction | undefined
 }) {
-  return <div className={cx('empty', className)}>{children}</div>
+  return (
+    <div className={cx('empty', className)}>
+      {title !== undefined && <p className="empty-title">{title}</p>}
+      {children !== undefined && <p className="empty-desc">{children}</p>}
+      {action !== undefined && (
+        <ButtonLink className="mt16" to={action.to}>
+          {action.label}
+        </ButtonLink>
+      )}
+    </div>
+  )
 }
 
 /** 데이터를 불러오는 중 */
