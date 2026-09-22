@@ -22,6 +22,8 @@ export type StateTone =
   | 'alert'
   /** 반품 진행·종결 */
   | 'back'
+  /** 마감 임박 (잔여 일수가 얼마 남지 않은 모집 건) */
+  | 'urgent'
 
 export function StateChip({
   tone = 'neutral',

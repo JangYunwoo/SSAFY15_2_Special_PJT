@@ -42,6 +42,7 @@
   --cyan-20:#bae6ff;     --cyan-10:#e5f6ff;
   --teal-20:#9ef0f0;     --teal-10:#d9fbfb;
   --green-20:#a7f0ba;    --green-10:#defbe6;
+  --orange-20:#ffd9be;   --orange-10:#fff2e8;
 
   /* 상태 틴트 위에 얹는 글자색 (70 계열) */
   --red-text:#a2191f;
@@ -50,6 +51,7 @@
   --cyan-text:#00539a;
   --teal-text:#005d5d;
   --green-text:#0e6027;
+  --orange-text:#8a3800;
   --blue-text:var(--blue-70);
 
   /* ---------- 역할 토큰 ---------- */
@@ -121,4 +123,6 @@
   --skyblue:var(--cyan-20);     --skyblue-text:var(--cyan-text);
   --turquoise:var(--teal-20);   --turquoise-text:var(--teal-text);
   --green:var(--green-20);
+  --orange:var(--orange-20);
 }
+
