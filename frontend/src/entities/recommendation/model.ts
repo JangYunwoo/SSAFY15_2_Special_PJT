@@ -18,6 +18,6 @@ export interface RecommendedGroupBuy {
 
 export interface RecommendationResult {
   items: RecommendedGroupBuy[]
-  modelType: 'LOGISTIC_REGRESSION' | 'HEURISTIC_FALLBACK' | 'BACKEND_FALLBACK' | 'EMPTY'
+  modelType: 'LIGHTGBM_RANKER' | 'HEURISTIC_FALLBACK' | 'BACKEND_FALLBACK' | 'EMPTY'
   featureWeights: Record<string, number>
 }

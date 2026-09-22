@@ -1,12 +1,14 @@
-# 공구한 AI 상품 이미지 분석 PoC
+# 공구한 AI 서비스
 
-메인 이미지 1장과 부연 이미지 최대 4장을 Gemini API로 함께 분석하고 결과 JSON 하나를 출력합니다. Qwen과 YOLO 코드는 초기 모델 비교 기록으로 `experiments/`에 보관합니다.
+Gemini 상품 이미지 분석과 LightGBM 기반 개인화 공동구매 순위 API를 제공합니다.
+Qwen과 YOLO 코드는 초기 모델 비교 기록으로 `experiments/`에 보관합니다.
 
 ## PoC 범위
 
 - ERD `products.name`에 대응하는 상품명 추출
 - DB 카테고리 카탈로그에서 ERD `products.category_id`에 대응하는 ID 선택
 - 상품명이 불명확하면 사용자가 선택할 수 있는 후보를 최대 3개 출력
+- 세션별 노출·클릭·상세조회·구매 로그를 이용한 공동구매 Learning-to-Rank
 
 브랜드와 색상은 이미지에서 확인 가능한 경우 추출하고 불명확하면 null로 반환합니다. 모델명·규격과 가격은 추출하지 않습니다. 명백히 무관한 상품 사진이 섞이면 FAILED와 문제 사진 번호를 반환합니다. 이는 모델의 판단이며 정확성을 보장하는 검사는 아닙니다. FastAPI를 제공하며 웹 검색과 DB 저장은 포함하지 않습니다.
 
@@ -121,6 +123,10 @@ ai/
 ├── prompt.py
 ├── gemini_analyze.py
 ├── app.py
+├── recommendation_api.py
+├── recommendation_poc/
+│   ├── recommender.py
+│   └── README.md
 ├── .env.example
 ├── .gitignore
 ├── requirements.txt

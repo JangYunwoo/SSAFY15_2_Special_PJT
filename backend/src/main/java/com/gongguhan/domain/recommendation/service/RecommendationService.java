@@ -80,7 +80,7 @@ public class RecommendationService {
         try {
             AiRecommendationClient.RankResponse ranked = aiClient.rank(userId, candidates, events, limit);
             if (ranked == null || ranked.rankedItems() == null
-                    || !("LOGISTIC_REGRESSION".equals(ranked.modelType())
+                    || !("LIGHTGBM_RANKER".equals(ranked.modelType())
                     || "HEURISTIC_FALLBACK".equals(ranked.modelType()))) {
                 return fallback(candidates, limit);
             }

@@ -77,6 +77,7 @@ public class AiRecommendationClient {
     }
 
     private record Event(
+            @JsonProperty("session_id") String sessionId,
             @JsonProperty("user_id") long userId,
             @JsonProperty("group_buy_id") long groupBuyId,
             @JsonProperty("product_id") long productId,
@@ -90,7 +91,7 @@ public class AiRecommendationClient {
     ) {
         private static Event from(RecommendationTrainingEvent source) {
             return new Event(
-                    source.userId(), source.groupBuyId(), source.productId(),
+                    source.sessionId(), source.userId(), source.groupBuyId(), source.productId(),
                     source.eventType(), source.occurredAt(),
                     source.brand(), source.categoryId(), source.recruitmentRate(),
                     source.discountRate(), source.deadlineUrgency());

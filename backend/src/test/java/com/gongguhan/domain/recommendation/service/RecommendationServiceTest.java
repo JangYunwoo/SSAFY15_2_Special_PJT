@@ -102,6 +102,12 @@ class RecommendationServiceTest {
         assertThat(service.recommend(10, 1).modelType()).isEqualTo("BACKEND_FALLBACK");
     }
 
+    @Test void lightGbmRankingIsAcceptedByFrontendContract() {
+        when(ai.rank(eq(10L), anyList(), anyList(), anyInt())).thenReturn(
+                new AiRecommendationClient.RankResponse("LIGHTGBM_RANKER", List.of(item(1, .9)), Map.of()));
+        assertThat(service.recommend(10, 1).modelType()).isEqualTo("LIGHTGBM_RANKER");
+    }
+
     @Test void invalidFeatureWeightsAreNotReturnedAsJson() {
         Map<String, Double> weights = new HashMap<>();
         weights.put("valid", .5); weights.put("nan", Double.NaN); weights.put("missing", null);
