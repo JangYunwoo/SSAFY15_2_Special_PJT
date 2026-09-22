@@ -285,6 +285,11 @@ public class RefundOrchestrationService {
         Refund refund = ledgerService.retry(refundId);
         Long participationId = refund.getParticipationId();
         if (participationId == null) {
+            if (refund.getPaymentId() != null) {
+                // 승인 후 공구 종료로 고립된 결제 단위 환불은 결제로 자산을 특정할 수 있어 재실행한다.
+                // 참여가 없으므로 참여 종결(finalize)은 하지 않는다.
+                return execute(refund, loadPaymentById(refund.getPaymentId()));
+            }
             // 입금 단위 환불(슬롯 만료·미매칭)은 결제 건이 없어 자산을 특정할 수 없다.
             // 미매칭 입금 환불은 코인 결제 도메인이 직접 개시·송금한다.
             return ledgerService.fail(refundId,
@@ -293,6 +298,22 @@ public class RefundOrchestrationService {
         Refund result = execute(refund, loadPayment(participationId));
         finalizeIfParticipationCompleted(result);
         return result;
+    }
+
+    /**
+     * 승인 후 공구 종료로 고립된 결제(참여행 없음)의 환불을 실행/복구합니다.
+     *
+     * <p>{@link #resumePersisted} 와 같은 구조지만 참여가 없어 결제로 자산을 특정하고,
+     * 참여 종결(에스크로 닫기)을 하지 않습니다. 실행권을 못 얻었거나 이미 실행된 건은 그대로 둡니다.
+     */
+    @Transactional(propagation = Propagation.NEVER)
+    public Refund resumeStrandedPayment(Long refundId) {
+        Refund refund = ledgerService.get(refundId);
+        if (refund.isProcessing() && !refund.isExecutionClaimed()
+                && refund.getPaymentId() != null && refund.getRefundMethod() != RefundMethod.CARD_CANCEL) {
+            refund = execute(refund, loadPaymentById(refund.getPaymentId()));
+        }
+        return refund;
     }
 
     private Refund executeIfCreated(OpenResult opened, Payment payment) {
@@ -509,6 +530,13 @@ public class RefundOrchestrationService {
         return paymentRepository.findByParticipationId(participationId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND,
                         "환불할 결제 건을 찾을 수 없습니다. participationId=" + participationId));
+    }
+
+    /** 참여 없이 결제 단위로 개시한 환불(고립 결제)은 결제 ID 로 직접 결제를 읽는다. */
+    private Payment loadPaymentById(Long paymentId) {
+        return paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND,
+                        "환불할 결제 건을 찾을 수 없습니다. paymentId=" + paymentId));
     }
 
     /** {@code refunds.fail_reason} 이 VARCHAR(255) 라 넘치면 저장 시점에 깨진다. */

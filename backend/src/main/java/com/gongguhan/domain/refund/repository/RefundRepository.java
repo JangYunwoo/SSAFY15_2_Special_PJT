@@ -71,6 +71,26 @@ public interface RefundRepository extends JpaRepository<Refund, Long> {
             """)
     Optional<Refund> findActiveByDepositId(@Param("depositId") Long depositId);
 
+    /** 해당 결제에 진행 중이거나 완료된(참여 없이 결제 단위로 개시된) 환불을 찾습니다. */
+    @Query("""
+            SELECT r FROM Refund r
+             WHERE r.paymentId = :paymentId
+               AND (r.status <> com.gongguhan.domain.refund.entity.RefundStatus.FAILED OR r.executionClaimed = true)
+            """)
+    Optional<Refund> findActiveByPaymentId(@Param("paymentId") Long paymentId);
+
+    /** 결제 단위(참여 없음) 환불 중 아직 송신하지 않은 건을 복구 스캔이 재개 대상으로 가져온다. */
+    @Query("""
+            SELECT r.refundId FROM Refund r
+             WHERE r.paymentId IS NOT NULL
+               AND r.status = com.gongguhan.domain.refund.entity.RefundStatus.PROCESSING
+               AND r.executionClaimed = false
+               AND r.refundMethod <> com.gongguhan.domain.refund.entity.RefundMethod.CARD_CANCEL
+               AND r.createdAt <= :cutoff
+             ORDER BY r.refundId
+            """)
+    List<Long> findUnsentStrandedPayment(@Param("cutoff") java.time.LocalDateTime cutoff, Pageable pageable);
+
     /**
      * 온체인 해시로 환불을 찾습니다.
      *

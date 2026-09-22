@@ -20,6 +20,11 @@ public class Payment extends BaseTimeEntity {
     public static final String STATUS_EXPIRED = "EXPIRED";
     public static final String SLOT_MARKER_ACTIVE = "Y";
 
+    /** reconcile_state 값: 외부 청구 성공 후 공구 종료로 미확정된 결제(환불 재조정 대상). */
+    public static final String RECONCILE_REFUND_REQUIRED = "REFUND_REQUIRED";
+    /** reconcile_state 값: 고립 청구를 환불 원장에 예약 완료(복구 스캔 재선정 방지). */
+    public static final String RECONCILE_REFUND_RESERVED = "REFUND_RESERVED";
+
     /** {@code payments.method} 값. CHECK 제약 주석과 같은 값이다. */
     public static final String METHOD_CARD = "CARD";
     public static final String METHOD_KAKAOPAY = "KAKAOPAY";
@@ -96,6 +101,9 @@ public class Payment extends BaseTimeEntity {
     @Column(name = "card_institution_tx_no", length = 20)
     private String cardInstitutionTxNo;
 
+    @Column(name = "reconcile_state", length = 20)
+    private String reconcileState;
+
     /** 결제 행 잠금 안에서 변경하고 외부 승인 전에 커밋하는 실행권. */
     public void beginCardApproval(String institutionTxNo) {
         cardApprovalStatus = "PROCESSING";
@@ -108,6 +116,25 @@ public class Payment extends BaseTimeEntity {
         return "PROCESSING".equals(cardApprovalStatus) || "UNKNOWN".equals(cardApprovalStatus);
     }
     public boolean isCardApprovalInFlight() { return "PROCESSING".equals(cardApprovalStatus); }
+
+    /**
+     * 외부 승인은 성공했으나 공구 종료로 참여 확정이 불가능한 결제를 환불 대상으로 표시한다.
+     * 참여/에스크로는 만들지 않는다. 이미 종료된 공구가 슬롯을 회수했으므로 슬롯 해제도 하지 않는다.
+     * 결과 불명(UNKNOWN)이 아니라 외부 청구가 명백히 성공한 건이므로, 카드 실행권은 완료로 확정한다.
+     */
+    public void markRefundRequired(String reason) {
+        if (isCardApprovalInFlight()) { cardApprovalStatus = "COMPLETED"; }
+        this.status = STATUS_FAILED;
+        this.reconcileState = RECONCILE_REFUND_REQUIRED;
+        this.slotMarker = null;
+        this.failReason = reason;
+    }
+
+    /** 고립 청구를 환불 원장에 예약했음을 표시해 복구 스캔이 다시 집지 않게 한다. status(FAILED)는 유지. */
+    public void markRefundReserved() { this.reconcileState = RECONCILE_REFUND_RESERVED; }
+
+    public String getReconcileState() { return reconcileState; }
+    public boolean isRefundReconcileRequired() { return RECONCILE_REFUND_REQUIRED.equals(reconcileState); }
 
     protected Payment() {
     }

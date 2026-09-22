@@ -46,6 +46,8 @@ import java.time.LocalDateTime;
                 columnNames = {"participation_id", "refund_marker"}),
         @UniqueConstraint(name = "uk_refunds_active_deposit",
                 columnNames = {"deposit_id", "refund_marker"}),
+        @UniqueConstraint(name = "uk_refunds_active_payment",
+                columnNames = {"payment_id", "refund_marker"}),
         @UniqueConstraint(name = "uk_refunds_tx", columnNames = {"tx_hash"})
 })
 public class Refund {
@@ -74,6 +76,15 @@ public class Refund {
     /** 미매칭 입금 환불에서 "어느 입금을 돌려보내는지" 를 가리킵니다. */
     @Column(name = "deposit_id")
     private Long depositId;
+
+    /**
+     * 참여 없이 결제 단위로 개시한 환불의 대상 결제.
+     *
+     * <p>외부 승인은 성공했으나 그 사이 공구가 종료돼 참여 확정이 롤백된 결제입니다.
+     * 참여 건이 없어 {@code participation_id} 로 연결할 수 없으므로 결제로 직접 연결합니다.
+     */
+    @Column(name = "payment_id")
+    private Long paymentId;
 
     /** KRW 기준. */
     @Column(nullable = false)
@@ -191,6 +202,23 @@ public class Refund {
         }
         return new Refund(participationId, null, null, amount, reasonType, refundMethod,
                 null, createdAt);
+    }
+
+    /**
+     * 참여 없이 결제 단위로 환불을 개시합니다.
+     *
+     * <p>외부 승인은 성공했으나 공구 종료로 참여 확정이 롤백된 고립 결제가 이 경로입니다.
+     * 참여 건이 없어 결제로 직접 연결하고, {@code payment_id} 로 이중 환불을 막습니다.
+     */
+    public static Refund forPayment(Long paymentId, long amount, RefundReason reasonType,
+                                    RefundMethod refundMethod, LocalDateTime createdAt) {
+        if (reasonType == RefundReason.RETURN) {
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR,
+                    "반품 환불은 forReturn 으로 만들어야 합니다. paymentId=" + paymentId);
+        }
+        Refund refund = new Refund(null, null, null, amount, reasonType, refundMethod, null, createdAt);
+        refund.paymentId = paymentId;
+        return refund;
     }
 
     /** 반품 승인·수거 완료에 따른 환불 (FR-RTN-17). */
@@ -427,6 +455,10 @@ public class Refund {
 
     public Long getDepositId() {
         return depositId;
+    }
+
+    public Long getPaymentId() {
+        return paymentId;
     }
 
     public long getAmount() {
