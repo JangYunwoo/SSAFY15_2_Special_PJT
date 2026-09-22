@@ -83,11 +83,12 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .gnb .right{margin-left:auto;align-self:stretch;display:flex;align-items:center;gap:15px;}
 .gnb .right nav{margin-left:0;}
 /*
- * 알림은 글자 메뉴인데 .right 의 gap(버튼용)만 받아 로그아웃에 붙어 보였습니다.
- * 오른쪽은 버튼 안쪽 여백이 더해져 실제보다 넓어 보이고, 안 읽은 배지가
- * 오른쪽으로 14px 튀어나와 그 자리를 또 먹습니다. 양쪽을 따로 벌려 맞춥니다.
+ * 알림은 글자 메뉴인데 .right 의 gap(버튼용)만 받아 옆 메뉴에 붙어 보입니다.
+ * 왼쪽만 따로 벌려 맞춥니다. 오른쪽 여백은 뒤에 판매자센터 CTA 가 있을 때
+ * 필요했는데, 헤더에서 그 CTA 를 내려 벨이 끝 요소가 되면서 없앴습니다
+ * (S15P21B205-228). 판매자·관리자 헤더는 여전히 .gnb .cta 를 씁니다.
  */
-.gnb .right > .bell{margin-left:16px;margin-right:14px;}
+.gnb .right > .bell{margin-left:16px;}
 .gnb .cta{
   border:1px solid var(--brand);padding:9px 16px;
   font-size:12px;font-weight:700;color:var(--brand-text);white-space:nowrap;
@@ -219,6 +220,29 @@ button,input,select,textarea{font:inherit;color:inherit;}
   padding:56px 24px;text-align:center;font-size:13px;color:var(--muted);
   border-radius:var(--radius-box);
 }
+/*
+ * 판매자 전환의 단계 표시 (S15P21B205-231). 막대 위에 몇 단계 중 몇 번째인지
+ * 글로도 적습니다. 막대만으로는 남은 단계 수가 읽히지 않습니다.
+ */
+.verify-steps{border:1px solid var(--line);background:var(--surface);padding:20px 24px;margin-bottom:24px;}
+.verify-steps-count{margin:0 0 16px;font-size:12px;color:var(--muted);}
+.verify-steps-count b{color:var(--ink);}
+/*
+ * 응답을 기다리는 동안의 진행 표시. 남은 시간을 알 수 없어 막대가 오갑니다.
+ * 움직임을 줄이도록 설정한 사람에게는 정지한 띠로 보여줍니다.
+ */
+.wait-title{margin:0 0 6px;font-size:14px;font-weight:700;}
+.wait-bar{height:4px;background:var(--fill);overflow:hidden;margin-top:16px;}
+.wait-bar > span{display:block;height:100%;width:40%;background:var(--brand);animation:wait-slide 1.1s ease-in-out infinite;}
+@keyframes wait-slide{from{transform:translateX(-100%)}to{transform:translateX(250%)}}
+@media (prefers-reduced-motion:reduce){.wait-bar > span{animation:none;width:100%;opacity:.5;}}
+/*
+ * 빈 자리에 제목·설명·다음 행동을 함께 둘 때의 간격 (S15P21B205-230).
+ * .empty 가 글자 크기를 작게 잡아 두어, 제목만 본문 색·굵기로 끌어올립니다.
+ */
+.empty-title{margin:0;font-size:15px;font-weight:700;color:var(--ink);}
+.empty-desc{margin:0;line-height:1.7;}
+.empty-title + .empty-desc{margin-top:8px;}
 
 /* ---------- 결제 단계 헤더 (로고만) ---------- */
 .head-label{margin-left:10px;font-size:14px;color:var(--ink2);}
@@ -445,16 +469,21 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .sec-title + .sec-sub{margin-top:4px;}
 .sec-sub{font-size:12px;color:var(--muted);margin:0;}
 
-/* ---------- 목록 도구 (카테고리 · 검색 · 정렬) ---------- */
-.list-tools{
-  display:flex;align-items:center;justify-content:space-between;
-  gap:16px;margin-bottom:24px;flex-wrap:wrap;
-}
+/* ---------- 목록 도구 (검색 · 정렬 · 카테고리) ---------- */
+/*
+ * 위에 검색·정렬 한 줄, 아래에 카테고리 칩을 깝니다 (S15P21B205-227).
+ * 전에는 칩과 검색이 좌우로 나뉘어 있어, 카테고리가 늘어 칩이 두 줄이 되면
+ * 검색창이 아래로 밀려 내려갔습니다.
+ */
+.list-tools{display:flex;flex-direction:column;gap:16px;margin-bottom:24px;}
 .list-tools .chips{margin:0;}
-.tools-right{display:flex;gap:8px;margin-left:auto;}
-.tools-right .input{width:auto;padding:9px 12px;font-size:12px;}
-.tools-right .search{width:220px;}
-.tools-right .sort{width:150px;}
+.tools-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.tools-row .input{padding:9px 12px;font-size:12px;}
+/* 검색이 남는 폭을 가져갑니다. 목록에서 가장 자주 쓰는 입력입니다 */
+.tools-row .search{flex:1;min-width:200px;width:auto;}
+.sort-field{display:flex;align-items:center;gap:8px;margin-left:auto;}
+.sort-label{font-size:12px;color:var(--muted);white-space:nowrap;}
+.tools-row .sort{width:150px;}
 
 /* ---------- 필터 칩 ---------- */
 .chips{display:flex;gap:8px;margin:0 0 24px;flex-wrap:wrap;}
@@ -524,6 +553,11 @@ button,input,select,textarea{font:inherit;color:inherit;}
 /* 가격을 카드의 주인공으로 */
 .card .cost{display:flex;align-items:baseline;gap:7px;margin-bottom:5px;}
 .card .cost b{font-size:19px;font-weight:700;letter-spacing:-.6px;}
+/* 상태 뱃지는 사진 좌상단에 띄웁니다 (S15P21B205-226) */
+.card .card-badge{position:absolute;left:10px;top:10px;}
+/* 게이지와 그 아래 한 줄(참여율 · D-day)은 가격 바로 밑에 붙습니다 */
+.card .bar{margin:10px 0 6px;}
+.card .card-progress{display:flex;justify-content:space-between;gap:8px;}
 .card .meta{font-size:12px;color:var(--muted);}
 .card .meta s{color:var(--muted);}
 .card .meta i{font-style:normal;margin:0 6px;}
@@ -967,6 +1001,7 @@ table.list td.more{text-align:center;padding:24px 12px;}
 .state.hold {background:var(--purple);    color:var(--purple-text);}    /* 대기·부분 처리 */
 .state.alert{background:var(--red);       color:var(--red-text);}       /* 판매자 조치 필요 */
 .state.back {background:var(--pink);      color:var(--pink-text);}      /* 반품 진행·종결 */
+.state.urgent{background:var(--orange);   color:var(--orange-text);}   /* 마감 임박 */
 
 .amount{font-size:26px;font-weight:700;margin:2px 0 14px;}
 

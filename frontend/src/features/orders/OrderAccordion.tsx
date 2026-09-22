@@ -109,6 +109,13 @@ export function OrderAccordion({ item, defaultOpen = false }: OrderAccordionProp
             </span>
           </DataRow>
 
+          {/*
+            결제 시각을 분 단위까지 보여줍니다 (S15P21B205-229). 접힌 줄에는
+            날짜만 있어서, 같은 날 여러 건을 결제하면 어느 것이 무엇인지 구분되지
+            않았습니다. 결제는 분쟁이 생겼을 때 기준이 되는 시각이라 남겨 둡니다.
+          */}
+          <DataRow label="결제 일시">{dateTime(item.paidAt)}</DataRow>
+
           {item.status === 'PAID' && (
             <>
               <DataRow label="현재 상태">
@@ -357,3 +364,4 @@ function EscrowRow({ participationId, open }: { participationId: string; open: b
     </DataRow>
   )
 }
+

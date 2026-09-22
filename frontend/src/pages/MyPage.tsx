@@ -9,6 +9,7 @@ import { authApi } from '@/entities/auth/api'
 import type { UserProfile } from '@/entities/auth/model'
 import { authQueries } from '@/entities/auth/queries'
 import { AddressForm } from '@/features/address/AddressForm'
+import { useLogout } from '@/features/auth/useAuthMutations'
 import { toMessage } from '@/shared/api/errors'
 import { queryKeys } from '@/shared/api/queryKeys'
 import type { SubmitHandlerEvent } from '@/shared/lib/dom'
@@ -54,6 +55,10 @@ export default function MyPage() {
               {(items) => <AddressList items={items} />}
             </QueryBoundary>
           </Panel>
+        </div>
+
+        <div className="mt24">
+          <AccountActions />
         </div>
       </section>
     </main>
@@ -248,3 +253,30 @@ function AddressList({ items }: { items: readonly Address[] }) {
     </>
   )
 }
+
+/**
+ * 계정 동작.
+ *
+ * 로그아웃이 헤더에서 내려와 여기로 왔습니다 (S15P21B205-228). 계정을 다루는
+ * 자리가 내 정보이고, 헤더에서는 하루에 한 번 쓸까 말까 한 동작이 상시 자리를
+ * 차지하고 있었습니다. 헤더에서 빼기만 하고 여기를 만들지 않으면 로그아웃할
+ * 방법 자체가 없어지므로 함께 옮깁니다.
+ */
+function AccountActions() {
+  const logout = useLogout()
+
+  return (
+    <Panel title="계정" description="이 기기에서 로그아웃합니다">
+      <Button
+        variant="ghost"
+        disabled={logout.isPending}
+        onClick={() => {
+          logout.mutate()
+        }}
+      >
+        로그아웃
+      </Button>
+    </Panel>
+  )
+}
+

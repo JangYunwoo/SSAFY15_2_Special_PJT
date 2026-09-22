@@ -29,6 +29,8 @@ export const POLICY_DEFAULTS = {
   shippingDeadlineBusinessDays: 3,
   /** 정산 가능 시점: 배송완료 + 7일 */
   settlementEligibleDays: 7,
+  /** 모집 마감까지 이 일수 이하로 남으면 "마감 임박"으로 표시한다 (S15P21B205-226) */
+  imminentDays: 2,
   /** 목표 모집 인원 최소값 (명세서 4장) */
   minTargetCount: 2,
 } as const

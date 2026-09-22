@@ -35,7 +35,9 @@ export default function OrdersPaymentsPage() {
           <QueryBoundary query={query}>
             {(result) =>
               result.items.length === 0 ? (
-                <EmptyState>결제한 내역이 없습니다.</EmptyState>
+                <EmptyState title="결제한 내역이 없습니다" action={{ to: '/', label: '둘러보기' }}>
+                  공동구매에 참여해 결제하면 영수증과 결제 수단이 여기에 쌓입니다.
+                </EmptyState>
               ) : (
                 <>
                   <PaymentTable items={result.items} />

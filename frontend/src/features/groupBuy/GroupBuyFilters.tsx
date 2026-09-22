@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import { categoryQueries } from '@/entities/category/queries'
@@ -20,9 +20,20 @@ const SORT_OPTIONS = GROUP_BUY_SORT.map((value) => ({
   label: GROUP_BUY_SORT_LABEL[value],
 }))
 
-/** 카테고리 칩 · 검색 · 정렬 (.list-tools) */
+/**
+ * 목록 도구 (.list-tools).
+ *
+ * 검색과 정렬을 한 줄로 위에 두고, 카테고리 칩을 그 아래에 깝니다
+ * (S15P21B205-227). 전에는 칩과 검색이 좌우로 나뉘어 있었는데, 카테고리가
+ * 늘어나 칩이 두 줄이 되면 오른쪽 검색창이 아래로 밀려 내려가 어디 있는지
+ * 찾아야 했습니다. 목록에서 가장 자주 쓰는 것이 검색이라 위로 올립니다.
+ *
+ * 정렬 <select> 에는 눈에 보이는 "정렬" 라벨을 붙입니다. 전에는 aria-label
+ * 뿐이라 화면에서는 무엇을 기준으로 줄 세운 목록인지 알 수 없었습니다.
+ */
 export function GroupBuyFilters({ categoryId, sort, keyword, onChange }: GroupBuyFiltersProps) {
   const categories = useQuery(categoryQueries.tree())
+  const sortId = useId()
 
   // 입력은 즉시 반영하고, URL·요청은 타이핑이 멈춘 뒤에 갱신합니다.
   const [draft, setDraft] = useState(keyword)
@@ -41,16 +52,7 @@ export function GroupBuyFilters({ categoryId, sort, keyword, onChange }: GroupBu
 
   return (
     <div className="list-tools">
-      <ChipFilter
-        label="카테고리"
-        options={chipOptions}
-        value={categoryId}
-        onChange={(next) => {
-          onChange({ categoryId: next })
-        }}
-      />
-
-      <div className="tools-right">
+      <div className="tools-row">
         <input
           className="input search"
           type="search"
@@ -65,21 +67,36 @@ export function GroupBuyFilters({ categoryId, sort, keyword, onChange }: GroupBu
             if (event.key === 'Enter') event.preventDefault()
           }}
         />
-        <select
-          className="input sort"
-          aria-label="정렬 기준"
-          value={sort}
-          onChange={(event) => {
-            onChange({ sort: event.target.value as GroupBuySort })
-          }}
-        >
-          {SORT_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+        <div className="sort-field">
+          <label className="sort-label" htmlFor={sortId}>
+            정렬
+          </label>
+          <select
+            id={sortId}
+            className="input sort"
+            value={sort}
+            onChange={(event) => {
+              onChange({ sort: event.target.value as GroupBuySort })
+            }}
+          >
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
+
+      <ChipFilter
+        label="카테고리"
+        options={chipOptions}
+        value={categoryId}
+        onChange={(next) => {
+          onChange({ categoryId: next })
+        }}
+      />
     </div>
   )
 }
+
