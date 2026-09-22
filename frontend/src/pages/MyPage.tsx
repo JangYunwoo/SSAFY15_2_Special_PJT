@@ -9,13 +9,14 @@ import { authApi } from '@/entities/auth/api'
 import type { UserProfile } from '@/entities/auth/model'
 import { authQueries } from '@/entities/auth/queries'
 import { AddressForm } from '@/features/address/AddressForm'
+import { useIsSeller } from '@/features/auth/sessionStore'
 import { useLogout } from '@/features/auth/useAuthMutations'
 import { toMessage } from '@/shared/api/errors'
 import { queryKeys } from '@/shared/api/queryKeys'
 import type { SubmitHandlerEvent } from '@/shared/lib/dom'
 import { date, phone } from '@/shared/lib/format'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
-import { Button } from '@/shared/ui/Button'
+import { Button, ButtonLink } from '@/shared/ui/Button'
 import { DataRow } from '@/shared/ui/DataRow'
 import { FieldRow, TextField } from '@/shared/ui/Field'
 import { Panel } from '@/shared/ui/Panel'
@@ -79,7 +80,8 @@ function ProfilePanel({ user }: { user: UserProfile }) {
     },
   })
 
-  const changed = nickname !== user.nickname || phoneNumber.replace(/\D/g, '') !== user.phone.replace(/\D/g, '')
+  const changed =
+    nickname !== user.nickname || phoneNumber.replace(/\D/g, '') !== user.phone.replace(/\D/g, '')
   const isReady = nickname.trim() !== '' && phoneNumber.replace(/\D/g, '').length >= 10 && changed
 
   const submit = (event: SubmitHandlerEvent) => {
@@ -165,7 +167,9 @@ function AddressList({ items }: { items: readonly Address[] }) {
 
   return (
     <>
-      {items.length === 0 && editing !== 'new' && <EmptyState>등록한 배송지가 없습니다.</EmptyState>}
+      {items.length === 0 && editing !== 'new' && (
+        <EmptyState>등록한 배송지가 없습니다.</EmptyState>
+      )}
 
       {items.map((address) => (
         <div key={address.id} className="order">
@@ -261,14 +265,37 @@ function AddressList({ items }: { items: readonly Address[] }) {
  * 자리가 내 정보이고, 헤더에서는 하루에 한 번 쓸까 말까 한 동작이 상시 자리를
  * 차지하고 있었습니다. 헤더에서 빼기만 하고 여기를 만들지 않으면 로그아웃할
  * 방법 자체가 없어지므로 함께 옮깁니다.
+ *
+ * 판매자센터 입구도 여기에 둡니다. 헤더에서 내린 뒤로는 푸터 링크 하나뿐이라,
+ * 판매자가 들어갈 때마다 페이지 맨 아래까지 내려가야 했습니다. 결제·관리자·
+ * 판매자센터 화면은 푸터가 compact 로 바뀌어 그 링크조차 없습니다.
+ *
+ * 전환 여부에 따라 목적지가 갈립니다. 이미 판매자면 판매자센터로 바로 보내고,
+ * 아니면 전환 화면으로 보냅니다. 전환하지 않은 사람에게 /seller 를 주면
+ * RequireSeller 가드가 되돌려보낼 뿐이라 누른 쪽은 아무 일도 없어 보입니다.
+ *
+ * 판단은 세션의 actor.isSeller 로 합니다. 백엔드가 JWT 의 isSeller 클레임으로
+ * ROLE_SELLER 를 주므로, 판매자센터에 실제로 들어갈 수 있는지와 같은 기준입니다.
  */
 function AccountActions() {
   const logout = useLogout()
+  const isSeller = useIsSeller()
 
   return (
-    <Panel title="계정" description="이 기기에서 로그아웃합니다">
+    <Panel title="계정" description={isSeller ? '판매자센터와 로그아웃' : '판매자 전환과 로그아웃'}>
+      <ButtonLink block to={isSeller ? '/seller' : '/seller/verify'}>
+        {isSeller ? '판매자센터 가기' : '판매자로 전환하기'}
+      </ButtonLink>
+      <p className="small muted mt8" style={{ marginBottom: 0 }}>
+        {isSeller
+          ? '등록한 상품과 공동구매, 정산을 관리합니다.'
+          : '정산계좌 인증을 마치면 상품을 등록하고 공동구매를 열 수 있습니다.'}
+      </p>
+
       <Button
         variant="ghost"
+        block
+        className="mt16"
         disabled={logout.isPending}
         onClick={() => {
           logout.mutate()
