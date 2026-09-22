@@ -190,7 +190,7 @@ class CryptoTxRecordServiceTest {
                 successReceipt(BUYER_WALLET, RECEIVE_WALLET, RAW_AMOUNT, TOKEN), TX_BLOCK);
 
         assertEquals(1, result.getConfirmations());
-        verify(paymentService, never()).completePayment(anyLong());
+        verify(paymentService, never()).completeIfRecruiting(anyLong());
     }
 
     @Test
@@ -198,6 +198,8 @@ class CryptoTxRecordServiceTest {
     void completesWhenAlreadyConfirmed() {
         Payment payment = processingPayment(600);
         givenRecordable(payment);
+        when(paymentService.completeIfRecruiting(PAYMENT_ID))
+                .thenReturn(PaymentService.CompletionOutcome.COMPLETED);
 
         // 블록이 4개 더 쌓여 컨펌 5개
         CryptoPayment result = record(payment,
@@ -205,7 +207,7 @@ class CryptoTxRecordServiceTest {
 
         assertEquals(5, result.getConfirmations());
         assertTrue(result.isConfirmed());
-        verify(paymentService).completePayment(eq(PAYMENT_ID));
+        verify(paymentService).completeIfRecruiting(eq(PAYMENT_ID));
     }
 
     @Test
@@ -219,7 +221,7 @@ class CryptoTxRecordServiceTest {
         assertEquals(null, result.getReceiptStatus());
         verify(cryptoPaymentRepository).save(result);
         verify(cryptoDepositRepository, never()).save(any());
-        verify(paymentService, never()).completePayment(anyLong());
+        verify(paymentService, never()).completeIfRecruiting(anyLong());
     }
 
     // ------------------------------------------------------------------
@@ -237,7 +239,7 @@ class CryptoTxRecordServiceTest {
 
         assertEquals(ErrorCode.CRYPTO_AMOUNT_MISMATCH, e.getErrorCode());
         verify(cryptoDepositRepository, never()).save(any());
-        verify(paymentService, never()).completePayment(anyLong());
+        verify(paymentService, never()).completeIfRecruiting(anyLong());
     }
 
     @Test
@@ -391,12 +393,14 @@ class CryptoTxRecordServiceTest {
 
         when(cryptoPaymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(cryptoPayment));
         when(paymentRepository.findForUpdateByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment));
+        when(paymentService.completeIfRecruiting(PAYMENT_ID))
+                .thenReturn(PaymentService.CompletionOutcome.COMPLETED);
 
         boolean completed = service.refreshConfirmations(PAYMENT_ID, TX_BLOCK + 4);
 
         assertTrue(completed);
         assertEquals(5, cryptoPayment.getConfirmations());
-        verify(paymentService).completePayment(eq(PAYMENT_ID));
+        verify(paymentService).completeIfRecruiting(eq(PAYMENT_ID));
     }
 
     @Test
@@ -417,7 +421,7 @@ class CryptoTxRecordServiceTest {
         // 확정하면 자리는 남에게 넘어갔는데 참여 건이 생겨 인원이 초과된다.
         assertTrue(!completed);
         verify(paymentService).failPayment(PAYMENT_ID, "SLOT_EXPIRED_BEFORE_CONFIRMATION");
-        verify(paymentService, never()).completePayment(anyLong());
+        verify(paymentService, never()).completeIfRecruiting(anyLong());
     }
 
     @Test
@@ -435,6 +439,6 @@ class CryptoTxRecordServiceTest {
         boolean completed = service.refreshConfirmations(PAYMENT_ID, TX_BLOCK + 100);
 
         assertTrue(!completed);
-        verify(paymentService, never()).completePayment(anyLong());
+        verify(paymentService, never()).completeIfRecruiting(anyLong());
     }
 }
