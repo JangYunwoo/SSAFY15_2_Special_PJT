@@ -9,17 +9,25 @@ SSAFY 교육 금융망을 그대로 조회하므로, 공구한에서 카드 결�
 환불되면 계좌 거래내역에 실제로 반영된다(백엔드 `GET /users/me/bank/card`,
 `/users/me/bank/account` 재사용).
 
-### 여는 법 (택1)
+> 파일 위치: `frontend/public/bank-console.html`.
+> Vite 가 `frontend/public/*` 을 빌드 산출물 루트로 복사하므로, 배포하면 별도 설정 없이
+> `https://j15b205.p.ssafy.io/bank-console.html` 로 열린다. 콘솔은 서빙 오리진을 보고
+> API 주소를 자동 결정한다(배포=같은 오리진 `/api/v1`, 로컬=`http://localhost:8080/api/v1`).
 
-1. **정적 서버로 열기 (권장, CORS 안정적)**
-   ```bash
-   cd tools && python -m http.server 8090
-   # 브라우저에서 http://localhost:8090/bank-console.html
-   ```
-2. **파일 직접 열기**: `tools/bank-console.html` 더블클릭 (Origin: null 로 열림)
+### 여는 법
 
-두 경우 모두 백엔드 로컬 프로파일 CORS(`application-local.yml`)에 `http://localhost:8090`,
-`http://127.0.0.1:8090`, `null` 이 허용돼 있어 동작한다. 운영 프로파일엔 없다.
+- **배포**: `https://j15b205.p.ssafy.io/bank-console.html` 접속. 같은 오리진의 `/api/v1` 을
+  쓰므로 CORS 설정이 필요 없다(Nginx 가 백엔드로 프록시).
+- **로컬(택1)**
+  1. 정적 서버로 열기 (권장, CORS 안정적)
+     ```bash
+     cd frontend/public && python -m http.server 8090
+     # 브라우저에서 http://localhost:8090/bank-console.html
+     ```
+  2. 파일 직접 열기: `frontend/public/bank-console.html` 더블클릭 (Origin: null 로 열림)
+
+  로컬 두 경우 모두 백엔드 로컬 프로파일 CORS(`application-local.yml`)에 `http://localhost:8090`,
+  `http://127.0.0.1:8090`, `null` 이 허용돼 있어 동작한다. 운영 프로파일엔 없다.
 
 ### 쓰는 법
 1. 콘솔에서 **공구한 계정 이메일/비밀번호로 로그인**(콘솔이 `/auth/login` 호출).
