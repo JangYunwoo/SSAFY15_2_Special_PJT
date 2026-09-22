@@ -114,6 +114,11 @@ public class CryptoDepositRefundService {
         }
 
         CryptoAsset asset = findAsset(deposit);
+        if (asset.getRequiredConfirmations() <= 0
+                || deposit.getConfirmations() < asset.getRequiredConfirmations()) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
+                    "입금의 필요 컨펌이 완료되지 않아 아직 반환할 수 없습니다.");
+        }
         BigInteger rawAmount = new BigInteger(deposit.getRawAmount());
         OpenResult opened = existing == null
                 ? ledgerService.openForUnmatchedDeposit(depositId,

@@ -7,6 +7,22 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CryptoDepositRepository extends JpaRepository<CryptoDeposit, Long> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("SELECT d FROM CryptoDeposit d WHERE d.depositId=:id")
+    Optional<CryptoDeposit> findForUpdate(@org.springframework.data.repository.query.Param("id") Long id);
+
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT d FROM CryptoDeposit d, CryptoAsset a
+             WHERE d.chainId = :chainId AND a.chainId = d.chainId
+               AND LOWER(a.tokenContract) = LOWER(d.tokenContract)
+               AND d.status IN ('UNMATCHED', 'UNDERPAID', 'OVERPAID')
+               AND d.confirmations < a.requiredConfirmations
+             ORDER BY d.depositId
+            """)
+    List<CryptoDeposit> findUnconfirmedRefundCandidates(
+            @org.springframework.data.repository.query.Param("chainId") long chainId,
+            org.springframework.data.domain.Pageable page);
+
     /**
      * UNIQUE(tx_hash, log_index) 와 짝을 이뤄 중복 기록을 막는다.
      *
