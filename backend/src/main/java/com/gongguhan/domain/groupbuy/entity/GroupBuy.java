@@ -262,11 +262,20 @@ public class GroupBuy extends BaseTimeEntity {
     }
 
     public void releaseSlot() {
+        // 모집 종료/철회가 예약 합계를 먼저 정리한다. 개별 결제 종료는 그 뒤에도 필요하다.
+        // 모집 중 0은 정합성 오류이므로 기존 검사를 그대로 유지한다.
+        if (reservedSlots == 0 && (STATUS_FAILED.equals(status)
+                || STATUS_FULFILLED.equals(status) || "CANCELED".equals(status))) {
+            return;
+        }
         ensureReservedSlot();
         reservedSlots--;
     }
 
     public void confirmParticipant() {
+        if (!isRecruiting()) {
+            throw new BusinessException(ErrorCode.GROUP_BUY_NOT_RECRUITING);
+        }
         ensureReservedSlot();
         reservedSlots--;
         currentParticipants++;
