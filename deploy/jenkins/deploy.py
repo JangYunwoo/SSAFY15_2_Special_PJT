@@ -27,6 +27,14 @@ def image_map(sha):
     return {s: f'gongguhan-ci/{s}:{sha}' for s in SERVICES}
 
 
+def verify_context(sha, environment, head):
+    validate_sha(sha)
+    if environment.get('JOB_NAME') != 'gongguhan-DevelopV2' or environment.get('GIT_BRANCH') != 'origin/DevelopV2':
+        raise RuntimeError('Deployment is restricted to the DevelopV2 production job')
+    if head != sha:
+        raise RuntimeError('Tested commit does not match workspace')
+
+
 def migration_changes(old, new):
     return run('git', 'diff', '--name-only', old, new, '--',
                'backend/src/main/resources/db/migration').splitlines()
@@ -93,11 +101,7 @@ def activate(candidate, previous):
 
 def main(sha):
     import fcntl  # Linux only; unit-testable pure validation functions remain portable.
-    validate_sha(sha)
-    if os.environ.get('JOB_NAME') != 'gongguhan-DevelopV2' or os.environ.get('GIT_BRANCH') != 'origin/DevelopV2':
-        raise RuntimeError('Deployment is restricted to the DevelopV2 production job')
-    if run('git', 'rev-parse', 'HEAD') != sha:
-        raise RuntimeError('Tested commit does not match workspace')
+    verify_context(sha, os.environ, run('git', 'rev-parse', 'HEAD'))
     state = ROOT / 'state'
     with (state / 'deploy.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)

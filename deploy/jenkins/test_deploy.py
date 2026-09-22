@@ -11,6 +11,14 @@ spec.loader.exec_module(deploy)
 
 
 class DeploymentGuardsTest(unittest.TestCase):
+    def test_production_context_requires_explicit_matching_branch_and_sha(self):
+        env = {'JOB_NAME': 'gongguhan-DevelopV2', 'GIT_BRANCH': 'origin/DevelopV2'}
+        deploy.verify_context('a'*40, env, 'a'*40)
+        for invalid in ({}, {**env, 'GIT_BRANCH': ''}, {**env, 'GIT_BRANCH': 'origin/DevelopV1'},
+                        {**env, 'JOB_NAME': 'gongguhan-ci-validation'}):
+            with self.assertRaises(RuntimeError): deploy.verify_context('a'*40, invalid, 'a'*40)
+        with self.assertRaises(RuntimeError): deploy.verify_context('a'*40, env, 'b'*40)
+
     def test_healthy_release_activates_without_rollback(self):
         with patch.object(deploy, 'compose') as compose, patch.object(deploy, 'wait_healthy'), patch.object(deploy, 'verify_site') as verify:
             deploy.activate({'sha': 'new'}, {'sha': 'old'})
