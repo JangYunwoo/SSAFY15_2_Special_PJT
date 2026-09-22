@@ -1,0 +1,13 @@
+{
+  "base": "462ca8f",
+  "suite": "TerminalGroupSlotIntegrationTest",
+  "tests": 13,
+  "failed": 12,
+  "passed": 1,
+  "observations": {
+    "abortExpireFailInCanceledFailedFulfilled": "9 cases throw IllegalStateException: no reserved slot; payment stays PROCESSING",
+    "confirmTerminalWithStalePositiveCounter": "3 cases unexpectedly allow participant confirmation",
+    "recruitingZeroCounterGuard": "1 case correctly rejects corrupted counter"
+  },
+  "environment": "Java 21 Spring JPA H2; no real financial calls"
+}
