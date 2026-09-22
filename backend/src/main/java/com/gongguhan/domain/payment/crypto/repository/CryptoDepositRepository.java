@@ -33,6 +33,12 @@ public interface CryptoDepositRepository extends JpaRepository<CryptoDeposit, Lo
 
     Optional<CryptoDeposit> findByTxHashAndLogIndex(String txHash, int logIndex);
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("SELECT d FROM CryptoDeposit d WHERE d.txHash=:txHash AND d.logIndex=:logIndex")
+    Optional<CryptoDeposit> findForUpdateByTxHashAndLogIndex(
+            @org.springframework.data.repository.query.Param("txHash") String txHash,
+            @org.springframework.data.repository.query.Param("logIndex") int logIndex);
+
     List<CryptoDeposit> findByPaymentId(Long paymentId);
 
     /** 관리자 확인 대상 — 미매칭·초과·미달 입금 (RFD 연계). */

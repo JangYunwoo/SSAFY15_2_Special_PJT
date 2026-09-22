@@ -1,0 +1,20 @@
+{
+  "issue": "S15P21B205-221",
+  "baseline": "301eef91c031775d47d27f5f3fff62ffc933d9ce",
+  "observedAt": "2026-09-22T09:01:05+09:00",
+  "tests": 3,
+  "failures": 3,
+  "states": ["UNDERPAID", "OVERPAID", "REFUNDED"],
+  "observation": "recordDeposit skipped an existing deposit without validating status/payment ownership. All three new payments reached PAID using the old transfer.",
+  "environment": "Java21, actual Spring/JPA/H2, provided receipt, Redis gate mocked, no live financial calls",
+  "constraintsReviewed": ["crypto_payments UNIQUE(tx_hash)", "crypto_deposits UNIQUE(tx_hash,log_index)"],
+  "strengthenedReproduction": {
+    "observedAt": "2026-09-22T09:08:57+09:00",
+    "tests": 3,
+    "failures": 3,
+    "entry": "Real EIP-191 signing, wallet challenge/proof, submitTransaction, actual JPA",
+    "productionUniqueIndexesCreatedInH2": true,
+    "observation": "Same three payments reached PAID despite enabled unique indexes and valid signatures."
+  },
+  "note": "The first mismatched attempt rolled back crypto_payments but committed crypto_deposits in REQUIRES_NEW. Existing-row skipping bypassed the intended unique-record defense."
+}

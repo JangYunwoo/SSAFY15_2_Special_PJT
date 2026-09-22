@@ -1,0 +1,43 @@
+{
+  "issue": "S15P21B205-221",
+  "source": "06e02691e1aaf132c073500c9cd5c9249ac4ec5f",
+  "completedAt": "2026-09-22T09:16:56+09:00",
+  "suites": 129,
+  "tests": 884,
+  "failures": 29,
+  "errors": 0,
+  "skipped": 3,
+  "duration": "3m42s",
+  "rootCause": "OutOfMemoryError while creating Spring contexts under default test JVM memory",
+  "affected": {
+    "ReturnShippingSettlementIntegrationTest": 13,
+    "ActorBoundaryIntegrationTest": 16
+  },
+  "secondRun": {
+    "completedAt": "2026-09-22T09:19:36+09:00",
+    "testHeap": "2g",
+    "springContextCacheSize": 8,
+    "tests": 884,
+    "failures": 20,
+    "errors": 0,
+    "skipped": 3,
+    "duration": "2m02s",
+    "rootCause": "Context cache eviction closes shared H2 create-drop contexts, dropping tables used by other contexts",
+    "affected": {"ReturnRequestRepositoryTest": 8, "SettlementBatchIntegrationTest": 12}
+  },
+  "thirdRun": {
+    "completedAt": "2026-09-22T09:22:59+09:00",
+    "testHeap": "2g",
+    "springContextCacheSize": 64,
+    "tests": 884,
+    "failures": 2,
+    "errors": 0,
+    "skipped": 3,
+    "duration": "2m36s",
+    "affected": "SellerGroupBuyIntegrationTest",
+    "observations": ["findAll expected1 actual2", "GET via findAll.getFirst expected200 actual404"],
+    "depositReuseTests": {"tests":13,"failures":0,"seconds":2.347},
+    "diagnosis": "Same SellerGroupBuyIntegrationTest passed alone at 2026-09-22T09:24:52+09:00 without product changes. Shared test DB fixture interference is separated into Jira220."
+  },
+  "note": "No failed run is counted as success. Application settings are unchanged."
+}
