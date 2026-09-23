@@ -578,6 +578,13 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .sec-title{font-size:18px;font-weight:500;margin:0;letter-spacing:-.4px;}
 .sec-title + .sec-sub{margin-top:4px;}
 .sec-sub{font-size:12px;color:var(--muted);margin:0;}
+/* 섹션 제목 오른쪽의 "전체보기". 제목과 같은 줄 끝에 붙습니다 */
+.sec-more{
+  flex:0 0 auto;font-size:12px;color:var(--ink2);white-space:nowrap;
+  display:inline-flex;align-items:center;gap:4px;transition:var(--t-color);
+}
+.sec-more::after{content:'›';font-size:15px;line-height:1;}
+.sec-more:hover{color:var(--brand);}
 
 /* ---------- 목록 도구 (검색 · 정렬 · 카테고리) ---------- */
 /*

@@ -1,70 +1,109 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, type ReactNode } from 'react'
+import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 
+import type { GroupBuySummary } from '@/entities/groupBuy/model'
 import { groupBuyQueries } from '@/entities/groupBuy/queries'
 import { recommendationQueries } from '@/entities/recommendation/queries'
 import { useActor, useIsSignedIn } from '@/features/auth/sessionStore'
+import { CategoryTiles } from '@/features/category/CategoryTiles'
+import { HomeBanner } from '@/features/home/HomeBanner'
 import { GroupBuyCarousel } from '@/features/groupBuy/GroupBuyCarousel'
 import { GroupBuyGrid } from '@/features/groupBuy/GroupBuyGrid'
 import { recordRecommendationEvents } from '@/features/recommendation/tracking'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
-import { ButtonLink } from '@/shared/ui/Button'
 import { QueryBoundary } from '@/shared/ui/states'
 
 const PREVIEW_SIZE = 8
 
+/**
+ * 섹션 하나. 오른쪽의 "전체보기"는 그 섹션과 같은 조건이 걸린 목록으로 보냅니다.
+ *
+ * 홈은 여덟 개까지만 보여줍니다. 더 보고 싶을 때 갈 곳이 없으면 홈이 막다른
+ * 길이 되고, 조건 없는 목록으로 보내면 방금 보던 기준이 사라집니다.
+ */
+function HomeSection({
+  title,
+  subtitle,
+  moreTo,
+  children,
+}: {
+  title: string
+  subtitle: string
+  moreTo: string
+  children: ReactNode
+}) {
+  return (
+    <section className="section">
+      <div className="sec-head">
+        <div>
+          <h2 className="sec-title">{title}</h2>
+          <p className="sec-sub">{subtitle}</p>
+        </div>
+        <Link className="sec-more" to={moreTo}>
+          전체보기
+        </Link>
+      </div>
+      <div className="mt24">{children}</div>
+    </section>
+  )
+}
+
+/**
+ * 홈.
+ *
+ * 목록(/group-buys)과 역할을 나눕니다. 홈은 골라서 보여주는 곳이고, 목록은
+ * 정렬·필터·페이지로 전부 뒤지는 곳입니다. 홈에 섹션이 하나뿐일 때는 둘이
+ * 같은 화면처럼 보여서 목록이 필요 없어 보였습니다.
+ */
 export function HomePage() {
   useDocumentTitle()
   const isSignedIn = useIsSignedIn()
   const actor = useActor()
   const userId = isSignedIn ? actor?.id ?? null : null
 
-  const query = useQuery(
+  // 마감 임박과 인기는 정렬 기준이 달라 목록을 따로 받습니다. 한 번 받아 화면에서
+  // 다시 줄 세우면 "전체보기" 로 넘어간 목록과 순서가 달라집니다.
+  const deadlineQuery = useQuery(
+    groupBuyQueries.list({ status: 'RECRUITING', sort: 'deadline', size: PREVIEW_SIZE }),
+  )
+  const popularQuery = useQuery(
     groupBuyQueries.list({
       status: 'RECRUITING',
       sort: 'popular',
       size: isSignedIn ? PREVIEW_SIZE * 2 : PREVIEW_SIZE,
     }),
   )
+
   const recommendationQuery = useQuery({
     ...recommendationQueries.list(userId, PREVIEW_SIZE),
     enabled: userId !== null,
   })
   const recommended = useMemo(
-    () => userId === null ? [] : recommendationQuery.data?.items ?? [],
+    () => (userId === null ? [] : recommendationQuery.data?.items ?? []),
     [userId, recommendationQuery.data?.items],
   )
   const personalized = recommended.length > 0
   const recommendedItems = recommended.map((item) => item.groupBuy)
   const recommendedIds = new Set(recommendedItems.map((item) => item.id))
+  // 추천에 이미 나온 건은 인기에서 뺍니다. 같은 카드가 위아래로 두 번 보이면
+  // 추천이 따로 고른 것처럼 읽히지 않습니다.
   const popularItems =
-    query.data?.items.filter((item) => !recommendedIds.has(item.id)).slice(0, PREVIEW_SIZE) ?? []
+    popularQuery.data?.items.filter((item) => !recommendedIds.has(item.id)).slice(0, PREVIEW_SIZE) ??
+    []
   const reasons = Object.fromEntries(recommended.map((item) => [item.groupBuy.id, item.reason]))
 
-  const recordImpression = useCallback(
-    (item: (typeof recommendedItems)[number], position: number) => {
-      void recordRecommendationEvents([
-        {
-          groupBuyId: item.id,
-          eventType: 'IMPRESSION',
-          source: 'HOME_RECOMMENDATION',
-          position,
-        },
-      ])
-    },
-    [],
-  )
+  const recordImpression = useCallback((item: GroupBuySummary, position: number) => {
+    void recordRecommendationEvents([
+      { groupBuyId: item.id, eventType: 'IMPRESSION', source: 'HOME_RECOMMENDATION', position },
+    ])
+  }, [])
 
   const recordClick = useCallback(
     (source: 'HOME_RECOMMENDATION' | 'HOME_POPULAR') =>
-      (item: (typeof recommendedItems)[number], position: number) => {
+      (item: GroupBuySummary, position: number) => {
         void recordRecommendationEvents([
-          {
-            groupBuyId: item.id,
-            eventType: 'CLICK',
-            source,
-            position,
-          },
+          { groupBuyId: item.id, eventType: 'CLICK', source, position },
         ])
       },
     [],
@@ -73,87 +112,66 @@ export function HomePage() {
   const recommendationClick = useMemo(() => recordClick('HOME_RECOMMENDATION'), [recordClick])
   const popularClick = useMemo(() => recordClick('HOME_POPULAR'), [recordClick])
 
-  const popularCarousel = (items: typeof popularItems) => (
-    <GroupBuyCarousel
-      items={items}
-      label="달성률 높은 공동구매"
-      onItemClick={isSignedIn ? popularClick : undefined}
-    />
-  )
-
-  const popularSection = (
-    <section className="section">
-      <div className="sec-head">
-        <div>
-          <h2 className="sec-title">
-            {personalized ? '달성률 높은 공동구매' : '지금 참여할 수 있는 공동구매'}
-          </h2>
-          <p className="sec-sub">
-            {query.data
-              ? `${String(query.data.meta.totalElements)}건의 공동구매가 진행 중입니다.`
-              : '진행 중인 공동구매를 불러오는 중입니다.'}
-          </p>
-        </div>
-      </div>
-
-      <div className="mt24">
-        <QueryBoundary query={query}>
-          {(page) =>
-            personalized ? (
-              popularCarousel(popularItems)
-            ) : isSignedIn ? (
-              popularCarousel(page.items.slice(0, PREVIEW_SIZE))
-            ) : (
-              <GroupBuyGrid items={page.items.slice(0, PREVIEW_SIZE)} />
-            )
-          }
-        </QueryBoundary>
-      </div>
-    </section>
-  )
-
-  const recommendationSection = personalized && (
-    <section className="section home-recommendation-section">
-      <div className="sec-head">
-        <div>
-          <h2 className="sec-title">회원님을 위한 공동구매</h2>
-          <p className="sec-sub">최근 행동과 구매 이력을 반영한 추천입니다.</p>
-        </div>
-      </div>
-
-      <div className="mt24">
-        <GroupBuyCarousel
-          key={userId}
-          items={recommendedItems}
-          label="회원님을 위한 공동구매"
-          reasons={reasons}
-          onItemClick={recommendationClick}
-          onItemVisible={recordImpression}
-        />
-      </div>
-    </section>
-  )
-
   return (
     <>
-      <section className="hero">
-        <div className="inner">
-          <h1>
-            이거 어디서 샀어?
-            <br />
-            이거 <b>공구한</b> 건데
-          </h1>
-          <p>필요한 사람끼리 모여 더 싸게, 결제는 에스크로로 안전하게</p>
-          <ButtonLink to="/group-buys" className="btn-arrow btn-on-brand">
-            공동구매 둘러보기
-          </ButtonLink>
-        </div>
-      </section>
+      <HomeBanner />
+
+      <CategoryTiles />
 
       <main className="wrap">
-        {recommendationSection}
-        {popularSection}
+        {personalized && (
+          <section className="section home-recommendation-section">
+            <div className="sec-head">
+              <div>
+                <h2 className="sec-title">회원님을 위한 공동구매</h2>
+                <p className="sec-sub">최근 행동과 구매 이력을 반영한 추천입니다.</p>
+              </div>
+            </div>
+            <div className="mt24">
+              <GroupBuyCarousel
+                key={userId}
+                items={recommendedItems}
+                label="회원님을 위한 공동구매"
+                reasons={reasons}
+                onItemClick={recommendationClick}
+                onItemVisible={recordImpression}
+              />
+            </div>
+          </section>
+        )}
+
+        <HomeSection
+          title="마감 임박"
+          subtitle="모집이 곧 끝납니다. 놓치면 다음을 기다려야 합니다."
+          moreTo="/group-buys?sort=deadline"
+        >
+          <QueryBoundary query={deadlineQuery}>
+            {(page) => <GroupBuyGrid items={page.items.slice(0, PREVIEW_SIZE)} />}
+          </QueryBoundary>
+        </HomeSection>
+
+        <HomeSection
+          title="인기 공동구매"
+          subtitle="목표 인원에 가장 가까이 찬 순서입니다."
+          moreTo="/group-buys?sort=popular"
+        >
+          <QueryBoundary query={popularQuery}>
+            {(page) =>
+              isSignedIn ? (
+                <GroupBuyCarousel
+                  items={personalized ? popularItems : page.items.slice(0, PREVIEW_SIZE)}
+                  label="인기 공동구매"
+                  onItemClick={popularClick}
+                />
+              ) : (
+                <GroupBuyGrid items={page.items.slice(0, PREVIEW_SIZE)} />
+              )
+            }
+          </QueryBoundary>
+        </HomeSection>
       </main>
     </>
   )
 }
+
+
