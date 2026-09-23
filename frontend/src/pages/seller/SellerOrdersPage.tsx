@@ -71,7 +71,12 @@ export default function SellerOrdersPage() {
       {invalid ? (
         <p role="alert">공동구매 번호가 올바르지 않습니다. 목록에서 다시 선택해 주세요.</p>
       ) : activeId === null ? (
-        <EmptyState>등록한 공동구매가 없습니다.</EmptyState>
+        <EmptyState
+          title="등록한 공동구매가 없습니다"
+          action={{ to: '/seller/group-buys/new', label: '공동구매 열기' }}
+        >
+          공동구매를 열면 참여자와 배송 현황이 여기에 모입니다.
+        </EmptyState>
       ) : listed ? (
         /* 공동구매를 바꾸면 선택·편집 상태를 들고 가지 않도록 다시 마운트합니다. */
         <DeliveryBoardView key={activeId} groupBuyId={activeId} />
@@ -468,3 +473,4 @@ function InvoiceForm({
     </div>
   )
 }
+
