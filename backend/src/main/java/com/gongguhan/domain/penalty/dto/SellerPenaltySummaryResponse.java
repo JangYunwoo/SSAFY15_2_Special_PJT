@@ -10,7 +10,7 @@ import java.util.List;
  *
  * @param confirmedCount 확정된 위반 횟수. 후보·기각·취소는 세지 않습니다
  * @param penaltyLimit   정지 임계 횟수 (정책값 {@code PENALTY_LIMIT})
- * @param suspended      현재 신규 등록·공동구매 생성이 막혔는지.
+ * @param suspended      현재 신규 등록·공동구매 생성·신규 결제가 막혔는지.
  *                       기존 거래의 배송·반품·정산은 계속 가능합니다
  */
 public record SellerPenaltySummaryResponse(

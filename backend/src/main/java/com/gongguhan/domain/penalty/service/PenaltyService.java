@@ -32,8 +32,8 @@ import org.springframework.transaction.annotation.Transactional;
  * <h2>정지의 범위</h2>
  *
  * <p>{@code PENALTY_LIMIT}(정책값, 기본 3) 회 누적이면 판매를 정지합니다. 정지는
- * <b>신규 상품 등록과 공동구매 생성만</b> 막습니다({@code ProductService}·
- * {@code GroupBuyService} 가 {@code SELLER_SUSPENDED} 로 거부). 이미 진행 중인 거래의
+ * <b>신규 상품 등록·공동구매 생성·기존 공구의 신규 결제</b>를 막습니다({@code ProductService}·
+ * {@code GroupBuyService}·결제 서비스가 {@code SELLER_SUSPENDED} 로 거부). 이미 진행 중인 거래의
  * 배송·반품·정산은 계속 처리됩니다 — 이미 돈을 낸 구매자를 볼모로 잡지 않기
  * 위해서입니다.
  *
