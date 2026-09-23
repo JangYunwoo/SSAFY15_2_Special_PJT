@@ -17,7 +17,8 @@ public record SignupRequest(
 
     public record AddressRequest(
             @NotBlank String recipientName,
-            @NotBlank String recipientPhone,
+            @NotBlank
+            @Pattern(regexp = AccountInputPatterns.PHONE_DIGITS, message = AccountInputPatterns.PHONE_MESSAGE) String recipientPhone,
             @NotBlank @Size(min = 5, max = 5) String zipcode,
             @NotBlank String address1,
             String address2
