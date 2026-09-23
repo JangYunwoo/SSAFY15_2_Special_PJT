@@ -32,7 +32,7 @@ button,input,select,textarea{font:inherit;color:inherit;}
 #root{min-height:100vh;display:flex;flex-direction:column;}
 /*
  * flex 안에서는 margin:0 auto 가 "남는 공간을 먹으라" 는 뜻이 되어 늘어나기를
- * 끕니다. 그러면 .hero 처럼 안에 글자뿐인 블록이 내용 크기로 쪼그라듭니다.
+ * 끕니다. 그러면 .banner 처럼 안에 글자뿐인 블록이 내용 크기로 쪼그라듭니다.
  * width:100% 를 줘서 먼저 폭을 채우게 하고, max-width 로 자른 뒤 auto 여백이
  * 가운데로 보내는 원래 동작을 되살립니다.
  */
@@ -379,31 +379,115 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .notice ul{margin:0;padding-left:16px;}
 .notice li{font-size:12px;color:var(--ink2);line-height:1.8;}
 
-/* ---------- 히어로 (정지 배너) ---------- */
+/* 카테고리 타일은 좁아지면 열 수를 줄입니다 */
+@media (max-width:1100px){.cat-tiles{grid-template-columns:repeat(8,minmax(0,1fr));}}
+@media (max-width:860px){.cat-tiles{grid-template-columns:repeat(6,minmax(0,1fr));}}
+
+
+
+
+/* ---------- 홈 배너 캐러셀 ---------- */
 /*
- * 배너는 화면 끝까지 깔지 않고 컨테이너 폭에서 잘립니다 (아정당 참고).
- * .hero 가 컨테이너 역할, .inner 가 배너 카드입니다. 그래서 카드의 왼쪽 끝이
- * .wrap 안쪽 콘텐츠의 시작선과 정확히 맞습니다.
+ * 가운데 배너가 활성이고 좌우 배너가 화면 끝에서 걸쳐 보입니다. 한 장만 꽉 채우면
+ * 뒤에 더 있다는 것이 드러나지 않아 넘겨볼 생각을 하지 않습니다.
  */
-.hero{
-  max-width:var(--max);margin:0 auto;padding:20px var(--gutter) 0;
-  position:relative;z-index:1;
+.banner{
+  --banner-w:min(680px,52vw);
+  --banner-gap:16px;
+  padding:20px 0 0;
 }
-.hero .inner{
-  /*
-   * 아래쪽을 흰색으로 끝내면 흰 배경에 묻혀 둥근 모서리가 안 보입니다.
-   * 그래서 옅은 파랑 안에서만 그라데이션을 돌립니다.
-   */
-  background:linear-gradient(160deg, var(--blue-20) 0%, var(--brand-soft) 72%);
-  border-radius:16px;
-  padding:76px 56px 84px;
+/*
+ * 왼쪽 패딩으로 첫 배너를 화면 한가운데에 세웁니다. 트랙을 퍼센트로 밀면 그
+ * 퍼센트가 트랙 자기 너비(슬라이드 여섯 장)를 기준으로 잡혀 위치가 어긋납니다.
+ */
+.banner-viewport{overflow:hidden;padding-left:calc((100% - var(--banner-w)) / 2);}
+.banner-track{
+  display:flex;gap:var(--banner-gap);
+  transition:transform .4s cubic-bezier(.25,.8,.35,1);
 }
-.hero h1{
-  margin:0 0 16px;font-size:30px;font-weight:600;
-  line-height:1.34;letter-spacing:-1.5px;
+/*
+ * 자리를 바꾸는 순간에는 슬라이드의 투명도 전환도 함께 끕니다. 트랙만 끄면
+ * 복제본이 밝아지는 400ms 가 끝난 뒤 진짜 슬라이드가 .45 에서 400ms 를 다시
+ * 페이드해, 배너가 완전히 뜨기까지 800ms 가 걸립니다.
+ */
+.banner-track.is-jumping .banner-slide{transition:none;}
+.banner-slide{
+  flex:0 0 var(--banner-w);min-width:0;
+  display:flex;flex-direction:column;justify-content:center;
+  height:280px;padding:0 44px;border-radius:16px;
+  /* 활성이 아닌 배너는 뒤로 물러나 보이게 합니다 */
+  opacity:.45;transition:opacity .4s ease;
 }
-.hero h1 b{color:var(--brand);}
-.hero p{margin:0 0 32px;font-size:15px;color:var(--ink2);}
+.banner-slide.is-active{opacity:1;}
+.banner-slide h2{
+  margin:0 0 10px;font-size:30px;font-weight:700;
+  line-height:1.32;letter-spacing:-1.2px;word-break:keep-all;
+}
+.banner-slide p{margin:0;font-size:15px;opacity:.82;}
+/* 배너마다 다른 색을 씁니다. 같은 색이면 넘어간 것이 아니라 글자만 바뀐 것처럼 보입니다 */
+.banner-slide.tone-brand{background:linear-gradient(120deg,var(--blue-20),var(--brand-soft));color:var(--ink);}
+.banner-slide.tone-brand b{color:var(--brand-dark);}
+.banner-slide.tone-plum{background:linear-gradient(120deg,var(--purple-20),#f6f2ff);color:var(--ink);}
+.banner-slide.tone-plum b{color:var(--purple-text);}
+.banner-slide.tone-sand{background:linear-gradient(120deg,var(--orange-20),var(--orange-10));color:var(--ink);}
+.banner-slide.tone-sand b{color:var(--orange-text);}
+.banner-slide.tone-moss{background:linear-gradient(120deg,var(--green-20),var(--green-10));color:var(--ink);}
+.banner-slide.tone-moss b{color:var(--green-text);}
+/* 진행 바와 조작 버튼은 본문 폭에 맞춰 한 줄에 둡니다 */
+.banner-bottom{
+  max-width:var(--max);margin:0 auto;padding:16px var(--gutter) 0;
+  display:flex;align-items:center;gap:16px;
+}
+.banner-progress{flex:1;height:2px;background:var(--line2);}
+.banner-progress > span{display:block;height:100%;background:var(--ink);transition:width .4s ease;}
+.banner-controls{display:flex;align-items:center;gap:2px;}
+.banner-controls button{
+  width:30px;height:30px;border:0;border-radius:999px;background:transparent;
+  color:var(--ink2);font-size:14px;line-height:1;cursor:pointer;transition:var(--t-color);
+}
+.banner-controls button:hover{background:var(--soft);color:var(--ink);}
+@media (max-width:760px){
+  .banner{--banner-w:88vw;--banner-gap:10px;padding-top:14px;}
+  .banner-slide{height:200px;padding:0 24px;border-radius:12px;}
+  .banner-slide h2{font-size:21px;letter-spacing:-.8px;}
+  .banner-slide p{font-size:13px;}
+}
+
+/* ---------- 홈 카테고리 아이콘 줄 ---------- */
+/*
+ * 한 줄에 다 들어가지 않으면 가로 스크롤합니다. 줄바꿈으로 두 줄이 되면 첫 화면을
+ * 또 잡아먹어, 상품을 끌어올리려던 목적과 어긋납니다.
+ */
+.cat-tiles{
+  max-width:var(--max);margin:26px auto 0;padding:0 var(--gutter);
+  /* 21개를 11+10 두 줄로 놓습니다. 한 줄이면 넘쳐서 가로로 밀어야 하고,
+     세 줄이면 첫 화면을 또 잡아먹습니다 */
+  display:grid;grid-template-columns:repeat(11,minmax(0,1fr));gap:2px;
+}
+.cat-tiles a{
+  min-width:0;
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  padding:10px 2px;border-radius:12px;
+  font-size:11px;color:var(--ink2);text-align:center;line-height:1.3;
+  word-break:keep-all;
+}
+.cat-tiles a:hover{background:var(--soft);}
+.cat-tile-icon{
+  width:48px;height:48px;border-radius:999px;
+  background:var(--brand-soft);color:var(--brand-dark);
+  display:flex;align-items:center;justify-content:center;
+  transition:var(--t-color);
+}
+.cat-tiles a:hover .cat-tile-icon{background:var(--brand);color:var(--on-dark);}
+/* 목록에서 필터로 쓸 때, 선택된 카테고리 */
+.cat-tiles a.is-on{color:var(--ink);font-weight:700;}
+.cat-tiles a.is-on .cat-tile-icon{background:var(--brand);color:var(--on-dark);}
+.cat-tile-label{display:block;}
+@media (max-width:760px){
+  .cat-tiles{margin-top:18px;grid-template-columns:repeat(5,minmax(0,1fr));}
+  .cat-tiles a{font-size:10px;}
+  .cat-tile-icon{width:42px;height:42px;}
+}
 
 /* ---------- 버튼 ---------- */
 /*
@@ -1199,9 +1283,6 @@ footer.foot-min .inner{
   .about-sec .sec-title{font-size:20px;}
   .about-end{margin-top:56px;padding:56px 0 72px;}
   .about-end h2{font-size:21px;}
-  .hero{padding:14px var(--gutter) 0;}
-  .hero .inner{padding:44px 24px;border-radius:12px;}
-  .hero h1{font-size:24px;}
   .auth{padding:40px 0 64px;}
   .auth-card{padding:28px 20px 24px;}
   .steps{flex-wrap:wrap;}
