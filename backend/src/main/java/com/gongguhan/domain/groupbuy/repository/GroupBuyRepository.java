@@ -14,6 +14,14 @@ import org.springframework.data.repository.query.Param;
 
 public interface GroupBuyRepository extends JpaRepository<GroupBuy, Long> {
 
+    /** 화면의 공개 조회와 별개로 결제 진입에서 삭제 상품을 차단한다. */
+    @Query("""
+            SELECT (COUNT(p) > 0) FROM Product p
+             WHERE p.status = 'DELETED'
+               AND p.productId IN (SELECT g.productId FROM GroupBuy g WHERE g.groupBuyId = :groupBuyId)
+            """)
+    boolean hasDeletedProduct(@Param("groupBuyId") Long groupBuyId);
+
     /** 철회 참여 목록 조회 전 버전. 엔티티를 미리 관리 상태로 만들지 않는다. */
     @Query("SELECT g.version FROM GroupBuy g WHERE g.groupBuyId = :groupBuyId")
     Optional<Long> findVersionByGroupBuyId(@Param("groupBuyId") Long groupBuyId);
