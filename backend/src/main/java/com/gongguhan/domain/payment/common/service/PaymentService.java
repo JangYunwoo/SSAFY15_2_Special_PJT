@@ -172,7 +172,7 @@ public class PaymentService {
         if (payment.isExpired(now) || !now.isBefore(payment.getSlotExpiresAt())) {
             throw new BusinessException(ErrorCode.PAYMENT_SLOT_EXPIRED);
         }
-        ensureProductNotDeleted(groupBuyId);
+        ensureNewPaymentAllowed(groupBuyId);
         return PaymentResponse.from(payment, groupBuySlotPort.get(groupBuyId), now);
     }
 
@@ -427,7 +427,7 @@ public class PaymentService {
         Payment payment = paymentRepository.findForUpdateByPaymentIdAndUserId(paymentId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_ACCESS_DENIED));
         validateApprovalCandidate(payment, expectedMethod);
-        ensureProductNotDeleted(payment.getGroupBuyId());
+        ensureNewPaymentAllowed(payment.getGroupBuyId());
         // 결제 TTL이 남아 있어도 이미 종료된 공구에 새 외부 승인/견적을 시작하지 않는다.
         // 모집 종료 시각만 지난 RECRUITING 공구의 기존 유효 슬롯은 현재 정책대로 유지한다.
         if (!"RECRUITING".equals(groupBuySlotPort.get(payment.getGroupBuyId()).status())) {
@@ -509,9 +509,12 @@ public class PaymentService {
     }
 
     /** 새 준비·외부 승인 진입에만 사용한다. 기존 결과 조회·중단·환불은 막지 않는다. */
-    private void ensureProductNotDeleted(Long groupBuyId) {
+    private void ensureNewPaymentAllowed(Long groupBuyId) {
         if (groupBuyRepository.hasDeletedProduct(groupBuyId)) {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "삭제된 상품에는 새 결제를 준비할 수 없습니다.");
+        }
+        if (groupBuyRepository.hasSuspendedSeller(groupBuyId)) {
+            throw new BusinessException(ErrorCode.SELLER_SUSPENDED, "판매 정지된 판매자의 공동구매에는 새 결제를 진행할 수 없습니다.");
         }
     }
 

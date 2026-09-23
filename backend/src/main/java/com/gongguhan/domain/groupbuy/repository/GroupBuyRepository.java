@@ -22,6 +22,14 @@ public interface GroupBuyRepository extends JpaRepository<GroupBuy, Long> {
             """)
     boolean hasDeletedProduct(@Param("groupBuyId") Long groupBuyId);
 
+    /** 기존 공구도 판매자가 정지되면 신규 결제 진입을 허용하지 않는다. */
+    @Query("""
+            SELECT (COUNT(s) > 0) FROM SellerProfile s
+             WHERE s.status = 'SUSPENDED'
+               AND s.sellerId IN (SELECT g.sellerId FROM GroupBuy g WHERE g.groupBuyId = :groupBuyId)
+            """)
+    boolean hasSuspendedSeller(@Param("groupBuyId") Long groupBuyId);
+
     /** 철회 참여 목록 조회 전 버전. 엔티티를 미리 관리 상태로 만들지 않는다. */
     @Query("SELECT g.version FROM GroupBuy g WHERE g.groupBuyId = :groupBuyId")
     Optional<Long> findVersionByGroupBuyId(@Param("groupBuyId") Long groupBuyId);

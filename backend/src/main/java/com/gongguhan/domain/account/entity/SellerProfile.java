@@ -23,7 +23,7 @@ public class SellerProfile extends BaseTimeEntity {
 
     /** 정상 판매 가능. */
     public static final String STATUS_ACTIVE = "ACTIVE";
-    /** 위반 누적으로 신규 등록·공동구매 생성 차단. 기존 거래 처리는 계속 허용. */
+    /** 위반 누적으로 신규 등록·공동구매 생성·신규 결제 차단. 기존 거래 처리는 계속 허용. */
     public static final String STATUS_SUSPENDED = "SUSPENDED";
 
     @Id
@@ -127,7 +127,7 @@ public class SellerProfile extends BaseTimeEntity {
      * 위반 확정을 반영합니다 (S15P21B205-83, FR-PEN-07~10).
      *
      * <p>누적이 임계에 도달하면 판매를 정지합니다. 정지된 판매자는 신규 상품 등록과
-     * 공동구매 생성이 막히지만({@code ProductService}·{@code GroupBuyService} 가
+     * 공동구매 생성과 기존 공구의 신규 결제가 막히지만({@code ProductService}·{@code GroupBuyService}·결제 서비스가
      * {@code SELLER_SUSPENDED} 로 거부), <b>기존 거래의 배송·반품·정산은 계속
      * 진행됩니다</b> — 이미 돈을 낸 구매자를 볼모로 잡지 않기 위해서입니다.
      *
