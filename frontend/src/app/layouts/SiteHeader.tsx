@@ -2,6 +2,7 @@ import { Link, NavLink } from 'react-router'
 
 import { useIsSignedIn } from '@/features/auth/sessionStore'
 import { NotificationBell } from '@/features/notification/NotificationBell'
+import { HeaderSearch } from '@/features/search/HeaderSearch'
 import { BACKEND_FEATURES } from '@/shared/config/backendFeatures'
 import { cx } from '@/shared/lib/cx'
 import { BrandMark } from '@/shared/ui/BrandMark'
@@ -51,6 +52,8 @@ export function SiteHeader() {
         <Link className="brand" to="/">
           <BrandMark />
         </Link>
+        <HeaderSearch />
+
         <div className="right">
           <nav aria-label="주요 메뉴">
             {menu.map((item) => (
@@ -72,5 +75,6 @@ export function SiteHeader() {
     </header>
   )
 }
+
 
 

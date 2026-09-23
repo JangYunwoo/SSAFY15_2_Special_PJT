@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { groupBuyQueries } from '@/entities/groupBuy/queries'
+import { CategoryTiles } from '@/features/category/CategoryTiles'
 import { GroupBuyFilters } from '@/features/groupBuy/GroupBuyFilters'
 import { GroupBuyGrid } from '@/features/groupBuy/GroupBuyGrid'
 import { ALL_CATEGORIES, useGroupBuyListParams } from '@/features/groupBuy/useGroupBuyListParams'
@@ -22,7 +23,13 @@ export function GroupBuyListPage() {
       <section className="section">
         <div className="sec-head">
           <div>
-            <h2 className="sec-title">상품 전체보기</h2>
+            {/*
+              검색어는 제목으로 보여줍니다. 검색창을 헤더로 옮겼으므로, 무엇으로
+              찾은 목록인지 화면 어딘가에는 적혀 있어야 합니다.
+            */}
+            <h2 className="sec-title">
+              {keyword === '' ? '상품 전체보기' : `'${keyword}' 검색 결과`}
+            </h2>
             <p className="sec-sub" aria-live="polite">
               {total === undefined
                 ? '진행 중인 공동구매를 불러오는 중입니다.'
@@ -33,7 +40,9 @@ export function GroupBuyListPage() {
           </div>
         </div>
 
-        <GroupBuyFilters keyword={keyword} categoryId={categoryId} sort={sort} onChange={patch} />
+        <CategoryTiles activeId={categoryId} className="mt8" />
+
+        <GroupBuyFilters sort={sort} onChange={patch} />
 
         <QueryBoundary query={query}>
           {(result) =>
@@ -62,3 +71,5 @@ export function GroupBuyListPage() {
     </main>
   )
 }
+
+
