@@ -13,6 +13,7 @@ import java.sql.Timestamp;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import javax.sql.DataSource;
@@ -281,10 +282,12 @@ public class GroupBuyQueryRepository {
         }
         if (condition.keyword() != null) {
             if (mysql && condition.keyword().length() >= 2) {
-                where.append(" AND MATCH(p.name) AGAINST(:keyword IN NATURAL LANGUAGE MODE)\n");
+                where.append(" AND (MATCH(p.name) AGAINST(:keyword IN NATURAL LANGUAGE MODE)\n");
             } else {
-                where.append(" AND LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))\n");
+                where.append(" AND (LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))\n");
             }
+            // OR를 괄호 안에 묶어 판매자 일치가 공개 상태·카테고리 조건을 우회하지 않게 한다.
+            where.append(" OR LOWER(sp.business_name) LIKE :sellerKeyword ESCAPE '!')\n");
         }
         return where.toString();
     }
@@ -296,6 +299,10 @@ public class GroupBuyQueryRepository {
         }
         if (condition.keyword() != null) {
             parameters.addValue("keyword", condition.keyword());
+            // 판매자 이름의 %, _는 사용자가 입력한 문자이지 SQL 와일드카드가 아니다.
+            String sellerKeyword = condition.keyword().toLowerCase(Locale.ROOT)
+                    .replace("!", "!!").replace("%", "!%").replace("_", "!_");
+            parameters.addValue("sellerKeyword", "%" + sellerKeyword + "%");
         }
         return parameters;
     }
