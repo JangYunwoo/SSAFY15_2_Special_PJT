@@ -75,6 +75,12 @@ class PaymentSlotReservationTransaction {
     PaymentResponse execute(Long userId, Long groupBuyId, PaymentPrepareRequest request, String idempotencyKey) {
         GroupBuy groupBuy = groupBuyRepository.findById(groupBuyId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "공동구매를 찾을 수 없습니다."));
+        if (groupBuyRepository.hasDeletedProduct(groupBuyId)) {
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "삭제된 상품에는 새 결제를 준비할 수 없습니다.");
+        }
+        if (groupBuyRepository.hasSuspendedSeller(groupBuyId)) {
+            throw new BusinessException(ErrorCode.SELLER_SUSPENDED, "판매 정지된 판매자의 공동구매에는 새 결제를 진행할 수 없습니다.");
+        }
 
         boolean hasActiveParticipation = participationWriterPort.existsActiveParticipation(groupBuyId, userId);
         boolean hasActiveSlot = paymentRepository

@@ -689,7 +689,7 @@ CRYP-03 전 CRYP-05에 `quoteId`, `fromAddress`(0x+40자리), `txHash`(0x+64자�
 | 401 | `AUTHENTICATION_REQUIRED` | 토큰 없음·만료 |
 | 403 | `ROLE_ACCESS_DENIED` | 역할이 다른 API 접근 |
 | 403 | `RESOURCE_ACCESS_DENIED` | 타인의 주문·배송·정산 접근 |
-| 403 | `SELLER_SUSPENDED` | 정지 판매자의 등록·생성 요청 |
+| 403 | `SELLER_SUSPENDED` | 정지 판매자의 등록·생성 요청 및 기존 공동구매 신규 결제 준비·재사용·승인 진입 (2026-09-23 정책 확정, 기존 거래 조회·취소·환불은 유지) |
 | 404 | `RESOURCE_NOT_FOUND` | 대상 자원 없음 |
 | 409 | `GROUP_BUY_NOT_RECRUITING` | 모집 중이 아닌 공동구매 참여 |
 | 409 | `GROUP_BUY_FULL` | 참여자와 유효 결제 슬롯이 목표 인원 도달 |

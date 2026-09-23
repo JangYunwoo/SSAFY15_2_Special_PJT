@@ -57,6 +57,49 @@ class GroupBuyQueryIntegrationTest {
     }
 
     @Test
+    void sellerNameSearchReturnsProductsWhoseNamesDoNotContainSellerName() throws Exception {
+        jdbcTemplate.update("UPDATE seller_profiles SET business_name='키친앤라이프' WHERE seller_id=?", SELLER_ID);
+        mockMvc.perform(get("/group-buys").param("keyword", "키친앤라이프").param("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.meta.totalElements").value(3))
+                .andExpect(jsonPath("$.meta.totalPages").value(2))
+                .andExpect(jsonPath("$.data.length()").value(2));
+        mockMvc.perform(get("/group-buys").param("keyword", "키친앤라이프").param("size", "2").param("page", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.meta.totalElements").value(3))
+                .andExpect(jsonPath("$.data.length()").value(1));
+    }
+
+    @Test
+    void sellerMatchDoesNotBypassCategoryDeletedProductOrGroupBuyStatus() throws Exception {
+        jdbcTemplate.update("UPDATE seller_profiles SET business_name='Audit Shop' WHERE seller_id=?", SELLER_ID);
+        mockMvc.perform(get("/group-buys").param("keyword", "audit shop").param("categoryId", "11"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.meta.totalElements").value(2));
+        jdbcTemplate.update("UPDATE products SET status='DELETED' WHERE product_id=301");
+        jdbcTemplate.update("UPDATE group_buys SET status='FAILED' WHERE group_buy_id=1002");
+        mockMvc.perform(get("/group-buys").param("keyword", "audit shop").param("categoryId", "11"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.meta.totalElements").value(0));
+    }
+
+    @Test
+    void sellerMatchStillExcludesSuspendedSellers() throws Exception {
+        jdbcTemplate.update("UPDATE seller_profiles SET business_name='Audit Shop', status='SUSPENDED' WHERE seller_id=?", SELLER_ID);
+        mockMvc.perform(get("/group-buys").param("keyword", "Audit Shop"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.meta.totalElements").value(0));
+    }
+
+    @Test
+    void sellerSearchTreatsWildcardCharactersLiterallyAndSupportsOneCharacter() throws Exception {
+        jdbcTemplate.update("UPDATE seller_profiles SET business_name='샵_Audit!50%' WHERE seller_id=?", SELLER_ID);
+        mockMvc.perform(get("/group-buys").param("keyword", "샵_Audit!50%"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.meta.totalElements").value(3));
+        mockMvc.perform(get("/group-buys").param("keyword", "샵"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.meta.totalElements").value(3));
+        mockMvc.perform(get("/group-buys").param("keyword", "샵%Audit"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.meta.totalElements").value(0));
+    }
+
+    @Test
     void publicListFiltersByCategoryAndProductNameAndSortsByParticipationRate() throws Exception {
         mockMvc.perform(get("/group-buys")
                         .param("keyword", "키보드")
