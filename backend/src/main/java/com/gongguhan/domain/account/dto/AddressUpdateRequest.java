@@ -10,7 +10,9 @@ import jakarta.validation.constraints.Size;
 /** USR-05: deliveryRequest 생략은 유지, 명시적 null은 삭제. 다른 null 필드는 기존 계약을 유지한다. */
 public class AddressUpdateRequest {
     @JsonProperty @Size(max = 50) private String recipientName;
-    @JsonProperty @Size(max = 20) private String recipientPhone;
+    @JsonProperty @Size(max = 20)
+    @Pattern(regexp = AccountInputPatterns.PHONE_DIGITS, message = AccountInputPatterns.PHONE_MESSAGE)
+    private String recipientPhone;
     @JsonProperty @Pattern(regexp = "\\d{5}", message = "우편번호는 5자리 숫자여야 합니다.") private String zipcode;
     @JsonProperty @Size(max = 255) private String address1;
     @JsonProperty @Size(max = 255) private String address2;
