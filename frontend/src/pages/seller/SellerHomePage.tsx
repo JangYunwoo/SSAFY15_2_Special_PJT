@@ -52,7 +52,12 @@ export default function SellerHomePage() {
         <div>
           <Panel title="진행 중" description="모집이 끝나면 결제가 확정됩니다">
             {recruiting.length === 0 ? (
-              <EmptyState>모집 중인 공동구매가 없습니다.</EmptyState>
+              <EmptyState
+                title="모집 중인 공동구매가 없습니다"
+                action={{ to: '/seller/group-buys/new', label: '공동구매 열기' }}
+              >
+                등록한 상품으로 공동구매를 열면 여기에서 모집 현황을 봅니다.
+              </EmptyState>
             ) : (
               recruiting.map((item) => <RecruitingCard key={item.id} item={item} />)
             )}
@@ -193,3 +198,4 @@ function RecruitingCard({ item }: { item: SellerGroupBuySummary }) {
     </div>
   )
 }
+

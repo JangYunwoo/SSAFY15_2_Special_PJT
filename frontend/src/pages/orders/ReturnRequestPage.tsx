@@ -12,7 +12,7 @@ import { queryKeys } from '@/shared/api/queryKeys'
 import { POLICY_DEFAULTS } from '@/shared/config/policy'
 import { date, groupBuyNo, won } from '@/shared/lib/format'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
-import { Button } from '@/shared/ui/Button'
+import { Button, ButtonLink } from '@/shared/ui/Button'
 import { DataRow, TotalRow } from '@/shared/ui/DataRow'
 import { Panel } from '@/shared/ui/Panel'
 import { RadioGroup } from '@/shared/ui/RadioGroup'
@@ -206,6 +206,20 @@ function ReturnForm({
           >
             {submit.isPending ? '신청 중…' : '반품 신청하기'}
           </Button>
+          {/*
+            그만둘 길을 함께 둡니다 (S15P21B205-244). 전에는 제출해야만 화면을
+            벗어날 수 있어, 반품을 신청하려다 마음이 바뀌면 브라우저 뒤로가기밖에
+            없었습니다. 되돌릴 수 없는 신청 앞에서 물러설 곳이 없으면 안 됩니다.
+          */}
+          <ButtonLink
+            variant="ghost"
+            block
+            className="mt8"
+            style={{ display: 'block' }}
+            to="/orders"
+          >
+            그만두고 주문으로 돌아가기
+          </ButtonLink>
           <p className="small muted mt8" style={{ textAlign: 'center', marginBottom: 0 }}>
             신청 후에는 판매자 승인 절차가 진행됩니다.
           </p>
@@ -214,3 +228,4 @@ function ReturnForm({
     </div>
   )
 }
+

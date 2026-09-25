@@ -49,7 +49,12 @@ export default function SellerProductsPage() {
         <QueryBoundary query={query}>
           {(result) =>
             result.items.length === 0 ? (
-              <EmptyState>등록한 상품이 없습니다. 먼저 상품을 등록해 주세요.</EmptyState>
+              <EmptyState
+                title="등록한 상품이 없습니다"
+                action={{ to: '/seller/products/new', label: '상품 등록하기' }}
+              >
+                상품을 먼저 등록해야 공동구매를 열 수 있습니다.
+              </EmptyState>
             ) : (
               <>
                 <table className="list fixed">
@@ -136,3 +141,4 @@ export default function SellerProductsPage() {
     </section>
   )
 }
+
