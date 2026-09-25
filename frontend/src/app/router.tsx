@@ -30,6 +30,7 @@ const CheckoutLayout = lazy(() =>
 )
 
 const AboutPage = lazy(() => import('@/pages/AboutPage'))
+const LikesPage = lazy(() => import('@/pages/LikesPage'))
 const GroupBuyDetailPage = lazy(() => import('@/pages/GroupBuyDetailPage'))
 const LoginPage = lazy(() => import('@/pages/LoginPage'))
 const SignupPage = lazy(() => import('@/pages/SignupPage'))
@@ -78,6 +79,7 @@ export const router = createBrowserRouter([
       { path: 'group-buys', element: <GroupBuyListPage /> },
       { path: 'group-buys/:groupBuyId', element: <GroupBuyDetailPage /> },
       { path: 'about', element: <AboutPage /> },
+
       { path: 'login', element: <LoginPage /> },
       { path: 'signup', element: <SignupPage /> },
 
@@ -85,6 +87,7 @@ export const router = createBrowserRouter([
       {
         element: <RequireAuth />,
         children: [
+          { path: 'likes', element: <LikesPage /> },
           { path: 'me', element: <MyPage /> },
           { path: 'orders', element: <OrdersPage /> },
           { path: 'orders/payments', element: <OrdersPaymentsPage /> },
@@ -188,3 +191,4 @@ export const router = createBrowserRouter([
 
   { path: '*', element: <NotFoundPage /> },
 ])
+

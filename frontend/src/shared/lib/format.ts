@@ -68,6 +68,24 @@ export function remaining(until: IsoDateTime, now: Date = new Date()): string {
   return hours ? `${String(days)}일 ${String(hours)}시간 남음` : `${String(days)}일 남음`
 }
 
+
+/**
+ * 남은 시간을 "05:23:11" / "1일 05:23:11" 로 표기합니다.
+ *
+ * clock() 은 분:초까지만 다뤄 결제 슬롯(5분)에는 맞지만 모집 마감(며칠)에는
+ * 쓸 수 없습니다. 하루가 넘게 남으면 앞에 일수를 붙입니다 — 47:59:59 는 읽는
+ * 쪽이 24로 나눠야 며칠인지 알 수 있습니다.
+ */
+export function countdown(totalSeconds: number): string {
+  const safe = Math.max(0, Math.floor(totalSeconds))
+  const days = Math.floor(safe / 86_400)
+  const hours = Math.floor((safe % 86_400) / 3_600)
+  const minutes = Math.floor((safe % 3_600) / 60)
+  const seconds = safe % 60
+  const hms = [hours, minutes, seconds].map((part) => String(part).padStart(2, '0')).join(':')
+  return days > 0 ? `${String(days)}일 ${hms}` : hms
+}
+
 /** 기한까지 남은 일수를 "D-4" 형태로 표기합니다. */
 export function dday(until: IsoDateTime | null | undefined, now: Date = new Date()): string {
   if (!until) return ''

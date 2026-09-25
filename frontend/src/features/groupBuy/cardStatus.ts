@@ -5,6 +5,19 @@ import { displayFor } from '@/entities/statusDisplay'
 import { POLICY_DEFAULTS } from '@/shared/config/policy'
 
 /**
+ * 모집 마감이 코앞인가.
+ *
+ * 뱃지 색과 카운트다운 노출이 같은 기준을 써야 합니다. 한쪽만 "마감 임박" 이라고
+ * 하고 다른 쪽은 아무 일 없다는 듯 굴면 화면이 스스로 모순됩니다.
+ */
+export function isImminent(item: GroupBuySummary, now: Date = new Date()): boolean {
+  if (item.status !== 'RECRUITING') return false
+  const msLeft = new Date(item.recruitEndAt).getTime() - now.getTime()
+  if (msLeft <= 0) return false
+  return Math.ceil(msLeft / 86_400_000) <= POLICY_DEFAULTS.imminentDays
+}
+
+/**
  * 목록 카드에 붙는 상태 뱃지 (S15P21B205-226).
  *
  * 공유 표(GROUP_BUY_STATUS_DISPLAY)를 그대로 쓰지 않습니다. 목록에서는 남은
@@ -29,3 +42,4 @@ export function cardStatusDisplay(item: GroupBuySummary, now: Date = new Date())
 
   return { label: '모집중', tone: 'neutral' }
 }
+
