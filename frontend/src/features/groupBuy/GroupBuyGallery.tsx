@@ -42,11 +42,37 @@ function clamp(value: number, max: number): number {
   return Math.min(Math.max(value, half), max - half)
 }
 
+/*
+ * 꺾쇠는 글자(‹ ›) 대신 SVG 로 그립니다. 글자는 좌우 여백이 불균등해 원 안에서
+ * 가운데가 미묘하게 어긋나고, 폰트마다 모양도 달라집니다.
+ */
+function Chevron({ direction }: { direction: 'prev' | 'next' }) {
+  return (
+    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+      <polyline
+        points={direction === 'prev' ? '15 5 8 12 15 19' : '9 5 16 12 9 19'}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 export function GroupBuyGallery({ images, alt }: GroupBuyGalleryProps) {
   const [selected, setSelected] = useState(0)
   const [lens, setLens] = useState<Lens | null>(null)
   const count = images.length > 0 ? images.length : PLACEHOLDER_COUNT
   const current = images[selected]
+
+  /* 끝에서 한 번 더 누르면 반대쪽 끝으로 돌아갑니다. 막다른 화살표는 눌러도
+     아무 일이 없어, 고장인지 끝인지 구분되지 않습니다. */
+  const move = (step: number) => {
+    setSelected((index) => (index + step + count) % count)
+    setLens(null)
+  }
 
   const track = (event: React.MouseEvent<HTMLDivElement>) => {
     const box = event.currentTarget.getBoundingClientRect()
@@ -101,29 +127,58 @@ export function GroupBuyGallery({ images, alt }: GroupBuyGalleryProps) {
             />
           </div>
         )}
+        {count > 1 && (
+          <>
+            {/*
+            좌우 화살표는 사진 위에 얹습니다. 마우스를 올리면 돋보기를 끕니다 —
+            화살표를 누르려는데 그 아래에서 확대창이 따라다니면 어수선합니다.
+          */}
+            <button
+              type="button"
+              className="gallery-nav prev"
+              aria-label="이전 이미지"
+              onMouseEnter={() => {
+                setLens(null)
+              }}
+              onClick={() => {
+                move(-1)
+              }}
+            >
+              <Chevron direction="prev" />
+            </button>
+            <button
+              type="button"
+              className="gallery-nav next"
+              aria-label="다음 이미지"
+              onMouseEnter={() => {
+                setLens(null)
+              }}
+              onClick={() => {
+                move(1)
+              }}
+            >
+              <Chevron direction="next" />
+            </button>
+          </>
+        )}
       </div>
 
       {count > 1 && (
-        <div className="caps">
-          {Array.from({ length: count }, (_, index) => {
-            const source = images[index]
-            return (
-              <button
-                key={index}
-                type="button"
-                className={cx(index === selected && 'on')}
-                aria-label={`이미지 ${String(index + 1)} 보기`}
-                aria-current={index === selected}
-                onClick={() => {
-                  setSelected(index)
-                  // 사진을 바꾸면 이전 사진의 돋보기 상태가 남지 않게 지웁니다.
-                  setLens(null)
-                }}
-              >
-                {source === undefined ? `이미지 ${String(index + 1)}` : <img src={source} alt="" />}
-              </button>
-            )
-          })}
+        <div className="gallery-dots" role="tablist" aria-label="상품 이미지">
+          {Array.from({ length: count }, (_, index) => (
+            <button
+              key={index}
+              type="button"
+              role="tab"
+              className={cx(index === selected && 'on')}
+              aria-label={`이미지 ${String(index + 1)} 보기`}
+              aria-selected={index === selected}
+              onClick={() => {
+                setSelected(index)
+                setLens(null)
+              }}
+            />
+          ))}
         </div>
       )}
     </div>
