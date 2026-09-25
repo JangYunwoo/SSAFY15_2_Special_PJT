@@ -8,6 +8,7 @@ import type { Notification } from '@/entities/notification/model'
 import { notificationQueries } from '@/entities/notification/queries'
 import { queryKeys } from '@/shared/api/queryKeys'
 import { cx } from '@/shared/lib/cx'
+import { BellIcon } from '@/shared/ui/icons'
 import { EmptyState, QueryBoundary } from '@/shared/ui/states'
 
 /** 목록에 한 번에 담을 개수. 더 보려면 알림 화면이 필요합니다. */
@@ -67,11 +68,12 @@ export function NotificationBell() {
         className="bell-btn"
         aria-expanded={open}
         aria-label={count > 0 ? `알림 ${String(count)}건` : '알림'}
+        title="알림"
         onClick={() => {
           setOpen((current) => !current)
         }}
       >
-        알림
+        <BellIcon />
         {count > 0 && <span className="bell-badge">{count > 99 ? '99+' : count}</span>}
       </button>
 
@@ -140,3 +142,5 @@ function NotificationRow({ item, onDone }: { item: Notification; onDone: () => v
     </li>
   )
 }
+
+
