@@ -43,6 +43,7 @@ const CompletePage = lazy(() => import('@/pages/checkout/CompletePage'))
 const KakaoPayCallbackPage = lazy(() => import('@/pages/checkout/KakaoPayCallbackPage'))
 
 const OrdersPage = lazy(() => import('@/pages/orders/OrdersPage'))
+const OrderDetailPage = lazy(() => import('@/pages/orders/OrderDetailPage'))
 const OrdersPaymentsPage = lazy(() => import('@/pages/orders/OrdersPaymentsPage'))
 const ReturnsPage = lazy(() => import('@/pages/orders/ReturnsPage'))
 const ConfirmPage = lazy(() => import('@/pages/orders/ConfirmPage'))
@@ -92,6 +93,8 @@ export const router = createBrowserRouter([
           { path: 'orders', element: <OrdersPage /> },
           { path: 'orders/payments', element: <OrdersPaymentsPage /> },
           { path: 'orders/returns', element: <ReturnsPage /> },
+          /* 정적 경로(payments·returns)가 먼저 잡히므로 :participationId 와 겹치지 않습니다 */
+          { path: 'orders/:participationId', element: <OrderDetailPage /> },
           { path: 'orders/:participationId/confirm', element: <ConfirmPage /> },
           { path: 'orders/:participationId/return', element: <ReturnRequestPage /> },
           { path: 'orders/:participationId/dispute', element: <DisputePage /> },
@@ -191,4 +194,5 @@ export const router = createBrowserRouter([
 
   { path: '*', element: <NotFoundPage /> },
 ])
+
 

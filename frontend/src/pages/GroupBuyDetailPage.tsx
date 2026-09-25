@@ -93,42 +93,6 @@ function DetailView({ detail }: { detail: GroupBuyDetail }) {
             미달 시 결제는 자동 취소됩니다.
           </p>
 
-          <div className="box rows">
-            <DataRow
-              label={
-                <>
-                  상품 분담금{' '}
-                  <span className="small muted">
-                    {number(detail.productPrice)}원 ÷ {detail.targetCount}명
-                  </span>
-                </>
-              }
-            >
-              {won(detail.unitShareAmount)}
-            </DataRow>
-            <DataRow label="배송비">{won(detail.shippingFee)}</DataRow>
-            <DataRow label="개인 결제금액">{won(totalAmount)}</DataRow>
-          </div>
-
-          <div className="box rows mt16">
-            <DataRow label="모집 마감">{date(detail.recruitEndAt)}</DataRow>
-            <DataRow label="판매자 정보">{detail.sellerName}</DataRow>
-            <DataRow label="참여 취소">모집 종료 전까지 가능</DataRow>
-            <DataRow
-              label={
-                <>
-                  청약철회 <span className="small muted">전자상거래법</span>
-                </>
-              }
-            >
-              수령 다음 날부터 {POLICY_DEFAULTS.autoConfirmDays}일 이내
-            </DataRow>
-            <DataRow label="단순변심 반품비">{won(detail.shippingFee * 2)} · 구매자 부담</DataRow>
-            {detail.withdrawalRestrictionReason !== null && (
-              <DataRow label="청약철회 제한">{detail.withdrawalRestrictionReason}</DataRow>
-            )}
-          </div>
-
           <Button block className="mt24" onClick={join} disabled={!isJoinable}>
             {isJoinable ? '공동구매 참여하기' : '참여할 수 없는 공동구매입니다'}
           </Button>
@@ -148,10 +112,36 @@ function DetailView({ detail }: { detail: GroupBuyDetail }) {
           <DataRow label="모집 기간">
             {date(detail.recruitStartAt)} ~ {date(detail.recruitEndAt)}
           </DataRow>
-          <DataRow label="분담금 계산">
-            {number(detail.productPrice)}원 ÷ {detail.targetCount}명
+          {/*
+            금액 산정 근거는 여기에 둡니다. 위쪽 사이드바에 표로 세워 두었더니
+            "1인 분담금 / 배송비 / 총액" 이라는 같은 말을 바로 위 큰 글씨와 두 번
+            하게 되고, 참여 버튼까지 가는 길에 표가 하나 끼어 있었습니다.
+            계산식은 결정을 돕는 정보가 아니라 결정한 뒤 확인하는 조건에 가깝습니다.
+          */}
+          <DataRow label="모집 마감">{date(detail.recruitEndAt)}</DataRow>
+          <DataRow label="판매자">{detail.sellerName}</DataRow>
+          <DataRow label="참여 취소">모집 종료 전까지 가능</DataRow>
+          <DataRow
+            label={
+              <>
+                청약철회 <span className="small muted">전자상거래법</span>
+              </>
+            }
+          >
+            수령 다음 날부터 {POLICY_DEFAULTS.autoConfirmDays}일 이내
           </DataRow>
-          <DataRow label="배송비 부담">참여자 개별 부담</DataRow>
+          <DataRow label="단순변심 반품비">{won(detail.shippingFee * 2)} · 구매자 부담</DataRow>
+          {detail.withdrawalRestrictionReason !== null && (
+            <DataRow label="청약철회 제한">{detail.withdrawalRestrictionReason}</DataRow>
+          )}
+          <DataRow label="분담금 산정">
+            상품가 {number(detail.productPrice)}원 ÷ 목표 {detail.targetCount}명 ={' '}
+            {won(detail.unitShareAmount)} <span className="small muted">원 단위 올림</span>
+          </DataRow>
+          <DataRow label="배송비 부담">1인 {won(detail.shippingFee)} · 참여자 개별 부담</DataRow>
+          <DataRow label="개인 결제금액">
+            {won(totalAmount)} <span className="small muted">분담금 + 배송비</span>
+          </DataRow>
           <DataRow label="플랫폼 수수료">
             판매자 부담 · 분담금의 {percent(POLICY_DEFAULTS.platformFeeRate)}
           </DataRow>

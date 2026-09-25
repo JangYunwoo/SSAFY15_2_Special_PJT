@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router'
 
@@ -10,6 +10,7 @@ import {
 } from '@/entities/model'
 import { displayFor } from '@/entities/statusDisplay'
 import { deliveryQueries } from '@/entities/delivery/queries'
+import { groupBuyQueries } from '@/entities/groupBuy/queries'
 import { participationApi } from '@/entities/participation/api'
 import type { Escrow, ParticipationSummary } from '@/entities/participation/model'
 import { participationQueries } from '@/entities/participation/queries'
@@ -17,7 +18,6 @@ import type { IsoDateTime } from '@/shared/api/types'
 import { queryKeys } from '@/shared/api/queryKeys'
 import { toMessage } from '@/shared/api/errors'
 import { BACKEND_FEATURES } from '@/shared/config/backendFeatures'
-import { cx } from '@/shared/lib/cx'
 import { date, dateTime, dday, groupBuyNo, number, won } from '@/shared/lib/format'
 import { Button } from '@/shared/ui/Button'
 import { DataRow } from '@/shared/ui/DataRow'
@@ -27,23 +27,24 @@ import { Timeline } from '@/shared/ui/Timeline'
 
 import { participationTimeline } from './participationTimeline'
 
-interface OrderAccordionProps {
-  item: ParticipationSummary
-  /** 기본 펼침 여부. 진행 중인 건은 펼쳐서 보여줍니다. */
-  defaultOpen?: boolean | undefined
-}
 
-export function OrderAccordion({ item, defaultOpen = false }: OrderAccordionProps) {
-  const [open, setOpen] = useState(defaultOpen)
+export function OrderDetail({ item }: { item: ParticipationSummary }) {
   /** 참여 취소 확인 단계를 보여줄지 */
   const [askingCancel, setAskingCancel] = useState(false)
   /** 카드 결제 건 취소 시 카드 승인 취소에 다시 필요한 카드 정보(저장하지 않음) */
   const [cardNumber, setCardNumber] = useState('')
   const [cvc, setCvc] = useState('')
-  const panelId = useId()
   const queryClient = useQueryClient()
 
   const display = displayFor(PARTICIPATION_STATUS_DISPLAY, item.status, '참여 상태')
+
+  /*
+   * 대표 이미지는 참여 응답(PAR-01·02)에 없어 공동구매에서 가져옵니다. 목록에서는
+   * 건마다 한 번씩 더 부르게 되므로 하지 않지만, 상세는 한 건짜리 화면이라
+   * 한 번이면 됩니다. 못 받아도 회색 자리만 남고 나머지는 그대로 보입니다.
+   */
+  const groupBuy = useQuery(groupBuyQueries.detail(item.groupBuyId))
+  const thumbnailUrl = groupBuy.data?.thumbnailUrl ?? null
 
   // 카드 결제는 SSAFY 카드 취소가 카드번호·CVC 를 다시 요구합니다. 카카오페이·코인은 필요 없습니다.
   const isCardPayment = item.method === 'CARD'
@@ -77,28 +78,30 @@ export function OrderAccordion({ item, defaultOpen = false }: OrderAccordionProp
       : display.label
 
   return (
-    <div className={cx('order', open && 'open')}>
-      <button
-        type="button"
-        className="order-row"
-        aria-expanded={open}
-        aria-controls={panelId}
-        onClick={() => {
-          setOpen((current) => !current)
-        }}
-      >
-        <span className="info">
-          <span className="name">{item.productName}</span>
-          <span className="small muted">
-            공동구매 {groupBuyNo(item.groupBuyId)} · {item.sellerName} · {date(item.paidAt)} 결제
-          </span>
-        </span>
+    <div className="order open">
+      {/*
+        제목 줄은 페이지가 그립니다. 여기는 상태와 무엇을 샀는지부터 세웁니다.
+        판매자·공동구매 번호를 오른쪽 끝에 흘려 두면 카드가 넓어질수록 상태와
+        멀어져, 서로 무관한 두 조각처럼 읽힙니다.
+      */}
+      <div className="order-state">
         <StateChip tone={display.tone}>{statusLabel}</StateChip>
-        <span className="amount-s">{won(item.totalAmount)}</span>
-        <span className="caret" aria-hidden="true" />
-      </button>
+      </div>
 
-      <div className="order-detail" id={panelId} hidden={!open}>
+      <div className="order-item order-product">
+        <div className="thumb">
+          {thumbnailUrl !== null && <img src={thumbnailUrl} alt="" loading="lazy" />}
+        </div>
+        <div className="body">
+          <p className="name">{item.productName}</p>
+          <p className="small muted">
+            공동구매 {groupBuyNo(item.groupBuyId)} · {item.sellerName}
+          </p>
+          <p className="order-product-amount">{won(item.totalAmount)}</p>
+        </div>
+      </div>
+
+      <div className="order-detail">
         <Timeline steps={participationTimeline(item.status)} />
 
         <div className="box rows mt24">
@@ -126,7 +129,7 @@ export function OrderAccordion({ item, defaultOpen = false }: OrderAccordionProp
             </>
           )}
 
-          {hasDelivery(item.status) && <DeliveryRow participationId={item.id} open={open} />}
+          {hasDelivery(item.status) && <DeliveryRow participationId={item.id} open />}
 
           {item.deliveredAt !== null && (
             <DataRow label="배송 완료">{date(item.deliveredAt)}</DataRow>
@@ -148,7 +151,7 @@ export function OrderAccordion({ item, defaultOpen = false }: OrderAccordionProp
               <DataRow label="구매확정">
                 {date(item.confirmedAt)} · {item.autoConfirmed ? '자동 확정' : '직접 확정'}
               </DataRow>
-              <EscrowRow participationId={item.id} open={open} />
+              <EscrowRow participationId={item.id} open />
             </>
           )}
         </div>
