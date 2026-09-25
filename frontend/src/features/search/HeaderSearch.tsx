@@ -16,6 +16,7 @@ export function HeaderSearch() {
   const [params] = useSearchParams()
   const urlKeyword = params.get('keyword') ?? ''
   const [keyword, setKeyword] = useState(urlKeyword)
+  const [focused, setFocused] = useState(false)
   const [syncedKeyword, setSyncedKeyword] = useState(urlKeyword)
 
   // 목록 화면의 검색어를 헤더가 그대로 들고 있어야 합니다. 검색해서 들어왔는데
@@ -40,10 +41,20 @@ export function HeaderSearch() {
         )
       }}
     >
+      {/*
+        누르면 예시 문구를 지웁니다. 입력하려고 눌렀는데 회색 글자가 남아 있으면
+        커서 옆에서 계속 읽혀 방해가 됩니다. 비워두면 입력에만 집중됩니다.
+      */}
       <input
         type="search"
         aria-label="상품 검색"
-        placeholder="어떤 공동구매를 찾으세요?"
+        placeholder={focused ? '' : '어떤 공동구매를 찾으세요?'}
+        onFocus={() => {
+          setFocused(true)
+        }}
+        onBlur={() => {
+          setFocused(false)
+        }}
         value={keyword}
         onChange={(event) => {
           setKeyword(event.target.value)
@@ -67,7 +78,3 @@ export function HeaderSearch() {
     </form>
   )
 }
-
-
-
-
