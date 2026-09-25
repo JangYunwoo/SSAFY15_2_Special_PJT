@@ -60,7 +60,12 @@ export function SellerLayout() {
         <Outlet />
       </main>
 
-      <SiteFooter compact />
+      {/*
+        구매자 화면과 같은 푸터를 씁니다. 판매자센터라고 다른 푸터를 쓰면 같은
+        서비스 안에서 화면마다 바닥이 달라 보입니다. 결제 화면(CheckoutLayout)만
+        compact 를 유지합니다 — 거기는 결제를 끝내는 자리라 링크를 줄입니다.
+      */}
+      <SiteFooter />
       <ScrollRestoration />
     </>
   )

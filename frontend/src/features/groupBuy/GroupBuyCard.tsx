@@ -4,7 +4,7 @@ import type { GroupBuySummary } from '@/entities/groupBuy/model'
 import { useIsLiked, useToggleLike } from '@/features/like/likeStore'
 import { progressRate } from '@/shared/config/policy'
 import { cx } from '@/shared/lib/cx'
-import { countdown, dday, number } from '@/shared/lib/format'
+import { countdown, number } from '@/shared/lib/format'
 import { useCountdown } from '@/shared/lib/hooks/useCountdown'
 import { ProgressBar } from '@/shared/ui/ProgressBar'
 import { HeartIcon } from '@/shared/ui/icons'
@@ -99,31 +99,42 @@ export function GroupBuyCard({
     <Link className="card" to={`/group-buys/${item.id}`} onClick={onClick}>
       <div className="thumb">
         {item.thumbnailUrl !== null && <img src={item.thumbnailUrl} alt="" loading="lazy" />}
-        <span className="card-tags">
-          <StateChip tone={status.tone}>{status.label}</StateChip>
-          {imminent && <DeadlineTimer recruitEndAt={item.recruitEndAt} />}
-        </span>
+        {/* 사진 위에는 카운트다운만 얹습니다. 상태 칩은 게이지 아래 줄로 내렸습니다 */}
+        {imminent && (
+          <span className="card-tags">
+            <DeadlineTimer recruitEndAt={item.recruitEndAt} />
+          </span>
+        )}
         <LikeButton id={item.id} name={item.productName} />
       </div>
       <div className="body">
         <h3>{item.productName}</h3>
+        {/* 상태는 가격 바로 위입니다. 얼마인지 보기 전에 살 수 있는 건인지가 먼저입니다 */}
+        <div className="card-state">
+          <StateChip tone={status.tone}>{status.label}</StateChip>
+        </div>
         <div className="cost">
           <b>{number(item.unitShareAmount)}</b>
           <span className="cost-unit">원</span>
         </div>
         <ProgressBar current={item.paidCount} target={item.targetCount} />
+        {/*
+          게이지 바로 아래 줄. D-day 는 뺐습니다. 급한 건은 사진 위 카운트다운이
+          초 단위로 말해주고, 급하지 않은 건은 남은 날짜보다 모집 중인지가 먼저입니다.
+        */}
         <div className="meta card-progress">
           <span>
             {item.paidCount} / {item.targetCount}명 · {rate}%
           </span>
-          {/* 카운트다운이 떠 있으면 D-day 는 같은 말을 두 번 하는 셈입니다 */}
-          {!imminent && <span>{dday(item.recruitEndAt)}</span>}
         </div>
         {reason !== undefined && <div className="meta">{reason}</div>}
       </div>
     </Link>
   )
 }
+
+
+
 
 
 

@@ -5,10 +5,12 @@ import { BrandMark } from '@/shared/ui/BrandMark'
 /**
  * 공통 푸터 (.foot)
  *
- * 기본형은 연회색 라운드 카드입니다. compact 는 결제·판매자센터·관리자처럼
- * 일을 처리하는 화면에서 씁니다. 그 화면들은 일부러 메뉴를 감춰 이탈을
- * 줄이는 자리라(CheckoutLayout 주석 참고) 링크가 늘어난 큰 푸터를 넣으면
- * 그 의도와 어긋납니다. 그래서 한 줄짜리로 그대로 둡니다.
+ * 기본형은 연회색 라운드 카드입니다. compact 는 결제·관리자 화면에서 씁니다.
+ * 그 둘은 일을 끝내는 자리라 일부러 메뉴를 감춰 이탈을 줄입니다
+ * (CheckoutLayout 주석 참고). 링크가 늘어난 큰 푸터는 그 의도와 어긋납니다.
+ *
+ * 판매자센터는 기본형을 씁니다. 같은 서비스 안에서 화면마다 바닥이 다르면
+ * 어디에 있는지 감각이 끊깁니다.
  */
 export function SiteFooter({ compact = false }: { compact?: boolean }) {
   if (compact) {
@@ -69,4 +71,5 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
     </footer>
   )
 }
+
 
