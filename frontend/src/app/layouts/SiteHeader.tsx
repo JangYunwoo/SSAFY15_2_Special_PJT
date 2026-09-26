@@ -10,21 +10,20 @@ import { BrandMark } from '@/shared/ui/BrandMark'
 import { HeartIcon, OrdersIcon, ProfileIcon } from '@/shared/ui/icons'
 
 /**
- * 오른쪽 아이콘 버튼 하나.
+ * 오른쪽 메뉴 하나. 아이콘 옆에 이름을 답니다.
  *
- * 글자 없이 아이콘만 둡니다. 대신 aria-label 로 이름을 남깁니다 — 화면에서 글자가
- * 사라지면 스크린리더가 읽을 것도 함께 사라져, "링크" 라고만 읽히기 때문입니다.
- * title 은 마우스 사용자를 위한 것으로, 잠시 올려두면 이름이 뜹니다.
+ * 아이콘만 두었을 때는 하트(찜)와 종(알림)은 통했지만 문서 아이콘이 걸렸습니다.
+ * 같은 모양이 사이트마다 공지사항·영수증·게시판·주문서로 쓰여, 눌러보기 전에는
+ * 무엇인지 알 수 없습니다. title 은 마우스를 올려야 뜨고 터치 기기에는 없습니다.
+ *
+ * 글자가 화면에 있으므로 aria-label 은 두지 않습니다. 링크 이름은 그 글자입니다.
+ * 따로 붙이면 눈에 보이는 이름과 읽히는 이름이 갈라집니다.
  */
 function HeaderAction({ to, label, children }: { to: string; label: string; children: ReactNode }) {
   return (
-    <NavLink
-      className={({ isActive }) => cx('gnb-action', isActive && 'on')}
-      to={to}
-      aria-label={label}
-      title={label}
-    >
-      {children}
+    <NavLink className={({ isActive }) => cx('gnb-action', isActive && 'on')} to={to}>
+      <span className="gnb-action-icon">{children}</span>
+      <span className="gnb-action-label">{label}</span>
     </NavLink>
   )
 }
@@ -57,13 +56,13 @@ export function SiteHeader() {
           {isSignedIn ? (
             <>
               {/* 찜은 계정에 딸린 것이라 로그인 뒤에만 보입니다 */}
-              <HeaderAction to="/likes" label="찜한 공동구매">
+              <HeaderAction to="/likes" label="찜">
                 <HeartIcon />
               </HeaderAction>
               <HeaderAction to="/orders" label="주문현황">
                 <OrdersIcon />
               </HeaderAction>
-              <HeaderAction to="/me" label="내 정보">
+              <HeaderAction to="/me" label="마이">
                 <ProfileIcon />
               </HeaderAction>
               {/* 알림 API(NOTI-01~03)가 아직 없어, 붙기 전까지는 벨을 감춥니다. */}
@@ -79,6 +78,7 @@ export function SiteHeader() {
     </header>
   )
 }
+
 
 
 

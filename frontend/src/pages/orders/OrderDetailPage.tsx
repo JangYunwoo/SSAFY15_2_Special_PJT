@@ -5,6 +5,7 @@ import { participationQueries } from '@/entities/participation/queries'
 import { OrderDetail } from '@/features/orders/OrderDetail'
 import { groupBuyNo } from '@/shared/lib/format'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
+import { ChevronIcon } from '@/shared/ui/icons'
 import { QueryBoundary } from '@/shared/ui/states'
 
 /**
@@ -27,6 +28,7 @@ export default function OrderDetailPage() {
         <div className="sec-head">
           <div>
             <Link className="sec-back" to="/orders">
+              <ChevronIcon direction="prev" size={14} />
               주문/참여 현황
             </Link>
             <h2 className="sec-title">{query.data?.productName ?? '주문 상세'}</h2>
@@ -41,5 +43,6 @@ export default function OrderDetailPage() {
     </main>
   )
 }
+
 
 

@@ -7,15 +7,54 @@ import { displayFor } from '@/entities/statusDisplay'
 import type { GroupBuyDetail } from '@/entities/groupBuy/model'
 import { groupBuyQueries } from '@/entities/groupBuy/queries'
 import { useIsSignedIn } from '@/features/auth/sessionStore'
+import { useIsLiked, useToggleLike } from '@/features/like/likeStore'
 import { GroupBuyGallery } from '@/features/groupBuy/GroupBuyGallery'
 import { recordRecommendationEvents } from '@/features/recommendation/tracking'
 import { POLICY_DEFAULTS } from '@/shared/config/policy'
 import { date, number, percent, remaining, won } from '@/shared/lib/format'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
+import { cx } from '@/shared/lib/cx'
 import { Button } from '@/shared/ui/Button'
 import { DataRow } from '@/shared/ui/DataRow'
+import { HeartIcon } from '@/shared/ui/icons'
 import { ProgressBar } from '@/shared/ui/ProgressBar'
 import { QueryBoundary } from '@/shared/ui/states'
+
+
+/**
+ * 상세의 찜하기.
+ *
+ * 카드의 하트(features/groupBuy/GroupBuyCard)와 같은 저장소를 씁니다. 목록에서
+ * 찜한 건은 여기서도 채워져 있어야 하고, 반대도 마찬가지입니다.
+ *
+ * 로그인하지 않았으면 로그인 화면으로 보냅니다. 버튼을 감추지 않는 이유는 이런
+ * 기능이 있다는 것 자체가 로그인할 이유가 되기 때문입니다.
+ *
+ * 글자는 넣지 않습니다. "찜하기" 와 "찜함" 은 길이가 달라 누를 때마다 버튼 폭이
+ * 바뀌고, 그만큼 옆의 참여 버튼도 밀립니다. 하트는 채워짐만으로 상태가 읽히므로
+ * 이름은 aria-label 로만 남깁니다.
+ */
+function LikeButton({ id, name }: { id: string; name: string }) {
+  const navigate = useNavigate()
+  const liked = useIsLiked(id)
+  const toggleLike = useToggleLike()
+
+  return (
+    <button
+      type="button"
+      className={cx('btn-ghost detail-like', liked && 'on')}
+      aria-pressed={liked}
+      aria-label={`${name} ${liked ? '찜 해제' : '찜하기'}`}
+      onClick={() => {
+        if (!toggleLike(id)) {
+          void navigate('/login', { state: { from: `/group-buys/${id}` } })
+        }
+      }}
+    >
+      <HeartIcon filled={liked} />
+    </button>
+  )
+}
 
 export default function GroupBuyDetailPage() {
   const { groupBuyId = '' } = useParams()
@@ -93,9 +132,29 @@ function DetailView({ detail }: { detail: GroupBuyDetail }) {
             미달 시 결제는 자동 취소됩니다.
           </p>
 
-          <Button block className="mt24" onClick={join} disabled={!isJoinable}>
-            {isJoinable ? '공동구매 참여하기' : '참여할 수 없는 공동구매입니다'}
-          </Button>
+          {/*
+            TODO(임시): 배송 안내. 무료배송 기준과 도서산간 추가금은 아직 상품에
+            없는 값이라 문구를 박아 두었습니다. 백엔드에 필드가 생기면 바꿉니다.
+            배송비만 실제 값(shippingFee)입니다.
+          */}
+          <dl className="detail-ship">
+            <dt>배송정보</dt>
+            <dd>3일 이내 배송 시작</dd>
+            <dt>배송비</dt>
+            <dd>
+              <b>{won(detail.shippingFee)}</b>
+              <span>70,000원 이상 구매시 무료배송</span>
+              <span>제주/도서산간 6,000원 추가</span>
+            </dd>
+          </dl>
+
+          {/* 사진 아래 선과 버튼 아래 선을 맞춥니다 (.detail-actions 의 margin-top:auto) */}
+          <div className="detail-actions">
+            <LikeButton id={detail.id} name={detail.productName} />
+            <Button className="detail-join" onClick={join} disabled={!isJoinable}>
+              {isJoinable ? '공동구매 참여하기' : '참여할 수 없습니다'}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -154,3 +213,5 @@ function DetailView({ detail }: { detail: GroupBuyDetail }) {
     </>
   )
 }
+
+
