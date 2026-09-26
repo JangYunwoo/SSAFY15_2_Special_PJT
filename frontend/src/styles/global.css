@@ -1877,3 +1877,22 @@ pre.json{
 
 
 
+
+/*
+ * 내 정보 · 계정 패널의 동작 버튼.
+ *
+ * 이 패널은 본문 폭을 그대로 써서 block 버튼이 1200px 까지 늘어났습니다. 누를
+ * 곳이 넓다고 누르기 쉬워지지는 않고, 글자가 넓은 띠 한가운데 외따로 떠서
+ * 무슨 버튼인지 읽는 데 오히려 시간이 걸립니다. 읽기 좋은 폭으로 묶습니다.
+ */
+.account-actions{max-width:420px;}
+/*
+ * 판매자 전환과 로그아웃을 한 줄에 둡니다. 로그아웃은 글자만큼만 쓰고 나머지를
+ * 왼쪽 버튼이 가져갑니다. 반반으로 나누면 어느 쪽이 주된 동작인지 흐려집니다.
+ */
+.account-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:stretch;}
+/* 채움 버튼과 테두리 버튼의 높이를 맞춥니다(테두리 1px 만큼 패딩을 덜어냅니다) */
+.account-row .btn{padding:13px 20px;}
+.account-row .btn-ghost{padding:12px 20px;font-size:13px;}
+
+
