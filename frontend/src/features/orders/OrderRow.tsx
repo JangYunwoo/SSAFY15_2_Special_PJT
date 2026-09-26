@@ -7,6 +7,7 @@ import type { ParticipationSummary } from '@/entities/participation/model'
 import { displayFor } from '@/entities/statusDisplay'
 import { date, dday, groupBuyNo, won } from '@/shared/lib/format'
 import { StateChip } from '@/shared/ui/StateChip'
+import { ChevronIcon } from '@/shared/ui/icons'
 
 /**
  * 주문 목록의 한 건.
@@ -48,6 +49,7 @@ export function OrderRow({ item }: { item: ParticipationSummary }) {
         </span>
         <span className="order-card-name">
           <span>{item.productName}</span>
+          <ChevronIcon direction="next" size={14} />
         </span>
         <span className="order-card-pay">
           <b>{won(item.totalAmount)}</b>
@@ -60,5 +62,6 @@ export function OrderRow({ item }: { item: ParticipationSummary }) {
     </Link>
   )
 }
+
 
 

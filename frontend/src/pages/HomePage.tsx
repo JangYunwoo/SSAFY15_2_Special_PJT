@@ -12,6 +12,7 @@ import { GroupBuyCarousel } from '@/features/groupBuy/GroupBuyCarousel'
 import { GroupBuyGrid } from '@/features/groupBuy/GroupBuyGrid'
 import { recordRecommendationEvents } from '@/features/recommendation/tracking'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
+import { ChevronIcon } from '@/shared/ui/icons'
 import { QueryBoundary } from '@/shared/ui/states'
 
 const PREVIEW_SIZE = 8
@@ -42,6 +43,7 @@ function HomeSection({
         </div>
         <Link className="sec-more" to={moreTo}>
           전체보기
+          <ChevronIcon direction="next" size={14} />
         </Link>
       </div>
       <div className="mt24">{children}</div>
@@ -173,5 +175,6 @@ export function HomePage() {
     </>
   )
 }
+
 
 

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router'
 
@@ -26,7 +27,10 @@ export default function SellerOrdersPage() {
   const [searchParams, setSearchParams] = useSearchParams()
 
   const options = groupBuys.data?.items ?? []
-  const { id: activeId, invalid } = orderSelection(searchParams.get('groupBuyId'), options[0]?.id ?? null)
+  const { id: activeId, invalid } = orderSelection(
+    searchParams.get('groupBuyId'),
+    options[0]?.id ?? null,
+  )
   const listed = options.some((item) => item.id === activeId)
   // 목록 첫 100개 밖의 정상 주문도 상세 권한 확인 후 접근할 수 있다.
   const selected = useQuery({
@@ -56,9 +60,15 @@ export default function SellerOrdersPage() {
             })
           }}
         >
-          {activeId === null && <option value="" disabled>공동구매를 선택해 주세요</option>}
+          {activeId === null && (
+            <option value="" disabled>
+              공동구매를 선택해 주세요
+            </option>
+          )}
           {activeId !== null && !listed && (
-            <option value={activeId}>{selected.data?.productName ?? `공동구매 ${groupBuyNo(activeId)}`}</option>
+            <option value={activeId}>
+              {selected.data?.productName ?? `공동구매 ${groupBuyNo(activeId)}`}
+            </option>
           )}
           {options.map((item) => (
             <option key={item.id} value={item.id}>
@@ -97,9 +107,8 @@ function DeliveryBoardView({ groupBuyId }: { groupBuyId: string }) {
       {(board) => (
         <div className="split">
           <div>
-            <Panel title="참여자 주문" description="송장을 등록하고 배송 상태를 넘깁니다">
-              <DeliveryTable board={board} groupBuyId={groupBuyId} />
-            </Panel>
+            {/* 패널은 DeliveryTable 이 그립니다 — 일괄 버튼이 제목 줄 오른쪽에 들어갑니다 */}
+            <DeliveryTable board={board} groupBuyId={groupBuyId} />
           </div>
 
           <aside>
@@ -134,95 +143,106 @@ function DeliveryTable({ board, groupBuyId }: { board: DeliveryBoard; groupBuyId
 
   const editingDelivery = board.items.find((item) => item.id === editing)
 
-  if (board.items.length === 0) {
-    return <EmptyState>결제 완료된 참여자가 없습니다.</EmptyState>
-  }
+  // 훅은 조건보다 먼저 불러야 합니다. 건이 없을 때도 호출 순서가 같아야 합니다
+  const { actions, notice } = useBulkStatus({
+    groupBuyId,
+    items: board.items,
+    onDone: () => {
+      setEditing(null)
+    },
+  })
 
   return (
-    <>
-      <BulkStatusBar
-        groupBuyId={groupBuyId}
-        items={board.items}
-        onDone={() => {
-          setEditing(null)
-        }}
-      />
+    <Panel
+      title="참여자 주문"
+      description="송장을 등록하고 배송 상태를 넘깁니다"
+      {...(board.items.length > 0 ? { aside: actions } : {})}
+    >
+      {board.items.length === 0 ? (
+        <EmptyState>결제 완료된 참여자가 없습니다.</EmptyState>
+      ) : (
+        <>
+          {notice}
 
-      <table className="list fixed">
-        <colgroup>
-          <col style={{ width: '18%' }} />
-          <col style={{ width: '26%' }} />
-          <col style={{ width: '12%' }} />
-          <col style={{ width: '21%' }} />
-          <col style={{ width: '23%' }} />
-        </colgroup>
-        <thead>
-          <tr>
-            <th>수령인</th>
-            <th>주소</th>
-            <th>상태</th>
-            <th>송장</th>
-            <th className="num">관리</th>
-          </tr>
-        </thead>
-        <tbody>
-          {board.items.map((delivery) => {
-            const display = DELIVERY_STATUS_DISPLAY[delivery.status]
-            return (
-              <tr key={delivery.id}>
-                <td>
-                  <b>{maskName(delivery.recipientName)}</b>
-                  <br />
-                  <span className="small muted">{phone(delivery.recipientPhone)}</span>
-                </td>
-                <td>
-                  <span className="small">
-                    ({delivery.zipcode}) {delivery.address1} {delivery.address2}
-                  </span>
-                  {delivery.deliveryRequest && <p className="small muted">배송 요청: {delivery.deliveryRequest}</p>}
-                </td>
-                <td>
-                  <StateChip tone={display.tone}>{display.label}</StateChip>
-                </td>
-                <td>
-                  {delivery.trackingNumber === null ? (
-                    <span className="small muted">미등록</span>
-                  ) : (
-                    <>
-                      <span className="small">{delivery.carrierName}</span>
-                      <br />
-                      <span className="mono">{delivery.trackingNumber}</span>
-                    </>
-                  )}
-                </td>
-                <td className="num">
-                  <RowStatusSelect delivery={delivery} groupBuyId={groupBuyId} />
-                  <Button
-                    variant="ghost"
-                    className="mt8"
-                    onClick={() => {
-                      setEditing((current) => (current === delivery.id ? null : delivery.id))
-                    }}
-                  >
-                    {delivery.trackingNumber === null ? '송장 등록' : '송장 수정'}
-                  </Button>
-                </td>
+          <table className="list fixed">
+            <colgroup>
+              <col style={{ width: '18%' }} />
+              <col style={{ width: '26%' }} />
+              <col style={{ width: '12%' }} />
+              <col style={{ width: '21%' }} />
+              <col style={{ width: '23%' }} />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>수령인</th>
+                <th>주소</th>
+                <th>상태</th>
+                <th>송장</th>
+                <th>관리</th>
               </tr>
-            )
-          })}
-        </tbody>
-      </table>
+            </thead>
+            <tbody>
+              {board.items.map((delivery) => {
+                const display = DELIVERY_STATUS_DISPLAY[delivery.status]
+                return (
+                  <tr key={delivery.id}>
+                    <td>
+                      <b>{maskName(delivery.recipientName)}</b>
+                      <br />
+                      <span className="small muted">{phone(delivery.recipientPhone)}</span>
+                    </td>
+                    <td>
+                      <span className="small">
+                        ({delivery.zipcode}) {delivery.address1} {delivery.address2}
+                      </span>
+                      {delivery.deliveryRequest && (
+                        <p className="small muted">배송 요청: {delivery.deliveryRequest}</p>
+                      )}
+                    </td>
+                    <td>
+                      <StateChip tone={display.tone}>{display.label}</StateChip>
+                    </td>
+                    <td>
+                      {delivery.trackingNumber === null ? (
+                        <span className="small muted">미등록</span>
+                      ) : (
+                        <>
+                          <span className="small">{delivery.carrierName}</span>
+                          <br />
+                          <span className="mono">{delivery.trackingNumber}</span>
+                        </>
+                      )}
+                    </td>
+                    <td className="row-manage">
+                      <RowStatusSelect delivery={delivery} groupBuyId={groupBuyId} />
+                      <Button
+                        variant="ghost"
+                        className="mt8"
+                        onClick={() => {
+                          setEditing((current) => (current === delivery.id ? null : delivery.id))
+                        }}
+                      >
+                        {delivery.trackingNumber === null ? '송장 등록' : '송장 수정'}
+                      </Button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
 
-      {editingDelivery !== undefined && (
-        <InvoiceForm
-          delivery={editingDelivery}
-          groupBuyId={groupBuyId}
-          onDone={() => {
-            setEditing(null)
-          }}
-        />
+          {editingDelivery !== undefined && (
+            <InvoiceForm
+              delivery={editingDelivery}
+              groupBuyId={groupBuyId}
+              onDone={() => {
+                setEditing(null)
+              }}
+            />
+          )}
+        </>
       )}
-    </>
+    </Panel>
   )
 }
 
@@ -285,8 +305,12 @@ function RowStatusSelect({ delivery, groupBuyId }: { delivery: Delivery; groupBu
  * 전부 바뀌었습니다. 몇 건이 바뀌는지 먼저 밝히고 확인을 받습니다.
  *
  * 한 건만 바꾸려면 표 안의 상태 선택(DLV-03)을 쓰면 됩니다.
+ *
+ * 컴포넌트가 아니라 훅인 이유: 버튼은 패널 제목 줄 오른쪽에, 안내와 확인 단계는
+ * 표 위에 놓입니다. 한 덩어리를 흰 상자로 묶어 두었을 때는 회색 패널 안에 틀이
+ * 하나 더 생겨, 보조 도구가 정작 주인공인 표보다 먼저 눈에 들어왔습니다.
  */
-function BulkStatusBar({
+function useBulkStatus({
   groupBuyId,
   items,
   onDone,
@@ -294,7 +318,7 @@ function BulkStatusBar({
   groupBuyId: string
   items: readonly Delivery[]
   onDone: () => void
-}) {
+}): { actions: ReactNode; notice: ReactNode } {
   const queryClient = useQueryClient()
   const [asking, setAsking] = useState<DeliveryStatus | null>(null)
 
@@ -312,33 +336,32 @@ function BulkStatusBar({
   const withoutInvoice = items.filter((item) => item.trackingNumber === null).length
   const empty = items.length === 0
 
-  return (
-    <div className="box" style={{ marginBottom: 16 }}>
-      <div className="order-actions" style={{ marginTop: 0, alignItems: 'center' }}>
-        <span className="small" style={{ flex: 1 }}>
-          전체 {items.length}건의 배송 상태를 한 번에 바꿉니다.
-        </span>
-        <Button
-          variant="ghost"
-          disabled={empty || bulk.isPending}
-          onClick={() => {
-            setAsking('SHIPPING')
-          }}
-        >
-          전체 배송중으로
-        </Button>
-        <Button
-          disabled={empty || bulk.isPending}
-          onClick={() => {
-            setAsking('DELIVERED')
-          }}
-        >
-          전체 배송완료로
-        </Button>
-      </div>
+  const actions = (
+    <div className="panel-actions">
+      <Button
+        variant="ghost"
+        disabled={empty || bulk.isPending}
+        onClick={() => {
+          setAsking('SHIPPING')
+        }}
+      >
+        전체 배송중으로
+      </Button>
+      <Button
+        disabled={empty || bulk.isPending}
+        onClick={() => {
+          setAsking('DELIVERED')
+        }}
+      >
+        전체 배송완료로
+      </Button>
+    </div>
+  )
 
+  const notice = (
+    <>
       {asking !== null && (
-        <div className="mt8">
+        <div className="bulk-confirm">
           <p className="small" style={{ marginBottom: 8 }}>
             {items.length}건 전부를 <b>{DELIVERY_STATUS_DISPLAY[asking].label}</b> 로 바꿉니다.
             일부만 바꾸려면 표에서 건별로 상태를 고르세요.
@@ -366,19 +389,22 @@ function BulkStatusBar({
       )}
 
       {withoutInvoice > 0 && (
-        <p className="small muted mt8" style={{ marginBottom: 0 }}>
+        <p className="small muted" style={{ margin: '0 0 12px' }}>
           송장이 없는 건이 {withoutInvoice}건 있습니다. 송장을 먼저 등록해야 배송중으로 넘어갑니다.
         </p>
       )}
 
       {bulk.isError && (
-        <p className="small ai-hint fail mt8" role="alert" style={{ marginBottom: 0 }}>
+        <p className="small ai-hint fail" role="alert" style={{ margin: '0 0 12px' }}>
           {toMessage(bulk.error)}
         </p>
       )}
-    </div>
+    </>
   )
+
+  return { actions, notice }
 }
+
 function InvoiceForm({
   delivery,
   groupBuyId,

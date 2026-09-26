@@ -72,3 +72,62 @@ export function HeartIcon({ filled = false }: { filled?: boolean }) {
   )
 }
 
+
+/**
+ * 좌우 넘기기 꺾쇠.
+ *
+ * 글자(‹ ›) 대신 SVG 로 그립니다. 글자는 좌우 여백이 불균등해 원 안에서 가운데가
+ * 미묘하게 어긋나고, 폰트마다 모양도 달라집니다. 상세 갤러리와 홈 캐러셀이 같이
+ * 씁니다 — 같은 제품에서 "넘기기" 는 한 모양이어야 합니다.
+ *
+ * 선이 굵은 편(2.4)이라 위의 BASE(1.6)를 쓰지 않습니다. 원 안에 홀로 놓이는
+ * 기호라 헤더 아이콘만큼 가늘면 흐릿합니다. viewBox 가 24 라 size 를 줄이면 선
+ * 두께도 같은 비율로 얇아집니다 — 14px 에서는 1.4px 이라 글자 옆에 알맞습니다.
+ */
+export function ChevronIcon({
+  direction,
+  size = 26,
+}: {
+  direction: 'prev' | 'next'
+  size?: number
+}) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
+      <polyline
+        points={direction === 'prev' ? '15 5 8 12 15 19' : '9 5 16 12 9 19'}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+
+
+/**
+ * 자동 넘김 멈춤 · 재생.
+ *
+ * 유니코드 ❚❚ 와 ▶ 는 폰트가 정한 크기로 그려져, 같은 font-size 를 줘도 옆의
+ * 꺾쇠보다 훨씬 크고 두껍게 나왔습니다. 면으로 채우는 기호라 stroke 가 아니라
+ * fill 을 씁니다.
+ */
+export function PauseIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
+      <rect x="7" y="5" width="3.6" height="14" rx="1.2" />
+      <rect x="13.4" y="5" width="3.6" height="14" rx="1.2" />
+    </svg>
+  )
+}
+
+export function PlayIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
+      <path d="M8 5.5v13l11-6.5z" />
+    </svg>
+  )
+}
+

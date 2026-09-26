@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 
+import { ChevronIcon, PauseIcon, PlayIcon } from '@/shared/ui/icons'
+
 interface Slide {
   /** 배경 색조. 배너끼리 구분되게 슬라이드마다 다르게 둡니다 */
   tone: 'brand' | 'plum' | 'sand' | 'moss'
@@ -216,7 +218,7 @@ export function HomeBanner() {
               setPos((current) => current - 1)
             }}
           >
-            ‹
+            <ChevronIcon direction="prev" size={16} />
           </button>
           <button
             type="button"
@@ -225,7 +227,7 @@ export function HomeBanner() {
               setPos((current) => current + 1)
             }}
           >
-            ›
+            <ChevronIcon direction="next" size={16} />
           </button>
           <button
             type="button"
@@ -235,13 +237,14 @@ export function HomeBanner() {
               setPaused((value) => !value)
             }}
           >
-            {paused ? '▶' : '❚❚'}
+            {paused ? <PlayIcon /> : <PauseIcon />}
           </button>
         </div>
       </div>
     </section>
   )
 }
+
 
 
 

@@ -63,18 +63,22 @@ export function NotificationBell() {
 
   return (
     <div className="bell" ref={rootRef}>
+      {/* 안 읽은 개수는 배지로 보여주지만, 읽히는 이름에도 넣습니다 */}
       <button
         type="button"
         className="bell-btn"
         aria-expanded={open}
-        aria-label={count > 0 ? `알림 ${String(count)}건` : '알림'}
-        title="알림"
+        {...(count > 0 ? { 'aria-label': `알림 ${String(count)}건` } : {})}
         onClick={() => {
           setOpen((current) => !current)
         }}
       >
-        <BellIcon />
-        {count > 0 && <span className="bell-badge">{count > 99 ? '99+' : count}</span>}
+        <span className="gnb-action-icon">
+          <BellIcon />
+          {/* 개수는 아이콘 어깨에 겁니다. 버튼 모서리에 걸면 글자 위로 올라갑니다 */}
+          {count > 0 && <span className="bell-badge" aria-hidden="true">{count > 99 ? '99+' : count}</span>}
+        </span>
+        <span className="gnb-action-label">알림</span>
       </button>
 
       {open && (
@@ -142,5 +146,6 @@ function NotificationRow({ item, onDone }: { item: Notification; onDone: () => v
     </li>
   )
 }
+
 
 
