@@ -25,12 +25,10 @@ const PREVIEW_SIZE = 8
  */
 function HomeSection({
   title,
-  subtitle,
   moreTo,
   children,
 }: {
   title: string
-  subtitle: string
   moreTo: string
   children: ReactNode
 }) {
@@ -39,7 +37,6 @@ function HomeSection({
       <div className="sec-head">
         <div>
           <h2 className="sec-title">{title}</h2>
-          <p className="sec-sub">{subtitle}</p>
         </div>
         <Link className="sec-more" to={moreTo}>
           전체보기
@@ -125,8 +122,7 @@ export function HomePage() {
           <section className="section home-recommendation-section">
             <div className="sec-head">
               <div>
-                <h2 className="sec-title">회원님을 위한 공동구매</h2>
-                <p className="sec-sub">최근 행동과 구매 이력을 반영한 추천입니다.</p>
+                <h2 className="sec-title">이런 상품은 어떠세요?</h2>
               </div>
             </div>
             <div className="mt24">
@@ -143,8 +139,7 @@ export function HomePage() {
         )}
 
         <HomeSection
-          title="마감 임박"
-          subtitle="모집이 곧 끝납니다. 놓치면 다음을 기다려야 합니다."
+          title="곧 모집이 끝나요!"
           moreTo="/group-buys?sort=deadline"
         >
           <QueryBoundary query={deadlineQuery}>
@@ -153,8 +148,7 @@ export function HomePage() {
         </HomeSection>
 
         <HomeSection
-          title="인기 공동구매"
-          subtitle="목표 인원에 가장 가까이 찬 순서입니다."
+          title="많이 찾는 상품"
           moreTo="/group-buys?sort=popular"
         >
           <QueryBoundary query={popularQuery}>
@@ -175,6 +169,7 @@ export function HomePage() {
     </>
   )
 }
+
 
 
 

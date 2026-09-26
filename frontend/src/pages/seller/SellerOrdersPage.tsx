@@ -43,7 +43,6 @@ export default function SellerOrdersPage() {
       <div className="sec-head">
         <div>
           <h2 className="sec-title">주문 관리</h2>
-          <p className="sec-sub">공동구매별 참여자 주문과 배송 상태를 확인합니다.</p>
         </div>
       </div>
 
@@ -499,4 +498,5 @@ function InvoiceForm({
     </div>
   )
 }
+
 

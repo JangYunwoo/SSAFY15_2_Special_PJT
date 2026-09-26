@@ -31,7 +31,6 @@ export default function LikesPage() {
         <div className="sec-head">
           <div>
             <h2 className="sec-title">찜한 공동구매</h2>
-            <p className="sec-sub">이 브라우저에만 저장됩니다. 다른 기기에서는 보이지 않습니다.</p>
           </div>
         </div>
 
@@ -39,8 +38,11 @@ export default function LikesPage() {
           {(page) => {
             const items = page.items.filter((item) => likedIds.includes(item.id))
             return items.length === 0 ? (
-              <EmptyState title="찜한 공동구매가 없습니다" action={{ to: '/', label: '둘러보기' }}>
-                마음에 드는 공동구매의 하트를 누르면 여기에 모입니다.
+              <EmptyState
+                title="아직 찜한 상품이 없어요"
+                action={{ to: '/group-buys', label: '상품 둘러보기' }}
+              >
+                취향에 맞는 상품을 찾으러 가볼까요?
               </EmptyState>
             ) : (
               <GroupBuyGrid items={items} />
@@ -51,6 +53,7 @@ export default function LikesPage() {
     </main>
   )
 }
+
 
 
 
