@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { cx } from '@/shared/lib/cx'
+import { ChevronIcon } from '@/shared/ui/icons'
 
 /** 이미지가 없을 때 목업처럼 회색 자리 3칸을 보여줍니다. */
 const PLACEHOLDER_COUNT = 3
@@ -40,25 +41,6 @@ function clamp(value: number, max: number): number {
   const half = LENS / 2
   if (max <= LENS) return max / 2
   return Math.min(Math.max(value, half), max - half)
-}
-
-/*
- * 꺾쇠는 글자(‹ ›) 대신 SVG 로 그립니다. 글자는 좌우 여백이 불균등해 원 안에서
- * 가운데가 미묘하게 어긋나고, 폰트마다 모양도 달라집니다.
- */
-function Chevron({ direction }: { direction: 'prev' | 'next' }) {
-  return (
-    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
-      <polyline
-        points={direction === 'prev' ? '15 5 8 12 15 19' : '9 5 16 12 9 19'}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
 }
 
 export function GroupBuyGallery({ images, alt }: GroupBuyGalleryProps) {
@@ -144,7 +126,7 @@ export function GroupBuyGallery({ images, alt }: GroupBuyGalleryProps) {
                 move(-1)
               }}
             >
-              <Chevron direction="prev" />
+              <ChevronIcon direction="prev" />
             </button>
             <button
               type="button"
@@ -157,7 +139,7 @@ export function GroupBuyGallery({ images, alt }: GroupBuyGalleryProps) {
                 move(1)
               }}
             >
-              <Chevron direction="next" />
+              <ChevronIcon direction="next" />
             </button>
           </>
         )}
@@ -184,3 +166,4 @@ export function GroupBuyGallery({ images, alt }: GroupBuyGalleryProps) {
     </div>
   )
 }
+

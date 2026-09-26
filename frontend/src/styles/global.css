@@ -141,28 +141,44 @@ button,input,select,textarea{font:inherit;color:inherit;}
  * 정한 gap 과 정렬이 그대로 적용됩니다.
  */
 .gnb-actions{
-  margin-left:auto;margin-right:-9px;align-self:center;
-  display:flex;align-items:center;gap:4px;
+  margin-left:auto;margin-right:-10px;align-self:center;
+  display:flex;align-items:center;gap:2px;
 }
+/*
+ * 아이콘 오른쪽에 이름을 답니다.
+ *
+ * 평소에는 무채색입니다. 넷을 모두 브랜드색으로 칠했더니 색으로 구분할 수단이
+ * 사라져, 지금 보고 있는 메뉴와 안 읽은 알림을 따로 알릴 방법이 없었습니다.
+ * 파랑은 로고·검색창·현재 메뉴·알림 배지에만 남깁니다.
+ */
 .gnb-action,
 .bell-btn{
-  display:grid;place-items:center;width:44px;height:44px;
-  background:none;border:0;border-radius:999px;padding:0;cursor:pointer;
-  color:var(--aqua);
-  transition:background .16s ease;
+  display:flex;align-items:center;gap:5px;height:44px;padding:0 8px;
+  background:none;border:0;border-radius:8px;cursor:pointer;
+  color:var(--ink2);font-size:12px;white-space:nowrap;
+  transition:var(--t-color);
 }
+/* 배지를 아이콘 어깨에 걸기 위한 기준입니다 */
+.gnb-action-icon{position:relative;display:grid;place-items:center;}
 /*
  * 아이콘 크기는 여기서 정합니다.
  *
  * icons.tsx 의 width/height 는 presentation attribute 라 CSS 가 언제나 이깁니다.
- * 컴포넌트를 고치지 않고 이 한 줄로 조절하세요. 로고(27px)와 같은 높이입니다.
+ * 컴포넌트를 고치지 않고 이 한 줄로 조절하세요.
  */
 .gnb-action svg,
-.bell-btn svg{width:30px;height:30px;}
+.bell-btn svg{width:19px;height:19px;}
+/*
+ * hover 와 현재 페이지 모두 배경을 칠하지 않고 색만 바꿉니다.
+ *
+ * 헤더는 늘 떠 있는 줄이라, 여기에 회색·파란 알약이 생기면 그 아래 내용보다
+ * 먼저 눈에 들어옵니다. 세로 44px 은 그대로 둡니다 — 눈에 보이지 않을 뿐
+ * 손가락으로 누르는 영역입니다.
+ */
 .gnb-action:hover,
-.bell-btn:hover{background:var(--brand-soft);}
+.bell-btn:hover{color:var(--ink);}
 .gnb-action.on,
-.bell-btn[aria-expanded="true"]{background:var(--brand-soft);}
+.bell-btn[aria-expanded="true"]{color:var(--brand);font-weight:700;}
 .gnb .cta{
   border:1px solid var(--brand);padding:9px 16px;
   font-size:12px;font-weight:700;color:var(--brand-text);white-space:nowrap;
@@ -179,13 +195,12 @@ button,input,select,textarea{font:inherit;color:inherit;}
 /* 패널을 버튼 기준으로 띄우므로 relative 가 필요합니다 */
 .bell{position:relative;align-self:center;}
 /*
- * 안 읽은 개수. 아이콘 오른쪽 위 모서리에 겁니다.
+ * 안 읽은 개수. 아이콘 오른쪽 위 어깨에 겁니다.
  *
- * 버튼이 44px 정사각형이고 아이콘은 그 안에서 가운데 있습니다. 배지는 버튼
- * 오른쪽 위 모서리에 걸어 아이콘 어깨에 닿게 합니다.
+ * 기준은 .gnb-action-icon 입니다. 버튼에 걸면 이름 글자 위로 올라갑니다.
  */
 .bell-badge{
-  position:absolute;top:4px;right:4px;min-width:16px;padding:0 4px;
+  position:absolute;top:-5px;right:-7px;min-width:16px;padding:0 4px;
   background:var(--brand);color:var(--on-dark);
   font-size:10px;font-weight:700;line-height:16px;text-align:center;border-radius:999px;
 }
@@ -257,7 +272,8 @@ button,input,select,textarea{font:inherit;color:inherit;}
   border:1px solid var(--line);background:var(--soft);padding:18px;
 }
 .ai-bar .ai-title{font-size:14px;font-weight:700;margin-bottom:4px;}
-.ai-bar .btn{white-space:nowrap;}
+/* 버튼은 섹션 오른쪽 끝으로. 글 바로 옆에 붙어 있으면 오른쪽이 비어 보입니다 */
+.ai-bar .btn{white-space:nowrap;margin-left:auto;}
 .ai-hint{font-size:11px;color:var(--muted);min-height:16px;margin-top:5px;}
 .ai-hint.fail{color:var(--ink2);}
 .ai-tag{
@@ -395,13 +411,13 @@ button,input,select,textarea{font:inherit;color:inherit;}
  * 꺾쇠(이 카드가 어딘가로 들어간다는 표시)는 잘리면 안 되므로 이름만 줄입니다.
  */
 .order-card-name{
-  display:flex;align-items:baseline;gap:5px;
+  /* baseline 이면 SVG 아래 끝이 글자 기준선에 앉아 꺾쇠가 위로 뜹니다 */
+  display:flex;align-items:center;gap:5px;
   font-size:15px;color:var(--ink);margin-bottom:8px;
 }
 .order-card-name > span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.order-card-name::after{
-  content:'›';flex:0 0 auto;color:var(--muted);font-size:15px;
-}
+/* 꺾쇠는 SVG(ChevronIcon)입니다. 자리만 잡아 줍니다 */
+.order-card-name svg{flex:0 0 auto;color:var(--muted);}
 .order-card:hover .order-card-name{color:var(--brand-dark);}
 .order-card-pay{display:block;font-size:14px;color:var(--muted);}
 .order-card-pay b{font-size:15px;font-weight:700;color:var(--ink);}
@@ -419,7 +435,6 @@ button,input,select,textarea{font:inherit;color:inherit;}
   display:inline-flex;align-items:center;gap:4px;
   font-size:12px;color:var(--muted);margin-bottom:14px;transition:var(--t-color);
 }
-.sec-back::before{content:'‹';font-size:15px;line-height:1;}
 .sec-back:hover{color:var(--brand);}
 /*
  * 상세 카드 맨 위의 상태 칩.
@@ -450,7 +465,7 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .order.open .order-detail{display:block;}
 
 /* 판매자 반품 관리에서 쓰는 헤더 */
-.order-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:28px;}
+.order-head{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:28px;}
 .order-head h3{margin:0 0 4px;}
 .order-head .sub{margin:0;}
 .order-amount{text-align:right;font-size:16px;font-weight:700;white-space:nowrap;}
@@ -575,9 +590,11 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .banner-progress{flex:1;height:2px;background:var(--line2);}
 .banner-progress > span{display:block;height:100%;background:var(--ink);transition:width .4s ease;}
 .banner-controls{display:flex;align-items:center;gap:2px;}
+/* 세 버튼 모두 16px SVG 입니다. 글자 기호는 폰트가 크기를 정해 서로 안 맞았습니다 */
 .banner-controls button{
+  display:grid;place-items:center;
   width:30px;height:30px;border:0;border-radius:999px;background:transparent;
-  color:var(--ink2);font-size:14px;line-height:1;cursor:pointer;transition:var(--t-color);
+  color:var(--ink2);line-height:1;cursor:pointer;transition:var(--t-color);
 }
 .banner-controls button:hover{background:var(--soft);color:var(--ink);}
 @media (max-width:760px){
@@ -717,16 +734,22 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .section{padding:24px 0 56px;}
 /* 목록에서 한 건으로 들어온 화면. 제목 위가 덜 비어야 방금 누른 것과 이어집니다 */
 .section.tight{padding-top:20px;}
-.sec-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:16px;}
+/*
+ * 제목 줄. 오른쪽 끝에 "전체보기" 나 정렬이 붙습니다.
+ *
+ * flex-end 였을 때는 그것들이 제목이 아니라 부제 줄에 맞춰져, 두 줄짜리 제목
+ * 옆에서 아래로 처져 보였습니다. 제목 블록 전체의 세로 가운데에 둡니다.
+ */
+.sec-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px;}
 .sec-title{font-size:18px;font-weight:500;margin:0;letter-spacing:-.4px;}
 .sec-title + .sec-sub{margin-top:4px;}
 .sec-sub{font-size:12px;color:var(--muted);margin:0;}
 /* 섹션 제목 오른쪽의 "전체보기". 제목과 같은 줄 끝에 붙습니다 */
+/* 꺾쇠는 글자가 아니라 SVG 입니다 — 폰트마다 모양이 달라지고 가운데가 어긋납니다 */
 .sec-more{
   flex:0 0 auto;font-size:12px;color:var(--ink2);white-space:nowrap;
   display:inline-flex;align-items:center;gap:4px;transition:var(--t-color);
 }
-.sec-more::after{content:'›';font-size:15px;line-height:1;}
 .sec-more:hover{color:var(--brand);}
 
 /* ---------- 목록 정렬 ---------- */
@@ -757,16 +780,52 @@ button,input,select,textarea{font:inherit;color:inherit;}
  * auto 최소값이 min-content 라, 카드 제목이 nowrap 이면 그 칸만 넓어집니다.
  */
 .cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px;}
+/*
+ * 가로 캐러셀.
+ *
+ * 스크롤바를 감추고 좌우 버튼으로 넘깁니다. 아래에 길게 깔린 스크롤바는 카드를
+ * 넘기려고 커서를 한참 내려야 했고 터치 기기에는 보이지도 않았습니다. 끌기와
+ * 스와이프는 그대로 둡니다.
+ */
+.carousel{position:relative;}
 .card-carousel{
   display:flex;gap:20px;overflow-x:auto;overscroll-behavior-x:contain;
-  scroll-snap-type:x mandatory;scrollbar-width:thin;padding:0 0 12px;
+  scroll-snap-type:x mandatory;padding:0;
   cursor:grab;touch-action:pan-y pan-x;
+  scrollbar-width:none;
 }
+.card-carousel::-webkit-scrollbar{display:none;}
 .card-carousel.is-dragging{cursor:grabbing;scroll-snap-type:none;user-select:none;}
 .card-carousel-item{
   flex:0 0 calc((100% - 60px) / 4);min-width:0;scroll-snap-align:start;
 }
 .card-carousel-item .card{height:100%;}
+/*
+/*
+ * 좌우 넘기기 버튼. 상세 갤러리와 홈 캐러셀이 같은 모양을 씁니다.
+ *
+ * 테두리 없이 그림자만으로 띄웁니다. 둘 다 "떠 있다" 를 말하는 장치라 같이 쓰면
+ * 겹쳐서 무거워집니다. 52px 은 손가락으로 누르기에도 넉넉합니다.
+ *
+ * 놓이는 자리만 다릅니다. 갤러리는 사진 위라 반투명이고 평소에는 숨기며,
+ * 캐러셀은 흰 배경과 사진에 걸쳐 있어 불투명하고 늘 보입니다.
+ */
+.gallery-nav,
+.carousel-nav{
+  position:absolute;z-index:2;transform:translateY(-50%);
+  display:grid;place-items:center;
+  width:52px;height:52px;border:0;border-radius:999px;padding:0;
+  color:var(--ink);cursor:pointer;
+  box-shadow:0 1px 4px rgba(60,64,67,.24);
+}
+.carousel-nav{background:var(--surface);transition:box-shadow .16s ease;}
+.carousel-nav:hover{box-shadow:0 3px 10px rgba(60,64,67,.32);}
+/*
+ * 카드 바깥으로 반쯤 걸쳐 둡니다. 안쪽에 두면 첫 카드의 마감 타이머를 가리고,
+ * 완전히 바깥에 두면 --gutter 를 넘어 화면 끝에 붙습니다.
+ */
+.carousel-nav.prev{left:-26px;}
+.carousel-nav.next{right:-26px;}
 .home-recommendation-section{padding-bottom:24px;}
 .home-recommendation-section + .section{padding-top:24px;}
 /*
@@ -822,14 +881,13 @@ button,input,select,textarea{font:inherit;color:inherit;}
  *
  * 배경은 브랜드 블루(--brand, #428dff)입니다. 흰 글자 대비가 3.24:1 로 12px 굵은
  * 글자 기준 WCAG AA(4.5:1)에는 못 미칩니다. 밝은 쪽을 택한 결정입니다(--brand-dark
- * #0043ce 로 바꾸면 7.8:1). 사진 위라 드리는 그림자로 가독성을 조금 받칩니다.
+ * #0043ce 로 바꾸면 7.8:1).
  */
 .card-timer{
   display:inline-block;
   background:var(--brand);color:var(--on-dark);
   font-size:12px;font-weight:700;letter-spacing:-.2px;
   padding:4px 9px;border-radius:5px;
-  text-shadow:0 1px 2px rgba(0,0,0,.28);
   font-variant-numeric:tabular-nums;
 }
 .card-timer i{font-style:normal;font-weight:400;opacity:.75;}
@@ -883,20 +941,26 @@ button,input,select,textarea{font:inherit;color:inherit;}
  * 위 여백 54px = 예전 .crumb(공유 버튼) 자리 42px + 원래 여백 12px.
  * 공유 버튼을 지우면서 본문이 헤더에 붙어버려, 그 자리만큼 여백으로 남깁니다.
  */
-.detail{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;padding:54px 0 40px;}
+.detail{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;padding:54px 0 40px;
+  /* 점 줄(.gallery-dots)의 높이 = margin-top 14 + 점 10. 아래 .detail-info 참고 */
+  --gallery-dots-h:24px;
+}
 
 /*
- * 갤러리 아래 끝을 오른쪽 열의 "공동구매 참여하기" 버튼과 맞춥니다.
+ * 메인 이미지는 정사각형입니다.
  *
- * 높이를 숫자로 박으면 상품명이 길어져 글 열이 늘어날 때 다시 어긋납니다.
- * 세로 flex 로 두고 메인 이미지에 flex:1 을 주면, 썸네일 줄을 뺀 나머지를
- * 이미지가 채워 두 열의 아래 끝이 저절로 같아집니다. 썸네일 크기는 그대로입니다.
+ * 전에는 flex:1 로 오른쪽 열의 높이를 따라가게 해서 두 열의 아래 끝을 맞췄습니다.
+ * 오른쪽에 계산식 표가 길게 있던 때의 이야기입니다. 그것을 아래 패널로 내려
+ * 오른쪽이 이름·가격·버튼만 남자, 이미지가 그 짧은 높이에 눌려 납작한 가로
+ * 사각형이 됐습니다.
  *
- * min-height:0 이 없으면 flex 항목이 내용 크기 아래로 줄지 않아 소용이 없습니다.
+ * 이제는 비율을 이미지가 직접 정하고, 열 높이는 각자 두게 합니다. 상품 사진은
+ * 목록 카드도 정사각형이라 같은 사진이 두 화면에서 같은 모양으로 보입니다.
  */
-.gallery{display:flex;flex-direction:column;}
+.gallery{display:flex;flex-direction:column;align-self:start;}
 .gallery .thumb{
-  position:relative;flex:1;min-height:0;background:var(--fill);overflow:hidden;
+  position:relative;aspect-ratio:1;background:var(--fill);overflow:hidden;
   display:grid;place-items:center;font-size:12px;color:var(--muted);
 }
 /*
@@ -945,13 +1009,9 @@ button,input,select,textarea{font:inherit;color:inherit;}
  * 반투명 흰 원이라 어두운 사진에서도 밝은 사진에서도 보이고, 사진이 비쳐 덜 가립니다.
  * 꺾쇠는 SVG 라 grid place-items:center 로 정확히 가운데에 놓입니다.
  */
+/* 갤러리 쪽만의 차이: 사진 위라 반투명이고, 평소에는 숨겼다가 올리면 나타납니다 */
 .gallery-nav{
-  position:absolute;top:50%;transform:translateY(-50%);z-index:2;
-  width:52px;height:52px;border:0;border-radius:999px;
-  background:rgba(255,255,255,.62);color:var(--ink);
-  cursor:pointer;
-  box-shadow:0 1px 4px rgba(60,64,67,.24);
-  display:grid;place-items:center;
+  top:50%;background:rgba(255,255,255,.62);
   opacity:0;transition:opacity .16s ease, background .16s ease;
 }
 .gallery-nav.prev{left:16px;}
@@ -998,12 +1058,58 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .detail-info .join{font-size:12px;font-weight:700;margin:10px 0 8px;}
 .detail-info .note{font-size:11px;color:var(--ink2);line-height:1.7;margin:10px 0 12px;}
 /*
- * 참여 버튼을 열 바닥에 붙입니다. 갤러리도 같은 행 높이를 채우므로 버튼
- * 아래 선과 썸네일 아래 선이 정확히 맞습니다. 14px 는 최소 간격입니다.
+/*
+/*
+ * 오른쪽 열은 사진과 같은 높이를 씁니다.
+ *
+ * 버튼 줄에 margin-top:auto 를 줘서 아래 선을 사진 아래 선과 맞춥니다. 그 위의
+ * 배송 안내가 중간을 채웁니다.
+ *
+ * 왼쪽 열은 사진 + 점 줄이라 점 줄만큼 더 깁니다. 그대로 두면 버튼이 사진보다
+ * 24px 내려가 점과 나란해집니다. 그만큼을 아래에서 덜어냅니다.
  */
-.detail-info{display:flex;flex-direction:column;}
-/* 화면에서 가장 중요한 동작이라 기본 버튼보다 높게 둡니다. */
-.detail-info .btn{margin-top:auto;padding:18px 24px;font-size:14px;}
+.detail-info{display:flex;flex-direction:column;padding-bottom:var(--gallery-dots-h);}
+/*
+ * 배송 안내. 라벨 왼쪽, 값 오른쪽의 두 칸입니다.
+ *
+ * 테두리 있는 표로 만들지 않습니다. 같은 화면 아래쪽 "공동구매 진행 방식" 이
+ * 이미 표라, 위아래로 표가 둘이면 어느 쪽을 읽어야 할지 갈립니다.
+ */
+.detail-ship{
+  display:grid;grid-template-columns:76px 1fr;gap:12px 20px;
+  margin:20px 0 0;font-size:13px;
+}
+.detail-ship dt{color:var(--muted);}
+.detail-ship dd{margin:0;color:var(--ink);line-height:1.6;}
+.detail-ship dd b{display:block;font-weight:700;}
+.detail-ship dd span{display:block;font-size:12px;color:var(--ink2);}
+/*
+ * 찜하기 · 참여하기.
+ *
+ * 찜은 한 번 누르고 마는 보조 동작이라 좁게, 참여는 이 화면의 목적이라 넓게
+ * 둡니다. 둘을 반반으로 나누면 무엇이 주인지 사라집니다.
+ */
+.detail-actions{display:grid;grid-template-columns:auto 1fr;gap:10px;margin-top:auto;padding-top:24px;}
+/* 하트만 둡니다. 글자 길이가 상태마다 달라 버튼 폭이 흔들렸습니다 */
+.detail-like{
+  display:grid;place-items:center;
+  width:56px;padding:16px 0;
+  border-color:var(--brand);color:var(--brand);
+}
+.detail-like svg{width:22px;height:22px;}
+.detail-like:hover{background:var(--brand-soft);border-color:var(--brand);color:var(--brand-dark);}
+/* 찜한 상태. 카드 하트와 같은 --like 로 채웁니다 */
+.detail-like.on{color:var(--like);border-color:var(--like);}
+.detail-like.on:hover{background:var(--soft);border-color:var(--like);color:var(--like);}
+/*
+ * 이 화면의 목적. 브랜드색으로 채웁니다.
+ *
+ * 흰 글자 대비는 3.24:1 로 14px 굵은 글자 기준 WCAG AA(4.5:1)에 못 미칩니다.
+ * 밝은 쪽을 택한 결정입니다 — --brand-dark 로 바꾸면 7.8:1 입니다.
+ */
+.detail-join{background:var(--brand);padding:16px 24px;font-size:14px;}
+.detail-join:hover{background:var(--brand-dark);}
+.detail-join[disabled]{background:var(--fill);color:var(--muted);}
 .detail-info .box:last-of-type{margin-bottom:14px;}
 
 /*
@@ -1140,7 +1246,8 @@ select.input{
   border-right:1px solid var(--line);
 }
 .steps > *:last-child{border-right:0;}
-.steps > *.on{background:var(--brand-soft);color:var(--brand-dark);font-weight:700;}
+/* 지금 단계. 글자색은 헤더의 현재 메뉴와 같은 --brand 로 맞춥니다 */
+.steps > *.on{background:var(--brand-soft);color:var(--brand);font-weight:700;}
 
 /* ---------- 거래 타임라인 ---------- */
 /* ---------- 거래 진행 막대 ---------- */
@@ -1646,4 +1753,54 @@ pre.json{
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+ * 주문 관리 칸(판매자센터 · 주문 관리).
+ *
+ * 상태 고르개와 송장 버튼을 세로로 쌓고 칸 폭을 꽉 채웁니다. 폭이 제각각이면
+ * 오른쪽 끝이 들쭉날쭉해 보입니다.
+ *
+ * 칸 너비는 colgroup 이 정합니다(table-layout:fixed 라 td 의 width 는 무시됩니다).
+ *
+ * 나란히 놓지 않은 이유는 두 가지입니다. 표가 이미 다섯 칸이라 가로로 하나 더
+ * 넣으면 주소 칸이 먼저 줄바꿈되고, 둘은 성격도 다릅니다 — 고르개는 누르는
+ * 즉시 상태가 바뀌고, 버튼은 아래에 입력 폼을 엽니다.
+ */
+.row-manage > select,
+.row-manage > .btn-ghost{width:100%;}
+
+
+/*
+ * 패널 제목 줄 오른쪽의 동작 버튼 (판매자센터 · 주문 관리의 일괄 변경).
+ *
+ * 전에는 흰 상자로 묶어 표 위에 얹었습니다. 회색 패널 안에 흰 상자가 들어가
+ * 틀이 둘이 되고, 화면에서 흰 상자가 그것뿐이라 보조 도구가 주인공인 표보다
+ * 먼저 눈에 들어왔습니다. 섹션 제목 줄의 "전체보기"·정렬과 같은 자리로 옮깁니다.
+ */
+.panel-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+/* 확인 단계. 되돌릴 수 없는 일괄 변경이라 표 위에서 한 번 더 묻습니다 */
+.bulk-confirm{
+  border:1px solid var(--line);background:var(--surface);
+  border-radius:var(--radius-box);padding:14px 16px;margin-bottom:12px;
+}
 
