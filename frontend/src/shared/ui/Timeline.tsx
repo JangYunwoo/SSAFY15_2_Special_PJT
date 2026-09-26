@@ -10,25 +10,30 @@ export interface TimelineStep {
  *
  * 끊기지 않은 막대 하나를 깔고, 지금 단계까지 채웁니다.
  *
- * 라벨은 양 끝을 막대 끝에 맞추고 나머지를 그 사이에 고르게 놓습니다.
- * 그래서 첫 단계는 0%, 마지막 단계는 100% 지점에 서고, 채워진 길이가
- * 곧 "몇 번째 라벨까지 왔는가" 가 됩니다. 칸을 나눠 채우면 라벨과 칸의
- * 경계가 어긋나 어느 쪽이 현재인지 한 번 더 따져야 합니다.
+ * 라벨은 자기 지점(i / 마지막)에 정확히 세웁니다. 전에는 space-between 으로
+ * 늘어놓았는데, 그러면 라벨 상자의 폭에 따라 글자 가운데가 밀립니다. 3단계에서
+ * 첫 라벨("정산계좌 인증")이 마지막("완료")보다 길어, 가운데 라벨이 막대가 찬
+ * 지점보다 오른쪽에 서 있었습니다. 지점을 직접 지정하면 글자 길이와 무관합니다.
+ *
+ * 양 끝은 밖으로 넘치지 않게 안쪽으로 당깁니다 — 첫 라벨은 왼쪽 끝을, 마지막
+ * 라벨은 오른쪽 끝을 막대 끝에 맞춥니다.
  */
 export function Timeline({ steps }: { steps: readonly TimelineStep[] }) {
   /* 지나온 칸 중 마지막. 칸 사이 간격이 아니라 라벨 위치에 맞춰 채웁니다. */
   const reached = steps.reduce((last, step, index) => (step.state === 'todo' ? last : index), 0)
-  const percent = steps.length > 1 ? (reached / (steps.length - 1)) * 100 : 100
+  const last = steps.length - 1
+  const at = (index: number) => (last > 0 ? (index / last) * 100 : 100)
 
   return (
     <div className="track">
       <ol className="track-labels">
-        {steps.map((step) => (
+        {steps.map((step, index) => (
           <li
             key={step.label}
             /* 현재 단계는 aria-current 로만 표시합니다. 보이는 구분은 막대가 합니다 */
             className={cx(step.state !== 'todo' && 'on')}
             aria-current={step.state === 'now' ? 'step' : undefined}
+            style={{ left: `${String(at(index))}%` }}
           >
             {step.label}
           </li>
@@ -39,8 +44,9 @@ export function Timeline({ steps }: { steps: readonly TimelineStep[] }) {
         첫 단계(0%)에서도 막대가 빈 줄로 보이지 않게 최소 폭을 둡니다.
       */}
       <div className="track-bar" aria-hidden="true">
-        <span style={{ width: `${String(percent)}%` }} />
+        <span style={{ width: `${String(at(reached))}%` }} />
       </div>
     </div>
   )
 }
+
