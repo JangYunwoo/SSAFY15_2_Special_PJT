@@ -735,9 +735,9 @@ button,input,select,textarea{font:inherit;color:inherit;}
  * 열면 내용이 한 번 아래로 밀린 것처럼 보였습니다. 섹션이 이어질 때도 앞
  * 섹션의 아래 여백과 겹쳐 사이가 필요 이상으로 벌어졌습니다.
  */
-.section{padding:24px 0 56px;}
+.section{padding:32px 0 68px;}
 /* 목록에서 한 건으로 들어온 화면. 제목 위가 덜 비어야 방금 누른 것과 이어집니다 */
-.section.tight{padding-top:20px;}
+.section.tight{padding-top:24px;}
 /*
  * 제목 줄. 오른쪽 끝에 "전체보기" 나 정렬이 붙습니다.
  *
@@ -1812,6 +1812,7 @@ pre.json{
   border:1px solid var(--line);background:var(--surface);
   border-radius:var(--radius-box);padding:14px 16px;margin-bottom:12px;
 }
+
 
 
 

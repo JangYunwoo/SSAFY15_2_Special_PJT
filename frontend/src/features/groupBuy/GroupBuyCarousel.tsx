@@ -18,13 +18,11 @@ interface DragState {
 export function GroupBuyCarousel({
   items,
   label,
-  reasons,
   onItemClick,
   onItemVisible,
 }: {
   items: readonly GroupBuySummary[]
   label: string
-  reasons?: Readonly<Record<string, string>> | undefined
   onItemClick?: ((item: GroupBuySummary, position: number) => void) | undefined
   onItemVisible?: ((item: GroupBuySummary, position: number) => void) | undefined
 }) {
@@ -193,7 +191,6 @@ export function GroupBuyCarousel({
           <div className="card-carousel-item" data-carousel-index={index} key={item.id}>
             <GroupBuyCard
               item={item}
-              reason={reasons?.[item.id]}
               onClick={
                 onItemClick === undefined
                   ? undefined
@@ -236,5 +233,6 @@ export function GroupBuyCarousel({
     </div>
   )
 }
+
 
 

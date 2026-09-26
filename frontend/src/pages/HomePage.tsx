@@ -90,7 +90,6 @@ export function HomePage() {
   const popularItems =
     popularQuery.data?.items.filter((item) => !recommendedIds.has(item.id)).slice(0, PREVIEW_SIZE) ??
     []
-  const reasons = Object.fromEntries(recommended.map((item) => [item.groupBuy.id, item.reason]))
 
   const recordImpression = useCallback((item: GroupBuySummary, position: number) => {
     void recordRecommendationEvents([
@@ -130,7 +129,6 @@ export function HomePage() {
                 key={userId}
                 items={recommendedItems}
                 label="회원님을 위한 공동구매"
-                reasons={reasons}
                 onItemClick={recommendationClick}
                 onItemVisible={recordImpression}
               />
@@ -169,6 +167,7 @@ export function HomePage() {
     </>
   )
 }
+
 
 
 
