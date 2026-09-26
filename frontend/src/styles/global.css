@@ -54,6 +54,11 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .mt16{margin-top:16px;}
 .mt24{margin-top:24px;}
 .mt40{margin-top:40px;}
+/*
+ * 아래 여백. mb16 은 두 곳에서 쓰고 있었는데 정의가 없어 아무 일도 하지
+ * 않았습니다(판매자 모집 현황에서 상태 칩이 게이지 바에 붙어 있던 이유).
+ */
+.mb16{margin-bottom:16px;}
 
 /* ---------- 헤더 ---------- */
 .gnb{
@@ -1871,6 +1876,8 @@ pre.json{
   border:1px solid var(--line);background:var(--surface);
   border-radius:var(--radius-box);padding:14px 16px;margin-bottom:12px;
 }
+
+
 
 
 
