@@ -571,12 +571,45 @@ button,input,select,textarea{font:inherit;color:inherit;}
   /* 활성이 아닌 배너는 뒤로 물러나 보이게 합니다 */
   opacity:.45;transition:opacity .4s ease;
 }
+/*
+ * 사진을 까는 슬라이드.
+ *
+ * 사진에 글자를 굽지 않습니다. 배너는 680px 에서 모바일 330px 까지 줄어드는데
+ * 구운 글자는 그만큼 작아져 읽히지 않고, 문구를 고칠 때마다 사진을 다시 뽑아야
+ * 합니다. 사진은 배경만 맡고 글자는 HTML 로 얹습니다.
+ *
+ * 상품이 오른쪽에 있는 사진이라 cover 로 채우고 오른쪽을 기준으로 맞춥니다.
+ * 좁은 화면에서 잘리는 쪽이 글자가 놓인 왼쪽이 아니라 여백이 되게 합니다.
+ */
+.banner-slide.has-image{
+  background-size:cover;background-position:right center;background-repeat:no-repeat;
+  color:var(--ink);
+}
+/*
+ * 글자 쪽 배경을 눌러 줍니다.
+ *
+ * 텀블러 사진은 글자 자리 평균이 rgb(198,210,150) 이라 흰 글자 대비가 1.61:1,
+ * 큰 글자 최소인 3:1 에도 못 미쳤습니다. 왼쪽만 어둡게 깔아 4.5:1 로 올립니다.
+ * 오른쪽은 건드리지 않아 상품 사진의 색이 그대로 남습니다.
+ *
+ * isolation 과 z-index:-1 로 사진 위·글자 아래에 끼웁니다.
+ */
+.banner-slide.has-scrim{position:relative;isolation:isolate;}
+.banner-slide.has-scrim::before{
+  content:'';position:absolute;inset:0;z-index:-1;border-radius:inherit;
+  background:linear-gradient(90deg,rgba(0,0,0,.42) 0%,rgba(0,0,0,.30) 38%,rgba(0,0,0,0) 68%);
+}
+/* 사진의 상품을 가리지 않도록 글은 왼쪽 절반만 씁니다 */
+.banner-text{display:block;max-width:52%;}
+@media (max-width:760px){
+  .banner-text{max-width:58%;}
+}
 .banner-slide.is-active{opacity:1;}
 .banner-slide h2{
-  margin:0 0 10px;font-size:30px;font-weight:700;
-  line-height:1.32;letter-spacing:-1.2px;word-break:keep-all;
+  margin:0 0 10px;font-size:26px;font-weight:700;
+  line-height:1.34;letter-spacing:-.9px;word-break:keep-all;
 }
-.banner-slide p{margin:0;font-size:15px;opacity:.82;}
+.banner-slide p{margin:0;font-size:14px;opacity:.82;word-break:keep-all;}
 /* 배너마다 다른 색을 씁니다. 같은 색이면 넘어간 것이 아니라 글자만 바뀐 것처럼 보입니다 */
 .banner-slide.tone-brand{background:linear-gradient(120deg,var(--blue-20),var(--brand-soft));color:var(--ink);}
 .banner-slide.tone-brand b{color:var(--brand-dark);}
@@ -586,6 +619,14 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .banner-slide.tone-sand b{color:var(--orange-text);}
 .banner-slide.tone-moss{background:linear-gradient(120deg,var(--green-20),var(--green-10));color:var(--ink);}
 .banner-slide.tone-moss b{color:var(--green-text);}
+/*
+ * 사진 배너의 강조 글자. 색조 배너는 저마다 색이 있지만 사진 배너는 물려받을
+ * 색이 없어 본문색 그대로 나왔습니다. 브랜드 파랑을 씁니다.
+ *
+ * --brand(#428dff)는 메인 배너 배경 rgb(213,235,253) 위에서 2.64:1 입니다. 큰
+ * 글자 기준 3:1 에 못 미치지만 밝은 쪽을 택한 결정입니다(--brand-dark 는 8:1).
+ */
+.banner-slide.has-image b{color:var(--brand);}
 /* 진행 바와 조작 버튼은 본문 폭에 맞춰 한 줄에 둡니다 */
 .banner-bottom{
   max-width:var(--max);margin:0 auto;padding:16px var(--gutter) 0;
@@ -604,8 +645,8 @@ button,input,select,textarea{font:inherit;color:inherit;}
 @media (max-width:760px){
   .banner{--banner-w:88vw;--banner-gap:10px;padding-top:14px;}
   .banner-slide{height:200px;padding:0 24px;border-radius:12px;}
-  .banner-slide h2{font-size:21px;letter-spacing:-.8px;}
-  .banner-slide p{font-size:13px;}
+  .banner-slide h2{font-size:19px;letter-spacing:-.6px;}
+  .banner-slide p{font-size:12px;}
 }
 
 /* ---------- 홈 카테고리 아이콘 줄 ---------- */
@@ -1468,13 +1509,24 @@ table.list td.more{text-align:center;padding:24px 12px;}
  * 모서리는 다른 카드와 같은 --radius-box 계열을 씁니다.
  */
 .result{max-width:460px;margin:0 auto;text-align:center;padding:72px 0 96px;}
+/*
+ * 성공 표시. 브랜드색으로 채우고 흰 체크를 얹습니다.
+ *
+ * 회색 테두리에 회색 체크였을 때는 "끝났다" 가 아니라 "비활성" 처럼 보였습니다.
+ * 이 화면은 결제가 잘 됐다는 것 하나를 말하는 자리라 색을 써도 됩니다.
+ */
 .result .mark{
   width:64px;height:64px;border:0;border-radius:50%;
-  background:var(--brand-soft);color:var(--brand-dark);
-  margin:0 auto 22px;display:grid;place-items:center;font-size:30px;
+  background:var(--brand);color:var(--on-dark);
+  margin:0 auto 22px;display:grid;place-items:center;
 }
 .result h2{margin:0 0 12px;font-size:20px;}
 .result p{margin:0 0 28px;font-size:13px;color:var(--ink2);line-height:1.9;}
+/* 이 화면의 주 동작. 기본 버튼의 무채색 대신 브랜드색으로 채웁니다 */
+.result .result-go{background:var(--brand);}
+.result .result-go:hover{background:var(--brand-dark);}
+/* 보조 동작은 테두리만. 주 버튼과 같은 폭·높이로 아래에 놓입니다 */
+.result .btn-ghost{padding:16px;font-size:14px;}
 
 /* ---------- 좁은 폼 페이지 ---------- */
 /* ---------- 인증 화면 (로그인 · 회원가입) ---------- */
@@ -1812,6 +1864,15 @@ pre.json{
   border:1px solid var(--line);background:var(--surface);
   border-radius:var(--radius-box);padding:14px 16px;margin-bottom:12px;
 }
+
+
+
+
+
+
+
+
+
 
 
 

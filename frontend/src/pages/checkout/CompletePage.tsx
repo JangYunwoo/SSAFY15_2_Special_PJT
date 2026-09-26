@@ -56,23 +56,29 @@ export default function CompletePage() {
       <QueryBoundary query={query}>
         {(payment) => (
           <section className="result">
+            {/* 체크는 글자(✓)가 아니라 SVG 입니다. 글자는 폰트마다 굵기와 위치가 달라집니다 */}
             <div className="mark" aria-hidden="true">
-              ✓
+              <svg viewBox="0 0 24 24" width="30" height="30">
+                <polyline
+                  points="5 12.5 10 17.5 19 7"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </div>
             <h2>결제가 완료되었습니다</h2>
             <p>
               공동구매 {groupBuyNo(payment.groupBuyId)} · {PAYMENT_METHOD_LABEL[payment.method]}{' '}
               {won(payment.amount.totalAmount)}
-              <br />
-              목표 인원이 모이면 결제가 확정되고, 미달 시 전액 자동 환불됩니다.
-              <br />
-              결제 금액은 구매확정 전까지 에스크로에 보관됩니다.
             </p>
 
-            <ButtonLink block to="/orders">
+            <ButtonLink block className="result-go" to="/orders">
               거래 현황 확인하기
             </ButtonLink>
-            <ButtonLink variant="ghost" className="mt8" style={{ display: 'block' }} to="/">
+            <ButtonLink variant="ghost" block className="mt8" to="/">
               다른 공동구매 둘러보기
             </ButtonLink>
           </section>
@@ -81,3 +87,4 @@ export default function CompletePage() {
     </main>
   )
 }
+
