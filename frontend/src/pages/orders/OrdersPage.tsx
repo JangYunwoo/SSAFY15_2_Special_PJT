@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query'
 import type { ParticipationSummary } from '@/entities/participation/model'
 import { participationQueries } from '@/entities/participation/queries'
 import { OrderRow } from '@/features/orders/OrderRow'
-import { OrdersTabs } from '@/features/orders/OrdersTabs'
 import { isPastOrder } from '@/features/orders/participationTimeline'
 import { won } from '@/shared/lib/format'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
@@ -23,11 +22,8 @@ export default function OrdersPage() {
         <div className="sec-head">
           <div>
             <h2 className="sec-title">주문/참여 현황</h2>
-            <p className="sec-sub">참여한 공동구매의 진행 상태와 결제 내역을 확인합니다.</p>
           </div>
         </div>
-
-        <OrdersTabs />
 
         <QueryBoundary query={query}>{(page) => <OrdersView items={page.items} />}</QueryBoundary>
       </section>
@@ -64,9 +60,10 @@ function OrdersView({ items }: { items: readonly ParticipationSummary[] }) {
 
   if (items.length === 0) {
     return (
-      <EmptyState title="아직 참여한 공동구매가 없습니다" action={{ to: '/', label: '둘러보기' }}>
-        마음에 드는 공동구매에 참여하면 모집 현황부터 배송까지 여기에서 한번에 볼 수 있습니다.
-      </EmptyState>
+      <EmptyState
+        title="아직 참여한 구매가 없어요"
+        action={{ to: '/group-buys', label: '상품 둘러보기' }}
+      />
     )
   }
 
@@ -107,5 +104,6 @@ function OrdersView({ items }: { items: readonly ParticipationSummary[] }) {
     </div>
   )
 }
+
 
 

@@ -310,3 +310,4 @@ function SettlementDetailPanel({ settlementId }: { settlementId: string }) {
     </QueryBoundary>
   )
 }
+

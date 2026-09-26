@@ -53,7 +53,6 @@ export function GroupBuyListPage() {
             <div className="sec-head">
               <div>
                 <h2 className="sec-title">베스트 상품</h2>
-                <p className="sec-sub">목표 인원에 가장 가까이 찬 공동구매입니다.</p>
               </div>
             </div>
             <div className="mt24">
@@ -72,13 +71,17 @@ export function GroupBuyListPage() {
               <h2 className="sec-title">
                 {keyword === '' ? '상품 전체보기' : `'${keyword}' 검색 결과`}
               </h2>
-              <p className="sec-sub" aria-live="polite">
-                {total === undefined
-                  ? '진행 중인 공동구매를 불러오는 중입니다.'
-                  : isFiltered
-                    ? `${String(total)}건을 찾았습니다.`
-                    : `${String(total)}건의 공동구매가 진행 중입니다.`}
-              </p>
+              {/*
+                건수는 검색·카테고리로 좁혀 들어왔을 때만 적습니다. 그때는 "찾았는가"
+                가 알고 싶은 것이고 베스트 섹션도 안 나와 숫자가 정확합니다.
+                전체 목록에서는 위 베스트 넷을 빼고 그리므로 숫자와 보이는 카드 수가
+                어긋납니다. 어차피 답할 질문도 아니라 적지 않습니다.
+              */}
+              {isFiltered && (
+                <p className="sec-sub" aria-live="polite">
+                  {total === undefined ? '찾는 중입니다.' : `${String(total)}건을 찾았습니다.`}
+                </p>
+              )}
             </div>
             {/* 정렬은 제목과 같은 줄 오른쪽 끝입니다 */}
             <GroupBuyFilters sort={sort} onChange={patch} />
@@ -139,6 +142,8 @@ export function GroupBuyListPage() {
     </>
   )
 }
+
+
 
 
 

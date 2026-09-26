@@ -304,11 +304,15 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .agree-row b{color:var(--muted);font-weight:400;font-size:12px;}
 .agree input{accent-color:var(--brand);width:16px;height:16px;}
 
-/* 빈 상태 */
+/*
+ * 빈 상태.
+ *
+ * 회색 점선 상자를 걷어냈습니다. "없다" 는 사실을 알리려고 상자를 그리면 빈
+ * 자리가 오히려 무거워지고, 목록이 있을 때와 없을 때 화면의 인상이 크게
+ * 달라집니다. 글과 다음 행동만 가운데에 둡니다.
+ */
 .empty{
-  border:1px dashed var(--line);background:var(--soft);
-  padding:56px 24px;text-align:center;font-size:13px;color:var(--muted);
-  border-radius:var(--radius-box);
+  padding:64px 24px;text-align:center;font-size:13px;color:var(--muted);
 }
 /*
  * 판매자 전환의 단계 표시 (S15P21B205-231). 막대 위에 몇 단계 중 몇 번째인지
@@ -334,7 +338,7 @@ button,input,select,textarea{font:inherit;color:inherit;}
  * 빈 자리에 제목·설명·다음 행동을 함께 둘 때의 간격 (S15P21B205-230).
  * .empty 가 글자 크기를 작게 잡아 두어, 제목만 본문 색·굵기로 끌어올립니다.
  */
-.empty-title{margin:0;font-size:15px;font-weight:700;color:var(--ink);}
+.empty-title{margin:0;font-size:17px;font-weight:700;color:var(--ink);letter-spacing:-.3px;}
 .empty-desc{margin:0;line-height:1.7;}
 .empty-title + .empty-desc{margin-top:8px;}
 
@@ -741,7 +745,8 @@ button,input,select,textarea{font:inherit;color:inherit;}
  * 옆에서 아래로 처져 보였습니다. 제목 블록 전체의 세로 가운데에 둡니다.
  */
 .sec-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px;}
-.sec-title{font-size:18px;font-weight:500;margin:0;letter-spacing:-.4px;}
+/* 섹션 제목. 카드 제목(15px/500)보다 확실히 위여야 섹션 경계가 읽힙니다 */
+.sec-title{font-size:19px;font-weight:700;margin:0;letter-spacing:-.5px;}
 .sec-title + .sec-sub{margin-top:4px;}
 .sec-sub{font-size:12px;color:var(--muted);margin:0;}
 /* 섹션 제목 오른쪽의 "전체보기". 제목과 같은 줄 끝에 붙습니다 */
@@ -1532,11 +1537,15 @@ table.list td.more{text-align:center;padding:24px 12px;}
 /* 아래는 화면 끝에 붙입니다. 바닥에서 떠 있으면 페이지가 끝났다는 느낌이 안 납니다. */
 footer.foot{margin-top:72px;padding:0 var(--gutter);}
 .foot-card{
-  max-width:var(--max);margin:0 auto;
+  /*
+   * 좌우 끝을 위 본문에 맞춥니다. --max 를 그대로 쓰면 회색 카드만 양옆으로
+   * --gutter 만큼 더 나와, 푸터가 화면에서 혼자 넓어 보였습니다.
+   */
+  max-width:calc(var(--max) - var(--gutter) * 2);margin:0 auto;
   background:var(--soft);
   /* 바닥에 붙으므로 아래 모서리는 깎지 않습니다 */
   border-radius:20px 20px 0 0;
-  padding:32px 44px 20px;
+  padding:32px 28px 20px;
 }
 /*
  * 3등분 그리드였는데 링크가 서너 개뿐이라 넓은 칸에 억지로 벌어졌습니다.
@@ -1803,4 +1812,6 @@ pre.json{
   border:1px solid var(--line);background:var(--surface);
   border-radius:var(--radius-box);padding:14px 16px;margin-bottom:12px;
 }
+
+
 

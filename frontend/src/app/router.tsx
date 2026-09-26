@@ -44,8 +44,6 @@ const KakaoPayCallbackPage = lazy(() => import('@/pages/checkout/KakaoPayCallbac
 
 const OrdersPage = lazy(() => import('@/pages/orders/OrdersPage'))
 const OrderDetailPage = lazy(() => import('@/pages/orders/OrderDetailPage'))
-const OrdersPaymentsPage = lazy(() => import('@/pages/orders/OrdersPaymentsPage'))
-const ReturnsPage = lazy(() => import('@/pages/orders/ReturnsPage'))
 const ConfirmPage = lazy(() => import('@/pages/orders/ConfirmPage'))
 const ReturnRequestPage = lazy(() => import('@/pages/orders/ReturnRequestPage'))
 const DisputePage = lazy(() => import('@/pages/orders/DisputePage'))
@@ -91,9 +89,7 @@ export const router = createBrowserRouter([
           { path: 'likes', element: <LikesPage /> },
           { path: 'me', element: <MyPage /> },
           { path: 'orders', element: <OrdersPage /> },
-          { path: 'orders/payments', element: <OrdersPaymentsPage /> },
-          { path: 'orders/returns', element: <ReturnsPage /> },
-          /* 정적 경로(payments·returns)가 먼저 잡히므로 :participationId 와 겹치지 않습니다 */
+          /* confirm·return·dispute 는 한 칸 더 깊어 :participationId 와 겹치지 않습니다 */
           { path: 'orders/:participationId', element: <OrderDetailPage /> },
           { path: 'orders/:participationId/confirm', element: <ConfirmPage /> },
           { path: 'orders/:participationId/return', element: <ReturnRequestPage /> },
@@ -194,5 +190,6 @@ export const router = createBrowserRouter([
 
   { path: '*', element: <NotFoundPage /> },
 ])
+
 
 
