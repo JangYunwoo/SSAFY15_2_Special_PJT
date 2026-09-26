@@ -110,8 +110,8 @@ export function ProductFields({ form, onChange, ai = null }: ProductFieldsProps)
             hint={aiHintText(ai?.hints.categoryId)}
           />
           <TextField
-            label="색상"
-            placeholder="예) 미드나이트"
+            label="옵션(색상 · 맛 등)"
+            placeholder="예) 미드나이트, 오리지널"
             value={form.color}
             onChange={(event) => {
               onChange({ color: event.target.value })
@@ -203,3 +203,4 @@ export function ProductFields({ form, onChange, ai = null }: ProductFieldsProps)
     </>
   )
 }
+

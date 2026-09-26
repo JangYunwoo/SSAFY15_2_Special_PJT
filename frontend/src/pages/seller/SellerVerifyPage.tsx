@@ -188,8 +188,13 @@ export default function SellerVerifyPage() {
                       )
                     ) : (
                       <>
+                        {/*
+                          서버 메시지(account.message)는 쓰지 않습니다. 앞 문장과 같은 말을
+                          한 번 더 하고, 끝에 "(데모: 자동 조회됨)" 이 붙어 있습니다.
+                        */}
                         <p className="small muted">
-                          정산계좌 <b>{account.accountNo}</b> 로 1원을 보냈습니다. {account.message}
+                          정산계좌 <b>{account.accountNo}</b> 로 1원을 보냈습니다. 입금 내역의
+                          인증코드를 입력하세요.
                         </p>
                         <TextField
                           label="1원 인증코드"
@@ -278,16 +283,7 @@ export default function SellerVerifyPage() {
             </div>
 
             <aside>
-              <Panel title="전환 후 이용할 수 있는 기능" description="판매자센터">
-                <ul className="mt16">
-                  <li>상품 관리 — 등록 · 수정 · 삭제</li>
-                  <li>공동구매 — 생성 · 참여자 현황</li>
-                  <li>배송 — 송장 등록 · 상태 변경</li>
-                  <li>반품 — 승인 · 거부 · 수거 확인</li>
-                  <li>정산 — 정산 내역 조회</li>
-                </ul>
-              </Panel>
-              <Panel className="mt16" title="안내" description="전자상거래법 제10조">
+              <Panel title="안내" description="전자상거래법 제10조">
                 <p className="small muted" style={{ marginBottom: 0 }}>
                   정산계좌 1원 인증은 SSAFY 금융망으로 실제 1원을 보내 예금주를 확인합니다. 카드가
                   없으면 인증 과정에서 정산계좌가 자동으로 개설됩니다.

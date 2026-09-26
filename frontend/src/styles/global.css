@@ -54,6 +54,11 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .mt16{margin-top:16px;}
 .mt24{margin-top:24px;}
 .mt40{margin-top:40px;}
+/*
+ * 아래 여백. mb16 은 두 곳에서 쓰고 있었는데 정의가 없어 아무 일도 하지
+ * 않았습니다(판매자 모집 현황에서 상태 칩이 게이지 바에 붙어 있던 이유).
+ */
+.mb16{margin-bottom:16px;}
 
 /* ---------- 헤더 ---------- */
 .gnb{
@@ -1303,15 +1308,22 @@ select.input{
  * 붙여주므로, 채워진 길이가 곧 "몇 번째 라벨까지 왔는가" 가 됩니다.
  */
 .track{margin-top:8px;}
+/*
+ * 라벨은 컴포넌트가 정한 지점(left %)에 세웁니다. space-between 으로 늘어놓으면
+ * 라벨 상자 폭에 따라 글자 가운데가 밀려, 막대가 찬 지점과 어긋납니다.
+ */
 .track-labels{
-  display:flex;justify-content:space-between;gap:8px;
+  position:relative;height:16px;
   list-style:none;margin:0 0 7px;padding:0;
   font-size:11px;color:var(--muted);
 }
-.track-labels > li{word-break:keep-all;}
-/* 양 끝은 막대 끝에 붙으므로 글자도 바깥쪽으로 정렬합니다 */
-.track-labels > li:first-child{text-align:left;}
-.track-labels > li:last-child{text-align:right;}
+.track-labels > li{
+  position:absolute;top:0;transform:translateX(-50%);
+  white-space:nowrap;word-break:keep-all;
+}
+/* 양 끝은 막대 밖으로 넘치지 않게 안쪽으로 당깁니다 */
+.track-labels > li:first-child{transform:none;}
+.track-labels > li:last-child{transform:translateX(-100%);}
 /*
  * 지나온 단계는 채워진 막대와 같은 색으로 둡니다. 어디까지 왔는지는 채움이
  * 끝나는 자리가 이미 말해주므로, 현재 단계를 굵게 세워 따로 표시하지
