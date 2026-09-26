@@ -84,11 +84,9 @@ function LikeButton({ id, name }: { id: string; name: string }) {
  */
 export function GroupBuyCard({
   item,
-  reason,
   onClick,
 }: {
   item: GroupBuySummary
-  reason?: string | undefined
   onClick?: (() => void) | undefined
 }) {
   const status = cardStatusDisplay(item)
@@ -127,11 +125,11 @@ export function GroupBuyCard({
             {item.paidCount} / {item.targetCount}명 · {rate}%
           </span>
         </div>
-        {reason !== undefined && <div className="meta">{reason}</div>}
       </div>
     </Link>
   )
 }
+
 
 
 
