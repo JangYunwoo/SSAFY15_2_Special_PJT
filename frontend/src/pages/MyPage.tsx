@@ -58,7 +58,12 @@ export default function MyPage() {
           </Panel>
         </div>
 
-        <div className="mt24">
+        {/*
+          위 두 패널과 같은 열 폭에 맞춥니다. 본문 폭을 다 쓰면 버튼 둘뿐인
+          패널이 화면에서 가장 큰 회색 덩어리가 됩니다. 칸이 둘인 격자에 하나만
+          넣으면 첫 칸에 들어가므로 빈 칸을 따로 두지 않습니다.
+        */}
+        <div className="split even mt24">
           <AccountActions />
         </div>
       </section>
@@ -283,27 +288,33 @@ function AccountActions() {
 
   return (
     <Panel title="계정" description={isSeller ? '판매자센터와 로그아웃' : '판매자 전환과 로그아웃'}>
-      <ButtonLink block to={isSeller ? '/seller' : '/seller/verify'}>
-        {isSeller ? '판매자센터 가기' : '판매자로 전환하기'}
-      </ButtonLink>
-      <p className="small muted mt8" style={{ marginBottom: 0 }}>
-        {isSeller
-          ? '등록한 상품과 공동구매, 정산을 관리합니다.'
-          : '정산계좌 인증을 마치면 상품을 등록하고 공동구매를 열 수 있습니다.'}
-      </p>
-
-      <Button
-        variant="ghost"
-        block
-        className="mt16"
-        disabled={logout.isPending}
-        onClick={() => {
-          logout.mutate()
-        }}
-      >
-        로그아웃
-      </Button>
+      {/* 패널이 본문 폭을 그대로 써서 버튼만 따로 묶어 좁힙니다 (.account-actions) */}
+      <div className="account-actions">
+        {/* 안내문구는 왼쪽 버튼에 딸린 것이라 두 버튼 아래에 한 번만 둡니다 */}
+        <div className="account-row">
+          <ButtonLink to={isSeller ? '/seller' : '/seller/verify'}>
+            {isSeller ? '판매자센터 가기' : '판매자로 전환하기'}
+          </ButtonLink>
+          <Button
+            variant="ghost"
+            disabled={logout.isPending}
+            onClick={() => {
+              logout.mutate()
+            }}
+          >
+            로그아웃
+          </Button>
+        </div>
+        <p className="small muted mt8" style={{ marginBottom: 0 }}>
+          {isSeller
+            ? '등록한 상품과 공동구매, 정산을 관리합니다.'
+            : '정산계좌 인증을 마치면 상품을 등록하고 공동구매를 열 수 있습니다.'}
+        </p>
+      </div>
     </Panel>
   )
 }
+
+
+
 
