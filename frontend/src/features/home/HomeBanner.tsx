@@ -1,52 +1,101 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 
+import { cx } from '@/shared/lib/cx'
 import { ChevronIcon, PauseIcon, PlayIcon } from '@/shared/ui/icons'
 
+import deskImage from '@/assets/banners/desk.webp'
+import mainImage from '@/assets/banners/main.webp'
+import potatoImage from '@/assets/banners/potato.webp'
+import tumblerImage from '@/assets/banners/tumbler.jpg'
+
 interface Slide {
-  /** 배경 색조. 배너끼리 구분되게 슬라이드마다 다르게 둡니다 */
-  tone: 'brand' | 'plum' | 'sand' | 'moss'
-  title: string
-  highlight: string
-  tail: string
-  description: string
+  /** 배경 색조. 사진이 없는 슬라이드가 씁니다 */
+  tone?: 'brand' | 'plum' | 'sand' | 'moss'
+  /** 배경 사진. 있으면 tone 대신 이것을 깝니다 */
+  image?: string
+  /** 글자색. 사진마다 배경 밝기가 달라 슬라이드가 직접 정합니다 */
+  ink?: string
+  /** 글자 쪽 배경을 눌러 줍니다. 밝은 사진 위 흰 글자에 필요합니다 */
+  scrim?: boolean
+  /** 누르면 갈 곳 */
+  to: string
+  /** 제목. 칸마다 한 줄로 나옵니다 */
+  lines: readonly string[]
+  /** lines 안에서 브랜드색으로 강조할 조각 */
+  highlight?: string
+  /** 안내문구. 칸마다 한 줄 */
+  description?: readonly string[]
 }
 
 /**
  * 홈 배너에 돌릴 내용.
  *
- * 할인율이나 기간 한정 같은 판촉 문구는 넣지 않았습니다. 실제로 그런 행사가
- * 없는데 배너에 적으면 화면이 거짓말을 합니다. 대신 이 서비스가 실제로 하는 일을
- * 돌립니다. 행사 배너가 생기면 이 배열을 서버 응답으로 바꾸면 됩니다.
+ * 첫 장은 이 서비스가 무엇인지 말하고, 나머지는 실제로 지금 모집 중인 공동구매로
+ * 보냅니다. 네 장 모두 서비스 설명이던 때는 첫 화면 280px 을 같은 말 네 번에
+ * 쓰면서, 정작 살 수 있는 물건은 스크롤을 내려야 나왔습니다.
+ *
+ * 사진에는 글자를 굽지 않습니다. 배너 폭이 680px 에서 모바일 330px 까지 줄어서
+ * 구운 글자는 읽히지 않고, 문구를 고칠 때마다 사진을 다시 뽑아야 합니다.
+ *
+ * 감자 배너의 8910원은 적어 둔 값입니다. 모집 인원이 바뀌면 분담금도 달라지는데
+ * 배너만 옛 숫자를 말하게 되므로, 실제로 쓰려면 공동구매 조회에서 받아야 합니다.
  */
+
+/**
+ * 제목 한 줄에서 강조할 조각만 브랜드색으로 감쌉니다.
+ *
+ * 전에는 title·highlight·tail 세 조각으로 나눠 받았는데, 줄바꿈이 필요한 문구가
+ * 생기면서 조각 수가 늘어났습니다. 한 줄을 통째로 받고 강조할 말만 찾습니다.
+ */
+function highlighted(line: string, highlight: string | undefined): ReactNode {
+  if (highlight === undefined) return line
+  const at = line.indexOf(highlight)
+  if (at < 0) return line
+  return (
+    <>
+      {line.slice(0, at)}
+      <b>{highlight}</b>
+      {line.slice(at + highlight.length)}
+    </>
+  )
+}
+
 const SLIDES: readonly Slide[] = [
   {
-    tone: 'brand',
-    title: '이거 어디서 샀어? 이거 ',
+    image: mainImage,
+    to: '/group-buys',
+    lines: ['이거 어디서 샀어?', '이거 공구한 건데'],
     highlight: '공구한',
-    tail: ' 건데',
-    description: '필요한 사람끼리 모여 더 싸게, 결제는 에스크로로 안전하게',
+    description: ['필요한 사람끼리 모여 더 싸게,', '결제는 에스크로로 안전하게'],
   },
   {
-    tone: 'plum',
-    title: '모일수록 ',
-    highlight: '분담금',
-    tail: '이 내려갑니다',
-    description: '상품 가격을 목표 인원이 나눠 냅니다',
+    image: tumblerImage,
+    /*
+     * 흰 글자는 이 사진 위에서 대비가 1.61:1 입니다(글자 자리 평균 rgb(198,210,150)).
+     * 큰 글자 기준 최소 3:1 에도 한참 못 미쳐 실제로 읽히지 않습니다.
+     * 어두운 글자로 바꾸면 6.51:1 이고, 흰 글자를 살리려면 사진 위에 가림막이
+     * 필요합니다.
+     */
+    ink: '#ffffff',
+    scrim: true,
+    to: '/group-buys/5',
+    lines: ['새학기도', '알록달록하게'],
+    description: ['락앤락 메트로 킹 텀블러 820ml'],
   },
   {
-    tone: 'sand',
-    title: '결제한 돈은 ',
-    highlight: '에스크로',
-    tail: '에 보관됩니다',
-    description: '구매확정 전까지 판매자에게 넘어가지 않습니다',
+    image: deskImage,
+    ink: '#5c4433',
+    to: '/group-buys/111',
+    lines: ['좋은 느낌을 주는 책상'],
+    description: ['가을맞이 책상 기획전'],
   },
   {
-    tone: 'moss',
-    title: '모집이 미달하면 ',
-    highlight: '자동 환불',
-    tail: '됩니다',
-    description: '인원이 안 차도 결제금액은 그대로 돌아옵니다',
+    image: potatoImage,
+    to: '/group-buys/272',
+    lines: ['왔어요 왔어', '모락모락 햇감자가'],
+    description: ['국내산 햇감자 지금사면 8910원'],
   },
 ]
 
@@ -187,19 +236,46 @@ export function HomeBanner() {
             const isActive = slideIndex === pos
             return (
               <Link
-                to="/group-buys"
-                className={`banner-slide tone-${slide.tone}${isActive ? ' is-active' : ''}`}
-                key={`${slide.highlight}-${String(slideIndex)}`}
-                aria-label={`${slide.title}${slide.highlight}${slide.tail}`}
+                to={slide.to}
+                className={cx(
+                  'banner-slide',
+                  slide.image === undefined ? `tone-${slide.tone ?? 'brand'}` : 'has-image',
+                  slide.scrim === true && 'has-scrim',
+                  isActive && 'is-active',
+                )}
+                style={{
+                  ...(slide.image === undefined
+                    ? {}
+                    : { backgroundImage: `url(${slide.image})` }),
+                  ...(slide.ink === undefined ? {} : { color: slide.ink }),
+                }}
+                key={`${slide.lines.join('')}-${String(slideIndex)}`}
+                aria-label={slide.lines.join(' ')}
                 aria-hidden={!isActive}
                 tabIndex={isActive ? undefined : -1}
               >
-                <h2>
-                  {slide.title}
-                  <b>{slide.highlight}</b>
-                  {slide.tail}
-                </h2>
-                <p>{slide.description}</p>
+                {/* 사진이 오른쪽에 있어 글은 왼쪽 절반만 씁니다 */}
+                <span className="banner-text">
+                  <h2>
+                    {slide.lines.map((line, lineIndex) => (
+                      <span className="banner-line" key={line}>
+                        {highlighted(line, slide.highlight)}
+                        {/* 마지막 줄이 아니면 줄을 바꿉니다 */}
+                        {lineIndex < slide.lines.length - 1 && <br />}
+                      </span>
+                    ))}
+                  </h2>
+                  {slide.description !== undefined && (
+                    <p>
+                      {slide.description.map((line, lineIndex) => (
+                        <span key={line}>
+                          {line}
+                          {lineIndex < (slide.description?.length ?? 0) - 1 && <br />}
+                        </span>
+                      ))}
+                    </p>
+                  )}
+                </span>
               </Link>
             )
           })}
@@ -244,6 +320,13 @@ export function HomeBanner() {
     </section>
   )
 }
+
+
+
+
+
+
+
 
 
 
