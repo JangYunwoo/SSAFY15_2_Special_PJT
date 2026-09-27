@@ -548,14 +548,20 @@ button,input,select,textarea{font:inherit;color:inherit;}
  * 상품 설명은 본문입니다.
  *
  * 13px + ink2 는 보조 텍스트 크기라 정작 읽어야 할 글이 가장 흐렸습니다.
- * white-space 를 pre-line 으로 두어 판매자가 넣은 줄바꿈을 살리고(지정하지
- * 않으면 여러 줄로 쓴 설명이 한 덩어리로 붙습니다), 한 줄이 너무 길어지지
- * 않게 폭을 제한합니다.
+ * white-space 를 pre-line 으로 두어 판매자가 넣은 줄바꿈을 살립니다(지정하지
+ * 않으면 여러 줄로 쓴 설명이 한 덩어리로 붙습니다).
+ *
+ * 폭은 제한하지 않습니다. 62ch 로 묶어 두었더니 패널이 넓어도 글이 절반쯤에서
+ * 꺾여, 판매자가 넣지 않은 줄바꿈이 생긴 것처럼 보였습니다. keep-all 은
+ * "마십시/오" 처럼 낱말 가운데에서 끊기지 않게 합니다.
+ *
+ * 아래 여백은 뒤따르는 버튼·표와 붙지 않게 남기고, 마지막 문단에서만 뺍니다.
  */
 .para{
-  font-size:14px;color:var(--ink);line-height:1.8;margin:0;
-  white-space:pre-line;max-width:62ch;
+  font-size:14px;color:var(--ink);line-height:1.8;margin:0 0 16px;
+  white-space:pre-line;word-break:keep-all;
 }
+.para:last-child{margin-bottom:0;}
 
 /* 판매자 카드 */
 .seller-card{display:flex;align-items:center;gap:14px;}
