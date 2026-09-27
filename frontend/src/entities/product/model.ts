@@ -66,8 +66,13 @@ export interface WithdrawalRestrictionReason {
 
 export interface AiField<TValue> {
   value: TValue
-  /** 0~1. 낮으면 화면에서 검수 안내를 띄웁니다. */
-  confidence: number
+  /**
+   * 0~1. 낮으면 화면에서 검수 안내를 띄웁니다.
+   *
+   * AI 모듈이 신뢰도를 주지 않는 항목은 null 입니다. "모른다" 와 "0 이다" 는 다릅니다 -
+   * 0 으로 채우면 정상 추출한 값에 "신뢰도 0%" 가 붙어 틀린 값처럼 보입니다.
+   */
+  confidence: number | null
 }
 
 export interface AiExtraction {
