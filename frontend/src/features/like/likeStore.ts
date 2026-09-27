@@ -47,10 +47,34 @@ const useLikeStore = create<LikeState>()(
 /** 로그인한 사용자 id. 비로그인이면 null 이라 찜을 읽지도 쓰지도 않습니다 */
 const useUserId = () => useSessionStore((state) => state.actor?.id ?? null)
 
+/**
+ * 찜이 없을 때 돌려줄 빈 목록.
+ *
+ * 반드시 하나를 돌려써야 합니다. 셀렉터 안에서 `[]` 를 새로 만들면 호출할 때마다
+ * 다른 참조가 나오고, zustand 가 useSyncExternalStore 로 스냅샷을 Object.is 로
+ * 비교하므로 매번 "바뀌었다" 로 판정해 무한 리렌더에 빠집니다
+ * (React error #185: Maximum update depth exceeded).
+ *
+ * 찜한 것이 하나도 없는 사용자에게만 터져서, 정작 "아직 찜한 상품이 없어요" 화면이
+ * 보이지 않고 페이지 전체가 죽었습니다.
+ */
+const NO_LIKES: readonly string[] = []
+
+/**
+ * 셀렉터 본체. 훅에서 분리해 두어야 참조가 안정적인지 테스트로 확인할 수 있습니다.
+ */
+export function selectLikedIds(
+  byUser: Record<string, string[]>,
+  userId: string | null,
+): readonly string[] {
+  if (userId === null) return NO_LIKES
+  return byUser[userId] ?? NO_LIKES
+}
+
 /** 내가 찜한 공동구매 id 목록 */
 export function useLikedIds(): readonly string[] {
   const userId = useUserId()
-  return useLikeStore((state) => (userId === null ? [] : state.byUser[userId] ?? []))
+  return useLikeStore((state) => selectLikedIds(state.byUser, userId))
 }
 
 /**
