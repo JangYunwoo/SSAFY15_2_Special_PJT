@@ -1844,6 +1844,16 @@ button.upload{width:100%;font:inherit;}
  */
 .upload{position:relative;overflow:hidden;}
 .upload-preview{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;}
+/*
+ * 상품 이미지 칸. 대표 1장 + 추가 3장을 같은 크기 정사각형으로 한 줄에 둡니다.
+ * 대표만 크게 두면 추가 칸이 작아져 무엇을 올렸는지 알아보기 어려웠습니다.
+ */
+.upload-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;}
+.upload-square{height:auto;aspect-ratio:1 / 1;}
+.upload-badge{
+  position:absolute;left:8px;top:8px;padding:3px 8px;border-radius:999px;
+  background:var(--aqua);color:var(--white);font-size:11px;font-weight:700;
+}
 
 /* 진행 중 공동구매 요약의 참여 인원 */
 .stat-box .stat-count{font-size:22px;font-weight:700;margin:4px 0 12px;letter-spacing:-.5px;}
