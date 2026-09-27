@@ -1,6 +1,4 @@
-/* eslint-disable react-refresh/only-export-components --
-   라우터는 컴포넌트가 아니라 라우트 설정(router)을 내보내는 모듈입니다. */
-import { lazy } from 'react'
+import { lazyRoute } from './lazyRoute'
 import { createBrowserRouter } from 'react-router'
 
 /* 가드는 세션 스토어만 읽는 몇 줄짜리라 어느 화면에서나 바로 필요합니다. */
@@ -19,56 +17,56 @@ import { HomePage } from '@/pages/HomePage'
  * 내려받게 됩니다. App 이 RouterProvider 를 Suspense 로 감싸고 있어 로딩 중에는
  * 페이지와 같은 폴백이 나옵니다.
  */
-const AdminLayout = lazy(() =>
+const AdminLayout = lazyRoute(() =>
   import('./layouts/AdminLayout').then((m) => ({ default: m.AdminLayout })),
 )
-const SellerLayout = lazy(() =>
+const SellerLayout = lazyRoute(() =>
   import('./layouts/SellerLayout').then((m) => ({ default: m.SellerLayout })),
 )
-const CheckoutLayout = lazy(() =>
+const CheckoutLayout = lazyRoute(() =>
   import('./layouts/CheckoutLayout').then((m) => ({ default: m.CheckoutLayout })),
 )
 
-const AboutPage = lazy(() => import('@/pages/AboutPage'))
-const LikesPage = lazy(() => import('@/pages/LikesPage'))
-const GroupBuyDetailPage = lazy(() => import('@/pages/GroupBuyDetailPage'))
-const LoginPage = lazy(() => import('@/pages/LoginPage'))
-const SignupPage = lazy(() => import('@/pages/SignupPage'))
-const MyPage = lazy(() => import('@/pages/MyPage'))
-const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
+const AboutPage = lazyRoute(() => import('@/pages/AboutPage'))
+const LikesPage = lazyRoute(() => import('@/pages/LikesPage'))
+const GroupBuyDetailPage = lazyRoute(() => import('@/pages/GroupBuyDetailPage'))
+const LoginPage = lazyRoute(() => import('@/pages/LoginPage'))
+const SignupPage = lazyRoute(() => import('@/pages/SignupPage'))
+const MyPage = lazyRoute(() => import('@/pages/MyPage'))
+const NotFoundPage = lazyRoute(() => import('@/pages/NotFoundPage'))
 
-const ShippingPage = lazy(() => import('@/pages/checkout/ShippingPage'))
-const PaymentPage = lazy(() => import('@/pages/checkout/PaymentPage'))
-const CompletePage = lazy(() => import('@/pages/checkout/CompletePage'))
-const KakaoPayCallbackPage = lazy(() => import('@/pages/checkout/KakaoPayCallbackPage'))
+const ShippingPage = lazyRoute(() => import('@/pages/checkout/ShippingPage'))
+const PaymentPage = lazyRoute(() => import('@/pages/checkout/PaymentPage'))
+const CompletePage = lazyRoute(() => import('@/pages/checkout/CompletePage'))
+const KakaoPayCallbackPage = lazyRoute(() => import('@/pages/checkout/KakaoPayCallbackPage'))
 
-const OrdersPage = lazy(() => import('@/pages/orders/OrdersPage'))
-const OrderDetailPage = lazy(() => import('@/pages/orders/OrderDetailPage'))
-const ConfirmPage = lazy(() => import('@/pages/orders/ConfirmPage'))
-const ReturnRequestPage = lazy(() => import('@/pages/orders/ReturnRequestPage'))
-const DisputePage = lazy(() => import('@/pages/orders/DisputePage'))
+const OrdersPage = lazyRoute(() => import('@/pages/orders/OrdersPage'))
+const OrderDetailPage = lazyRoute(() => import('@/pages/orders/OrderDetailPage'))
+const ConfirmPage = lazyRoute(() => import('@/pages/orders/ConfirmPage'))
+const ReturnRequestPage = lazyRoute(() => import('@/pages/orders/ReturnRequestPage'))
+const DisputePage = lazyRoute(() => import('@/pages/orders/DisputePage'))
 
-const SellerVerifyPage = lazy(() => import('@/pages/seller/SellerVerifyPage'))
-const SellerHomePage = lazy(() => import('@/pages/seller/SellerHomePage'))
-const SellerProductsPage = lazy(() => import('@/pages/seller/SellerProductsPage'))
-const SellerProductNewPage = lazy(() => import('@/pages/seller/SellerProductNewPage'))
-const SellerProductEditPage = lazy(() => import('@/pages/seller/SellerProductEditPage'))
-const SellerGroupBuyNewPage = lazy(() => import('@/pages/seller/SellerGroupBuyNewPage'))
-const SellerGroupBuyDetailPage = lazy(() => import('@/pages/seller/SellerGroupBuyDetailPage'))
-const SellerGroupBuyEditPage = lazy(() => import('@/pages/seller/SellerGroupBuyEditPage'))
-const SellerOrdersPage = lazy(() => import('@/pages/seller/SellerOrdersPage'))
-const SellerReturnsPage = lazy(() => import('@/pages/seller/SellerReturnsPage'))
-const SellerSettlementsPage = lazy(() => import('@/pages/seller/SellerSettlementsPage'))
+const SellerVerifyPage = lazyRoute(() => import('@/pages/seller/SellerVerifyPage'))
+const SellerHomePage = lazyRoute(() => import('@/pages/seller/SellerHomePage'))
+const SellerProductsPage = lazyRoute(() => import('@/pages/seller/SellerProductsPage'))
+const SellerProductNewPage = lazyRoute(() => import('@/pages/seller/SellerProductNewPage'))
+const SellerProductEditPage = lazyRoute(() => import('@/pages/seller/SellerProductEditPage'))
+const SellerGroupBuyNewPage = lazyRoute(() => import('@/pages/seller/SellerGroupBuyNewPage'))
+const SellerGroupBuyDetailPage = lazyRoute(() => import('@/pages/seller/SellerGroupBuyDetailPage'))
+const SellerGroupBuyEditPage = lazyRoute(() => import('@/pages/seller/SellerGroupBuyEditPage'))
+const SellerOrdersPage = lazyRoute(() => import('@/pages/seller/SellerOrdersPage'))
+const SellerReturnsPage = lazyRoute(() => import('@/pages/seller/SellerReturnsPage'))
+const SellerSettlementsPage = lazyRoute(() => import('@/pages/seller/SellerSettlementsPage'))
 
-const AdminLoginPage = lazy(() => import('@/pages/admin/AdminLoginPage'))
-const AdminHomePage = lazy(() => import('@/pages/admin/AdminHomePage'))
-const AdminSettlementsPage = lazy(() => import('@/pages/admin/AdminSettlementsPage'))
-const AdminRefundsPage = lazy(() => import('@/pages/admin/AdminRefundsPage'))
-const AdminReturnsPage = lazy(() => import('@/pages/admin/AdminReturnsPage'))
-const AdminPenaltiesPage = lazy(() => import('@/pages/admin/AdminPenaltiesPage'))
-const AdminProductsPage = lazy(() => import('@/pages/admin/AdminProductsPage'))
-const AdminPoliciesPage = lazy(() => import('@/pages/admin/AdminPoliciesPage'))
-const AdminLogsPage = lazy(() => import('@/pages/admin/AdminLogsPage'))
+const AdminLoginPage = lazyRoute(() => import('@/pages/admin/AdminLoginPage'))
+const AdminHomePage = lazyRoute(() => import('@/pages/admin/AdminHomePage'))
+const AdminSettlementsPage = lazyRoute(() => import('@/pages/admin/AdminSettlementsPage'))
+const AdminRefundsPage = lazyRoute(() => import('@/pages/admin/AdminRefundsPage'))
+const AdminReturnsPage = lazyRoute(() => import('@/pages/admin/AdminReturnsPage'))
+const AdminPenaltiesPage = lazyRoute(() => import('@/pages/admin/AdminPenaltiesPage'))
+const AdminProductsPage = lazyRoute(() => import('@/pages/admin/AdminProductsPage'))
+const AdminPoliciesPage = lazyRoute(() => import('@/pages/admin/AdminPoliciesPage'))
+const AdminLogsPage = lazyRoute(() => import('@/pages/admin/AdminLogsPage'))
 
 export const router = createBrowserRouter([
   {
