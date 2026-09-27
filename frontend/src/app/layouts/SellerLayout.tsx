@@ -1,4 +1,4 @@
-import { Link, NavLink, Outlet, ScrollRestoration } from 'react-router'
+import { Link, NavLink, Outlet } from 'react-router'
 
 import { cx } from '@/shared/lib/cx'
 import { BrandMark } from '@/shared/ui/BrandMark'
@@ -66,7 +66,6 @@ export function SellerLayout() {
         compact 를 유지합니다 — 거기는 결제를 끝내는 자리라 링크를 줄입니다.
       */}
       <SiteFooter />
-      <ScrollRestoration />
     </>
   )
 }
