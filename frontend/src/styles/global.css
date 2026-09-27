@@ -338,16 +338,50 @@ button,input,select,textarea{font:inherit;color:inherit;}
   padding:64px 24px;text-align:center;font-size:13px;color:var(--muted);
 }
 /*
- * 판매자 전환의 단계 표시 (S15P21B205-231). 막대 위에 몇 단계 중 몇 번째인지
- * 글로도 적습니다. 막대만으로는 남은 단계 수가 읽히지 않습니다.
+ * 판매자 전환의 단계 표시 (S15P21B205-231). 틀 없이 막대와 라벨만 둡니다.
+ * 막대 하나를 카드로 감싸면 아래 섹션 카드와 무게가 같아져 둘 다 흐려집니다.
  */
-/* 다른 카드(.box·.panel)와 같은 모서리를 씁니다. 여기만 각지면 같은 화면에서 틀이 두 종류가 됩니다 */
-.verify-steps{
-  border:1px solid var(--line);background:var(--surface);
-  padding:20px 24px;margin-bottom:24px;border-radius:var(--radius-box);
+/*
+ * 제목 묶음과 붙어 보여 36px 띄웁니다. .sec-head 의 아래 여백(16px)과 세로 여백이
+ * 겹쳐 큰 쪽만 남으므로, 더하는 값이 아니라 최종 간격을 적습니다.
+ */
+.verify-steps{margin:36px 0 28px;}
+/* 전환 버튼. 세 항목에 모두 동의하기 전에는 .btn[disabled] 의 회색, 켜지면 브랜드 파랑입니다 */
+.verify-submit:not([disabled]){background:var(--aqua);}
+.verify-submit:not([disabled]):hover{background:var(--brand-dark);}
+/* 오른쪽 안내: 입력 항목별 쓰임 (2단계) */
+.verify-guide{margin:16px 0 0;}
+.verify-guide dt{font-size:13px;font-weight:700;color:var(--ink);}
+.verify-guide dd{margin:2px 0 14px;font-size:12px;color:var(--ink2);line-height:1.7;word-break:keep-all;}
+.verify-guide dd:last-child{margin-bottom:0;}
+/* 오른쪽 안내: 전환 후 흐름 (3단계). 번호 대신 화살표로 이어 한 줄 흐름으로 읽히게 합니다 */
+.verify-flow{display:flex;flex-wrap:wrap;gap:6px 4px;margin:16px 0;padding:0;list-style:none;font-size:12px;color:var(--ink2);}
+.verify-flow li{display:flex;align-items:center;gap:4px;}
+.verify-flow li + li::before{content:'→';color:var(--muted);}
+/*
+ * 판매자 전환 3단계의 동의 항목. 본문은 고정 높이 상자 안에서 스크롤하고,
+ * 끝까지 내려야 아래 체크박스가 체크됩니다. 그 전에 누르면 오른쪽에 안내가 뜹니다.
+ */
+.terms + .terms{margin-top:16px;}
+.terms{border:1px solid var(--line);background:var(--surface);border-radius:var(--radius-box);overflow:hidden;}
+.terms-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;word-break:keep-all;padding:14px 18px;border-bottom:1px solid var(--line);}
+.terms-head b{font-size:14px;}
+.terms-head span{font-size:12px;color:var(--muted);text-align:right;}
+.terms-body{height:180px;overflow-y:auto;padding:14px 18px;word-break:keep-all;}
+.terms-body:focus-visible{outline:2px solid var(--brand);outline-offset:-2px;}
+.terms-body h4{margin:14px 0 4px;font-size:13px;font-weight:700;}
+.terms-body h4:first-child{margin-top:0;}
+.terms-body p{margin:0;font-size:13px;color:var(--ink2);line-height:1.8;}
+/* 체크박스·문구·안내를 한 줄에 둡니다. 좁아지면 안내만 문구 아래로 내려가고 체크박스는 문구 옆에 남습니다 */
+.terms-agree{display:grid;word-break:keep-all;grid-template-columns:16px 1fr auto;align-items:center;gap:4px 10px;padding:13px 18px;border-top:1px solid var(--line);font-size:13px;cursor:pointer;}
+.terms-agree input{accent-color:var(--brand);width:16px;height:16px;margin:0;}
+.terms-agree span{font-weight:500;}
+.terms-agree em{font-style:normal;font-size:12px;font-weight:700;color:var(--aqua);text-align:right;}
+@media (max-width:620px){
+  .terms-agree em{grid-column:2 / -1;text-align:left;}
+  .terms-head{flex-direction:column;gap:2px;}
+  .terms-head span{text-align:left;}
 }
-.verify-steps-count{margin:0 0 16px;font-size:12px;color:var(--muted);}
-.verify-steps-count b{color:var(--ink);}
 /*
  * 응답을 기다리는 동안의 진행 표시. 남은 시간을 알 수 없어 막대가 오갑니다.
  * 움직임을 줄이도록 설정한 사람에게는 정지한 띠로 보여줍니다.
@@ -548,14 +582,20 @@ button,input,select,textarea{font:inherit;color:inherit;}
  * 상품 설명은 본문입니다.
  *
  * 13px + ink2 는 보조 텍스트 크기라 정작 읽어야 할 글이 가장 흐렸습니다.
- * white-space 를 pre-line 으로 두어 판매자가 넣은 줄바꿈을 살리고(지정하지
- * 않으면 여러 줄로 쓴 설명이 한 덩어리로 붙습니다), 한 줄이 너무 길어지지
- * 않게 폭을 제한합니다.
+ * white-space 를 pre-line 으로 두어 판매자가 넣은 줄바꿈을 살립니다(지정하지
+ * 않으면 여러 줄로 쓴 설명이 한 덩어리로 붙습니다).
+ *
+ * 폭은 제한하지 않습니다. 62ch 로 묶어 두었더니 패널이 넓어도 글이 절반쯤에서
+ * 꺾여, 판매자가 넣지 않은 줄바꿈이 생긴 것처럼 보였습니다. keep-all 은
+ * "마십시/오" 처럼 낱말 가운데에서 끊기지 않게 합니다.
+ *
+ * 아래 여백은 뒤따르는 버튼·표와 붙지 않게 남기고, 마지막 문단에서만 뺍니다.
  */
 .para{
-  font-size:14px;color:var(--ink);line-height:1.8;margin:0;
-  white-space:pre-line;max-width:62ch;
+  font-size:14px;color:var(--ink);line-height:1.8;margin:0 0 16px;
+  white-space:pre-line;word-break:keep-all;
 }
+.para:last-child{margin-bottom:0;}
 
 /* 판매자 카드 */
 .seller-card{display:flex;align-items:center;gap:14px;}
@@ -779,6 +819,11 @@ button,input,select,textarea{font:inherit;color:inherit;}
 }
 /* 채우지 않고 테두리와 글자만 브랜드색으로 바뀝니다 */
 .btn-ghost:hover{border-color:var(--brand);color:var(--brand);}
+/*
+ * 가로를 채우는 테두리 버튼. .btn-ghost 가 .btn-block 보다 뒤에 있어 여백·글자 크기를 덮어써
+ * 옆의 꽉 찬 버튼보다 8px 낮았습니다. 테두리 1px 을 뺀 여백으로 높이를 맞춥니다.
+ */
+.btn-ghost.btn-block{padding:15px;font-size:14px;}
 .btn[disabled]{background:var(--fill);color:var(--muted);cursor:not-allowed;}
 /*
  * 화살표를 CSS mask 로 넣습니다. png 를 쓰지 않는 이유:

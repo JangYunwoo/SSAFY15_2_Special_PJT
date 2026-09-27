@@ -1,4 +1,4 @@
-import { Outlet, ScrollRestoration, useLocation } from 'react-router'
+import { Outlet, useLocation } from 'react-router'
 
 import { SiteFooter } from './SiteFooter'
 import { SiteHeader } from './SiteHeader'
@@ -25,7 +25,6 @@ export function RootLayout() {
       <SiteHeader />
       <Outlet />
       {!NO_FOOTER_PATHS.includes(pathname) && <SiteFooter />}
-      <ScrollRestoration />
     </>
   )
 }

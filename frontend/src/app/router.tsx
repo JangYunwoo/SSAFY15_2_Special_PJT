@@ -3,6 +3,7 @@ import { createBrowserRouter } from 'react-router'
 
 /* 가드는 세션 스토어만 읽는 몇 줄짜리라 어느 화면에서나 바로 필요합니다. */
 import { RequireAdmin, RequireAuth, RequireSeller } from './layouts/guards'
+import { AppShell } from './layouts/AppShell'
 import { RootLayout } from './layouts/RootLayout'
 
 /* 첫 화면 두 개만 즉시 번들에 넣고, 나머지는 라우트 단위로 쪼갭니다. */
@@ -70,124 +71,127 @@ const AdminLogsPage = lazyRoute(() => import('@/pages/admin/AdminLogsPage'))
 
 export const router = createBrowserRouter([
   {
-    element: <RootLayout />,
-    children: [
-      { index: true, element: <HomePage /> },
-      { path: 'group-buys', element: <GroupBuyListPage /> },
-      { path: 'group-buys/:groupBuyId', element: <GroupBuyDetailPage /> },
-      { path: 'about', element: <AboutPage /> },
-
-      { path: 'login', element: <LoginPage /> },
-      { path: 'signup', element: <SignupPage /> },
-
-      /* 로그인 필요 */
-      {
-        element: <RequireAuth />,
-        children: [
-          { path: 'likes', element: <LikesPage /> },
-          { path: 'me', element: <MyPage /> },
-          { path: 'orders', element: <OrdersPage /> },
-          /* confirm·return·dispute 는 한 칸 더 깊어 :participationId 와 겹치지 않습니다 */
-          { path: 'orders/:participationId', element: <OrderDetailPage /> },
-          { path: 'orders/:participationId/confirm', element: <ConfirmPage /> },
-          { path: 'orders/:participationId/return', element: <ReturnRequestPage /> },
-          { path: 'orders/:participationId/dispute', element: <DisputePage /> },
-        ],
-      },
-    ],
-  },
-
-  /* 결제 플로우는 헤더가 다릅니다 */
-  {
-    element: <CheckoutLayout />,
+    // 스크롤 복원을 모든 화면에 한 번만 겁니다 (AppShell 주석 참고)
+    element: <AppShell />,
     children: [
       {
-        element: <RequireAuth />,
+        element: <RootLayout />,
         children: [
-          { path: 'checkout/:groupBuyId/shipping', element: <ShippingPage /> },
-          { path: 'checkout/:groupBuyId/payment', element: <PaymentPage /> },
-          { path: 'checkout/complete/:paymentId', element: <CompletePage /> },
-          {
-            path: 'checkout/kakaopay/success',
-            element: <KakaoPayCallbackPage result="success" />,
-          },
-          {
-            path: 'checkout/kakaopay/cancel',
-            element: <KakaoPayCallbackPage result="cancel" />,
-          },
-          {
-            path: 'checkout/kakaopay/fail',
-            element: <KakaoPayCallbackPage result="fail" />,
-          },
-        ],
-      },
-    ],
-  },
+          { index: true, element: <HomePage /> },
+          { path: 'group-buys', element: <GroupBuyListPage /> },
+          { path: 'group-buys/:groupBuyId', element: <GroupBuyDetailPage /> },
+          { path: 'about', element: <AboutPage /> },
 
-  /* 판매자센터 */
-  {
-    path: 'seller',
-    element: <RequireAuth />,
-    children: [
-      // 전환 화면은 전환 전에도 보여야 하므로 가드 밖에 둡니다.
-      { path: 'verify', element: <SellerVerifyPage /> },
-      {
-        element: <RequireSeller />,
-        children: [
+          { path: 'login', element: <LoginPage /> },
+          { path: 'signup', element: <SignupPage /> },
+
+          /* 로그인 필요 */
           {
-            element: <SellerLayout />,
+            element: <RequireAuth />,
             children: [
-              { index: true, element: <SellerHomePage /> },
-              { path: 'products', element: <SellerProductsPage /> },
-              { path: 'products/new', element: <SellerProductNewPage /> },
-              { path: 'products/:productId/edit', element: <SellerProductEditPage /> },
-              { path: 'group-buys/new', element: <SellerGroupBuyNewPage /> },
-              { path: 'group-buys/:groupBuyId', element: <SellerGroupBuyDetailPage /> },
-              { path: 'group-buys/:groupBuyId/edit', element: <SellerGroupBuyEditPage /> },
-              { path: 'orders', element: <SellerOrdersPage /> },
-              { path: 'returns', element: <SellerReturnsPage /> },
-              { path: 'settlements', element: <SellerSettlementsPage /> },
+              { path: 'likes', element: <LikesPage /> },
+              { path: 'me', element: <MyPage /> },
+              { path: 'orders', element: <OrdersPage /> },
+              /* confirm·return·dispute 는 한 칸 더 깊어 :participationId 와 겹치지 않습니다 */
+              { path: 'orders/:participationId', element: <OrderDetailPage /> },
+              { path: 'orders/:participationId/confirm', element: <ConfirmPage /> },
+              { path: 'orders/:participationId/return', element: <ReturnRequestPage /> },
+              { path: 'orders/:participationId/dispute', element: <DisputePage /> },
             ],
           },
         ],
       },
-    ],
-  },
 
-  /*
-   * 관리자 콘솔.
-   *
-   * RequireAuth 를 겹치지 않습니다. 관리자는 `admins` 의 별도 계정이라
-   * 구매자 로그인 화면으로 보내면 거기서 로그인해도 다시 막힙니다.
-   * RequireAdmin 하나가 로그인 여부와 권한을 함께 판단합니다.
-   */
-  {
-    path: 'admin',
-    children: [
-      { path: 'login', element: <AdminLoginPage /> },
+      /* 결제 플로우는 헤더가 다릅니다 */
       {
-        element: <RequireAdmin />,
+        element: <CheckoutLayout />,
         children: [
           {
-            element: <AdminLayout />,
+            element: <RequireAuth />,
             children: [
-              { index: true, element: <AdminHomePage /> },
-              { path: 'settlements', element: <AdminSettlementsPage /> },
-              { path: 'refunds', element: <AdminRefundsPage /> },
-              { path: 'returns', element: <AdminReturnsPage /> },
-              { path: 'penalties', element: <AdminPenaltiesPage /> },
-              { path: 'products', element: <AdminProductsPage /> },
-              { path: 'policies', element: <AdminPoliciesPage /> },
-              { path: 'logs', element: <AdminLogsPage /> },
+              { path: 'checkout/:groupBuyId/shipping', element: <ShippingPage /> },
+              { path: 'checkout/:groupBuyId/payment', element: <PaymentPage /> },
+              { path: 'checkout/complete/:paymentId', element: <CompletePage /> },
+              {
+                path: 'checkout/kakaopay/success',
+                element: <KakaoPayCallbackPage result="success" />,
+              },
+              {
+                path: 'checkout/kakaopay/cancel',
+                element: <KakaoPayCallbackPage result="cancel" />,
+              },
+              {
+                path: 'checkout/kakaopay/fail',
+                element: <KakaoPayCallbackPage result="fail" />,
+              },
             ],
           },
         ],
       },
+
+      /* 판매자센터 */
+      {
+        path: 'seller',
+        element: <RequireAuth />,
+        children: [
+          // 전환 화면은 전환 전에도 보여야 하므로 가드 밖에 둡니다.
+          { path: 'verify', element: <SellerVerifyPage /> },
+          {
+            element: <RequireSeller />,
+            children: [
+              {
+                element: <SellerLayout />,
+                children: [
+                  { index: true, element: <SellerHomePage /> },
+                  { path: 'products', element: <SellerProductsPage /> },
+                  { path: 'products/new', element: <SellerProductNewPage /> },
+                  { path: 'products/:productId/edit', element: <SellerProductEditPage /> },
+                  { path: 'group-buys/new', element: <SellerGroupBuyNewPage /> },
+                  { path: 'group-buys/:groupBuyId', element: <SellerGroupBuyDetailPage /> },
+                  { path: 'group-buys/:groupBuyId/edit', element: <SellerGroupBuyEditPage /> },
+                  { path: 'orders', element: <SellerOrdersPage /> },
+                  { path: 'returns', element: <SellerReturnsPage /> },
+                  { path: 'settlements', element: <SellerSettlementsPage /> },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+
+      /*
+       * 관리자 콘솔.
+       *
+       * RequireAuth 를 겹치지 않습니다. 관리자는 `admins` 의 별도 계정이라
+       * 구매자 로그인 화면으로 보내면 거기서 로그인해도 다시 막힙니다.
+       * RequireAdmin 하나가 로그인 여부와 권한을 함께 판단합니다.
+       */
+      {
+        path: 'admin',
+        children: [
+          { path: 'login', element: <AdminLoginPage /> },
+          {
+            element: <RequireAdmin />,
+            children: [
+              {
+                element: <AdminLayout />,
+                children: [
+                  { index: true, element: <AdminHomePage /> },
+                  { path: 'settlements', element: <AdminSettlementsPage /> },
+                  { path: 'refunds', element: <AdminRefundsPage /> },
+                  { path: 'returns', element: <AdminReturnsPage /> },
+                  { path: 'penalties', element: <AdminPenaltiesPage /> },
+                  { path: 'products', element: <AdminProductsPage /> },
+                  { path: 'policies', element: <AdminPoliciesPage /> },
+                  { path: 'logs', element: <AdminLogsPage /> },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+
+      { path: '*', element: <NotFoundPage /> },
     ],
   },
-
-  { path: '*', element: <NotFoundPage /> },
 ])
-
-
-
