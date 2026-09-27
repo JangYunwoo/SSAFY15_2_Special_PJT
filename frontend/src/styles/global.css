@@ -281,6 +281,24 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .ai-bar .btn{white-space:nowrap;margin-left:auto;}
 .ai-hint{font-size:11px;color:var(--muted);min-height:16px;margin-top:5px;}
 .ai-hint.fail{color:var(--ink2);}
+/*
+ * AI 분석 진행 표시.
+ *
+ * Gemini 분석은 이미지 한 장에 60초 안팎이 걸립니다. 글자만 바뀌면 멈춘 것과
+ * 구분되지 않아, 도는 표시와 경과 시간을 함께 둡니다.
+ *
+ * GIF 가 아니라 CSS 로 그립니다. 파일을 따로 받지 않아 분석을 기다리는 중에
+ * 네트워크를 쓰지 않고, 배율이 달라도 흐려지지 않으며, 색을 테마 토큰으로
+ * 맞출 수 있습니다. 움직임을 줄이도록 설정한 사람에게는 돌리지 않습니다.
+ */
+.ai-spin{
+  display:inline-block;width:14px;height:14px;flex:none;
+  border:2px solid var(--line);border-top-color:var(--brand);border-radius:50%;
+  animation:ai-spin 0.8s linear infinite;
+}
+@keyframes ai-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.ai-spin{animation-duration:2.4s;}}
+.ai-progress{display:flex;align-items:center;gap:6px;}
 .ai-tag{
   display:inline-block;margin-right:5px;padding:1px 5px;
   background:var(--btn);color:var(--on-dark);font-size:10px;font-weight:700;

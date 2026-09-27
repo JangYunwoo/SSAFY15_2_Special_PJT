@@ -61,9 +61,12 @@ services:
       # 백엔드 → AI 서비스도 내부 네트워크로.
       AI_EXTRACTION_BASE_URL: http://ai:8000
       RECOMMENDATION_AI_BASE_URL: http://ai:8000
-      # Gemini 멀티모달 이미지 분석은 10초를 넘길 수 있다. 기본 10초는 실상품 이미지에서
-      # 백엔드가 먼저 타임아웃되어 폴백된다. 30초로 여유를 둔다.
-      AI_EXTRACTION_TIMEOUT_MS: "30000"
+      # Gemini 멀티모달 이미지 분석 실측이 이미지 1장에 62~63초다(운영 AI 컨테이너에서
+      # 같은 호출을 재현해 측정). 30초로는 백엔드가 먼저 끊고, 그 직후 finally 가
+      # 분석용 임시 이미지를 S3 에서 지워, 뒤늦게 URL 을 가져가는 Gemini 가 400 을
+      # 받는다. 로그의 "Gemini URL 분석 요청 실패: HTTP 400" 은 원인이 아니라 그 결과다.
+      # 90초는 실측 + 이미지 여러 장과 시세 변동을 감안한 여유다.
+      AI_EXTRACTION_TIMEOUT_MS: "90000"
     depends_on:
       mysql: { condition: service_healthy }
       redis: { condition: service_healthy }
