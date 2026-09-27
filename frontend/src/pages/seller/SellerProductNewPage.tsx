@@ -12,11 +12,13 @@ import {
   optionalText,
   type ProductFormState,
 } from '@/features/product/productForm'
+import { aiProgressText } from '@/features/product/aiProgress'
 import { useAiExtraction, type AiExtractionResult } from '@/features/product/useAiExtraction'
 import { toMessage } from '@/shared/api/errors'
 import { queryKeys } from '@/shared/api/queryKeys'
 import type { SubmitHandlerEvent } from '@/shared/lib/dom'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
+import { useElapsedSeconds } from '@/shared/lib/hooks/useElapsedSeconds'
 import { Button } from '@/shared/ui/Button'
 import { DataRow } from '@/shared/ui/DataRow'
 import { Panel } from '@/shared/ui/Panel'
@@ -33,6 +35,8 @@ export default function SellerProductNewPage() {
   const [images, setImages] = useState<PickedImage[]>([])
   const [form, setForm] = useState<ProductFormState>(EMPTY_PRODUCT_FORM)
   const [ai, setAi] = useState<AiExtractionResult | null>(null)
+  /** 분석 시작 시각. 경과 초를 보여주는 데만 씁니다 */
+  const [analysisStartedAt, setAnalysisStartedAt] = useState<number | null>(null)
 
   const patch = (next: Partial<ProductFormState>) => {
     setForm((current) => ({ ...current, ...next }))
@@ -52,6 +56,10 @@ export default function SellerProductNewPage() {
       description: current.description || (result.values.description ?? ''),
     }))
   })
+
+  // 분석 중일 때만 시계를 구독합니다. 끝난 뒤에도 구독하면 이 화면이 1초마다
+  // 의미 없이 다시 그려집니다.
+  const elapsedSeconds = useElapsedSeconds(extraction.isPending ? analysisStartedAt : null)
 
   const create = useMutation({
     mutationFn: () =>
@@ -111,19 +119,30 @@ export default function SellerProductNewPage() {
             <div className="ai-bar mt16">
               <div>
                 <div className="ai-title">AI 상품 정보 자동 추출</div>
-                <div className="small muted">
-                  {extraction.isPending
-                    ? '이미지를 분석하고 있습니다…'
-                    : extraction.isError
+                {extraction.isPending ? (
+                  /*
+                   * 1분 가까이 걸리는 작업이라 글자만 두면 멈춘 것처럼 보입니다.
+                   * 도는 표시로 진행 중임을 알리고, 경과 초로 실제로 흐르고 있음을
+                   * 보여줍니다. role=status 로 읽어주는 도구에도 전달합니다.
+                   */
+                  <div className="small muted ai-progress" role="status" aria-live="polite">
+                    <span className="ai-spin" aria-hidden="true" />
+                    <span>{aiProgressText(elapsedSeconds)}</span>
+                  </div>
+                ) : (
+                  <div className="small muted">
+                    {extraction.isError
                       ? toMessage(extraction.error)
                       : ai !== null
                         ? (ai.warnings[0] ?? '추출된 값을 확인하고 수정해 주세요.')
                         : '대표 이미지를 올린 뒤 분석을 요청하면 아래 항목이 자동으로 채워집니다.'}
-                </div>
+                  </div>
+                )}
               </div>
               <Button
                 disabled={images.length === 0 || extraction.isPending}
                 onClick={() => {
+                  setAnalysisStartedAt(Date.now())
                   extraction.mutate(images.map((image) => image.file))
                 }}
               >
