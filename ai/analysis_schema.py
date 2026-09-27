@@ -31,6 +31,16 @@ class ExtractionResult(BaseModel):
     brand: str | None = Field(default=None, description="이미지에서 확인한 products.brand, 불명확하면 null")
     model_name: None = Field(default=None, description="모델명·규격 추출은 비활성화되어 반드시 null")
     color: str | None = Field(default=None, description="이미지에서 확인한 products.color, 불명확하면 null")
+    # 필드 이름이 곧 JSON 키입니다. 백엔드가 result_json.description 으로 읽으므로
+    # 다른 이름을 쓰면 값이 그대로 버려집니다(AiModuleExtraction.ResultJson).
+    description: str | None = Field(
+        default=None,
+        max_length=300,
+        description=(
+            "ERD products.description에 반영할 상품 설명. 이미지에서 확인한 사실만 적고"
+            " 보증·인증·배송 조건은 쓰지 않는다. 확인할 내용이 없으면 null"
+        ),
+    )
 
 
 class ProductAnalysis(BaseModel):

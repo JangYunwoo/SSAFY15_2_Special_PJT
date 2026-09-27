@@ -162,6 +162,61 @@ class AiExtractionServiceTest {
         assertThat(response.status()).isEqualTo("PARTIAL");
     }
 
+    /**
+     * AI 모듈은 confidence_json 을 보내지 않는다. 예전에는 없으면 0 으로 채웠고, 화면에
+     * "신뢰도 0% · 값을 확인해 주세요" 가 떠서 정상 추출한 카테고리를 판매자가 틀린 값으로
+     * 오해했다. 모르는 것과 0 은 다르므로 null 로 남긴다.
+     */
+    @Test
+    void missingConfidenceStaysNullInsteadOfZero() throws Exception {
+        String json = """
+                {"status":"COMPLETED",
+                 "result_json":{"name":"아이폰 15",
+                                "name_candidates":[],
+                                "category_id":10001,
+                                "brand":"애플",
+                                "description":"6.1인치 화면의 스마트폰입니다."},
+                 "error_message":null}
+                """;
+        AiModuleExtraction parsed = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readValue(json, AiModuleExtraction.class);
+        MockMultipartFile image = image("main.jpg", "image/jpeg");
+        when(client.extract(List.of("https://images.example.com/main.jpg"))).thenReturn(parsed);
+        when(categoryRepository.existsById(10001L)).thenReturn(true);
+
+        var response = service.extract(List.of(image));
+
+        assertThat(response.fields().categoryId().confidence()).isNull();
+        assertThat(response.fields().name().confidence()).isNull();
+        assertThat(response.fields().brand().confidence()).isNull();
+        // 값 자체는 정상적으로 전달된다.
+        assertThat(response.fields().categoryId().value()).isEqualTo("10001");
+        assertThat(response.fields().brand().value()).isEqualTo("애플");
+    }
+
+    /** AI 담당이 채우지 않던 상품 설명. 이제 result_json.description 으로 내려온다. */
+    @Test
+    void descriptionFromAiReachesResponse() throws Exception {
+        String json = """
+                {"status":"COMPLETED",
+                 "result_json":{"name":"아이폰 15",
+                                "name_candidates":[],
+                                "category_id":10001,
+                                "description":"6.1인치 화면의 스마트폰입니다. USB-C 단자를 사용합니다."},
+                 "error_message":null}
+                """;
+        AiModuleExtraction parsed = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readValue(json, AiModuleExtraction.class);
+        MockMultipartFile image = image("main.jpg", "image/jpeg");
+        when(client.extract(List.of("https://images.example.com/main.jpg"))).thenReturn(parsed);
+        when(categoryRepository.existsById(10001L)).thenReturn(true);
+
+        var response = service.extract(List.of(image));
+
+        assertThat(response.fields().description().value())
+                .isEqualTo("6.1인치 화면의 스마트폰입니다. USB-C 단자를 사용합니다.");
+    }
+
     @Test
     void nameConfirmedHasEmptyCandidates() {
         MockMultipartFile image = image("main.jpg", "image/jpeg");
