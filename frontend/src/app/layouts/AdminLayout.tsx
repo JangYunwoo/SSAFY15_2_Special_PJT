@@ -1,4 +1,4 @@
-import { Link, NavLink, Outlet, ScrollRestoration } from 'react-router'
+import { Link, NavLink, Outlet } from 'react-router'
 
 import { useAdminLogout } from '@/features/admin/useAdminAuth'
 import { useActor } from '@/features/auth/sessionStore'
@@ -75,7 +75,6 @@ export function AdminLayout() {
       </main>
 
       <SiteFooter compact />
-      <ScrollRestoration />
     </>
   )
 }
