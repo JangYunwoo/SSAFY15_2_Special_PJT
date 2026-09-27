@@ -112,7 +112,7 @@ export default function SellerProductNewPage() {
         <div>
           <Panel
             title="상품 이미지"
-            description="대표 이미지 1장 필수 · 추가 이미지는 선택 (최대 4장)"
+            description="대표 이미지 1장 필수 · 추가 이미지는 선택 (최대 3장)"
           >
             <ImageUploader images={images} onChange={setImages} />
 
