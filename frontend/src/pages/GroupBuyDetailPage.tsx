@@ -9,6 +9,7 @@ import { groupBuyQueries } from '@/entities/groupBuy/queries'
 import { useIsSignedIn } from '@/features/auth/sessionStore'
 import { useIsLiked, useToggleLike } from '@/features/like/likeStore'
 import { GroupBuyGallery } from '@/features/groupBuy/GroupBuyGallery'
+import { sellerInitial } from '@/features/groupBuy/sellerDisplay'
 import { recordRecommendationEvents } from '@/features/recommendation/tracking'
 import { POLICY_DEFAULTS } from '@/shared/config/policy'
 import { date, number, percent, remaining, won } from '@/shared/lib/format'
@@ -16,7 +17,7 @@ import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
 import { cx } from '@/shared/lib/cx'
 import { Button } from '@/shared/ui/Button'
 import { DataRow } from '@/shared/ui/DataRow'
-import { HeartIcon } from '@/shared/ui/icons'
+import { ChevronIcon, HeartIcon } from '@/shared/ui/icons'
 import { ProgressBar } from '@/shared/ui/ProgressBar'
 import { QueryBoundary } from '@/shared/ui/states'
 
@@ -159,15 +160,49 @@ function DetailView({ detail }: { detail: GroupBuyDetail }) {
       </div>
 
       <section className="section" style={{ paddingTop: 0 }}>
-        <div className="panel">
-          <h3>상품 설명</h3>
-          <p className="sub">{detail.sellerName} 제공</p>
-          <p className="para">{detail.description}</p>
+        {/*
+          판매자를 상품 설명 안의 작은 회색 글씨가 아니라 별도 카드로 올립니다.
+          누구에게 사는지가 설명보다 먼저 읽혀야 합니다.
+
+          인증 여부·판매 이력 같은 신뢰 지표는 아직 넣지 않았습니다. 상세 응답에
+          sellerName 밖에 없어서, 지금 뱃지를 만들면 전부 하드코딩이 됩니다.
+          백엔드에 필드가 생기면 이 카드 안에 붙입니다.
+        */}
+        <div className="panel seller-card">
+          <div className="seller-avatar" aria-hidden="true">
+            {sellerInitial(detail.sellerName)}
+          </div>
+          <div>
+            <div className="seller-name">{detail.sellerName}</div>
+            <div className="seller-meta">공구한 입점 판매자</div>
+          </div>
         </div>
 
         <div className="panel mt16">
-          <h3>공동구매 진행 방식</h3>
-          <p className="sub">공구한 에스크로 기준</p>
+          <h3>상품 설명</h3>
+          <p className="para">{detail.description}</p>
+        </div>
+
+        {/*
+          진행 방식은 접어 둡니다. 열세 줄이 전부 같은 무게로 펼쳐져 있으면
+          정작 결정에 필요한 금액·마감이 묻힙니다. 그 둘은 이미 위쪽 큰 글씨와
+          사이드바에 있고, 여기 있는 것은 결정한 뒤 확인하는 조건에 가깝습니다.
+
+          <details> 를 쓴 이유는 키보드 조작·스크린리더 상태 전달을 브라우저가
+          해 주고, 접힌 내용도 Ctrl+F 로 찾으면 펼쳐지기 때문입니다. 직접 만든
+          토글은 마지막 것을 못 합니다.
+        */}
+        <details className="panel policy mt16">
+          <summary>
+            <span>
+              <span className="policy-title">공동구매 진행 방식</span>
+              <span className="policy-sub">공구한 에스크로 기준</span>
+            </span>
+            <span className="policy-chevron" aria-hidden="true">
+              <ChevronIcon direction="next" size={18} />
+            </span>
+          </summary>
+          <div className="policy-body">
           <DataRow label="모집 기간">
             {date(detail.recruitStartAt)} ~ {date(detail.recruitEndAt)}
           </DataRow>
@@ -178,7 +213,7 @@ function DetailView({ detail }: { detail: GroupBuyDetail }) {
             계산식은 결정을 돕는 정보가 아니라 결정한 뒤 확인하는 조건에 가깝습니다.
           */}
           <DataRow label="모집 마감">{date(detail.recruitEndAt)}</DataRow>
-          <DataRow label="판매자">{detail.sellerName}</DataRow>
+          {/* 판매자 줄은 위 카드로 옮겼습니다 */}
           <DataRow label="참여 취소">모집 종료 전까지 가능</DataRow>
           <DataRow
             label={
@@ -208,7 +243,8 @@ function DetailView({ detail }: { detail: GroupBuyDetail }) {
           <DataRow label="정산 시점">
             배송완료 후 {POLICY_DEFAULTS.settlementEligibleDays}일 경과 · 구매확정 조건
           </DataRow>
-        </div>
+          </div>
+        </details>
       </section>
     </>
   )

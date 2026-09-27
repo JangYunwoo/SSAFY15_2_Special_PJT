@@ -544,7 +544,46 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .tlink{color:var(--brand-text);text-decoration:underline;text-underline-offset:3px;}
 
 /* 본문 문단 (계좌 정보 · 상품 설명 등) */
-.para{font-size:13px;color:var(--ink2);line-height:1.9;margin:0 0 16px;}
+/*
+ * 상품 설명은 본문입니다.
+ *
+ * 13px + ink2 는 보조 텍스트 크기라 정작 읽어야 할 글이 가장 흐렸습니다.
+ * white-space 를 pre-line 으로 두어 판매자가 넣은 줄바꿈을 살리고(지정하지
+ * 않으면 여러 줄로 쓴 설명이 한 덩어리로 붙습니다), 한 줄이 너무 길어지지
+ * 않게 폭을 제한합니다.
+ */
+.para{
+  font-size:14px;color:var(--ink);line-height:1.8;margin:0;
+  white-space:pre-line;max-width:62ch;
+}
+
+/* 판매자 카드 */
+.seller-card{display:flex;align-items:center;gap:14px;}
+.seller-avatar{
+  width:44px;height:44px;flex:none;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--fill);color:var(--ink2);font-size:17px;font-weight:700;
+}
+.seller-name{font-size:15px;font-weight:700;color:var(--ink);}
+.seller-meta{font-size:12px;color:var(--muted);margin-top:3px;}
+
+/*
+ * 접이식 진행 방식.
+ *
+ * summary 의 기본 삼각형 마커는 브라우저마다 모양·위치가 달라 숨기고 꺾쇠를
+ * 직접 답니다. list-style 과 ::-webkit-details-marker 를 둘 다 꺼야 합니다.
+ */
+.policy > summary{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  cursor:pointer;list-style:none;
+}
+.policy > summary::-webkit-details-marker{display:none;}
+.policy-title{display:block;font-size:15px;font-weight:500;color:var(--ink);}
+.policy-sub{display:block;font-size:12px;color:var(--muted);margin-top:4px;}
+.policy-chevron{display:flex;color:var(--muted);transition:transform .18s ease;}
+.policy[open] .policy-chevron{transform:rotate(90deg);}
+@media (prefers-reduced-motion:reduce){.policy-chevron{transition:none;}}
+.policy-body{margin-top:18px;}
 
 /* 강조 블록 (진행 중 공동구매 요약) */
 .stat-box{background:var(--surface);padding:18px;margin-bottom:22px;}
