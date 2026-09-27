@@ -15,10 +15,10 @@ export const AI_EXPECTED_SECONDS = 60
  */
 export function aiProgressText(elapsedSeconds: number): string {
   if (elapsedSeconds >= AI_EXPECTED_SECONDS) {
-    return `아직 분석 중입니다 · ${String(elapsedSeconds)}초 경과 · 조금만 더 기다려 주세요`
+    return `분석이 조금 길어지고 있어요. 조금만 더 기다려주세요 · ${String(elapsedSeconds)}초 경과`
   }
   if (elapsedSeconds <= 0) {
-    return '이미지를 분석하고 있습니다 · 보통 1분 안팎 걸립니다'
+    return '이미지를 분석하고 있어요. 보통 1분 정도 소요돼요. 잠시만 기다려주세요'
   }
-  return `이미지를 분석하고 있습니다 · ${String(elapsedSeconds)}초 경과 · 보통 1분 안팎 걸립니다`
+  return `이미지를 분석하고 있어요. 보통 1분 정도 소요돼요. 잠시만 기다려주세요 · ${String(elapsedSeconds)}초 경과`
 }
