@@ -9,6 +9,7 @@ import { groupBuyQueries } from '@/entities/groupBuy/queries'
 import { useIsSignedIn } from '@/features/auth/sessionStore'
 import { useIsLiked, useToggleLike } from '@/features/like/likeStore'
 import { GroupBuyGallery } from '@/features/groupBuy/GroupBuyGallery'
+import { joinAvailability } from '@/features/groupBuy/joinAvailability'
 import { sellerInitial } from '@/features/groupBuy/sellerDisplay'
 import { recordRecommendationEvents } from '@/features/recommendation/tracking'
 import { POLICY_DEFAULTS } from '@/shared/config/policy'
@@ -77,7 +78,13 @@ function DetailView({ detail }: { detail: GroupBuyDetail }) {
   const status = displayFor(GROUP_BUY_STATUS_DISPLAY, detail.status, '공동구매 상태')
   // 서버가 확정한 1인 결제금액을 그대로 씁니다 (GRP-02 personalPaymentAmount).
   const totalAmount = detail.personalPaymentAmount
-  const isJoinable = detail.status === 'RECRUITING' && detail.paidCount < detail.targetCount
+  // 막혔을 때 이유까지 문구로 돌려줍니다. 버튼만 비활성으로 두면 고장난 것처럼 보입니다.
+  const availability = joinAvailability({
+    status: detail.status,
+    paidCount: detail.paidCount,
+    targetCount: detail.targetCount,
+    sellerSuspended: detail.sellerSuspended,
+  })
 
   useEffect(() => {
     if (!isSignedIn) return
@@ -152,8 +159,8 @@ function DetailView({ detail }: { detail: GroupBuyDetail }) {
           {/* 사진 아래 선과 버튼 아래 선을 맞춥니다 (.detail-actions 의 margin-top:auto) */}
           <div className="detail-actions">
             <LikeButton id={detail.id} name={detail.productName} />
-            <Button className="detail-join" onClick={join} disabled={!isJoinable}>
-              {isJoinable ? '공동구매 참여하기' : '참여할 수 없습니다'}
+            <Button className="detail-join" onClick={join} disabled={!availability.canJoin}>
+              {availability.label}
             </Button>
           </div>
         </div>
