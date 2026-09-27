@@ -785,6 +785,11 @@ button,input,select,textarea{font:inherit;color:inherit;}
 }
 /* 채우지 않고 테두리와 글자만 브랜드색으로 바뀝니다 */
 .btn-ghost:hover{border-color:var(--brand);color:var(--brand);}
+/*
+ * 가로를 채우는 테두리 버튼. .btn-ghost 가 .btn-block 보다 뒤에 있어 여백·글자 크기를 덮어써
+ * 옆의 꽉 찬 버튼보다 8px 낮았습니다. 테두리 1px 을 뺀 여백으로 높이를 맞춥니다.
+ */
+.btn-ghost.btn-block{padding:15px;font-size:14px;}
 .btn[disabled]{background:var(--fill);color:var(--muted);cursor:not-allowed;}
 /*
  * 화살표를 CSS mask 로 넣습니다. png 를 쓰지 않는 이유:
