@@ -3,6 +3,7 @@ import { useQueries } from '@tanstack/react-query'
 import { groupBuyQueries } from '@/entities/groupBuy/queries'
 import { GroupBuyGrid } from '@/features/groupBuy/GroupBuyGrid'
 import { useLikedIds } from '@/features/like/likeStore'
+import { firstRealError, likesView } from '@/features/like/likesView'
 import { useDocumentTitle } from '@/shared/lib/hooks/useDocumentTitle'
 import { EmptyState, ErrorState, LoadingState } from '@/shared/ui/states'
 
@@ -32,11 +33,15 @@ export default function LikesPage() {
   })
 
   const items = results.flatMap((result) => (result.data === undefined ? [] : [result.data]))
-  const loading = results.some((result) => result.isPending)
+  const errors = results.flatMap((result) => (result.isError ? [result.error] : []))
   // 지워진 공동구매는 404 가 납니다. 한 건이 없다고 화면 전체를 실패로 두지 않고,
-  // 하나도 못 받았을 때만 오류로 알립니다.
-  const failedAll = likedIds.length > 0 && items.length === 0 && !loading
-  const firstError = results.find((result) => result.isError)?.error
+  // 사라진 건만 남았으면 빈 목록으로 봅니다 (likesView).
+  const view = likesView({
+    likedCount: likedIds.length,
+    loadedCount: items.length,
+    pending: results.some((result) => result.isPending),
+    errors,
+  })
 
   return (
     <main className="wrap">
@@ -47,17 +52,17 @@ export default function LikesPage() {
           </div>
         </div>
 
-        {likedIds.length === 0 ? (
+        {view === 'empty' ? (
           <EmptyState
             title="아직 찜한 상품이 없어요"
             action={{ to: '/group-buys', label: '상품 둘러보기' }}
           >
             취향에 맞는 상품을 찾으러 가볼까요?
           </EmptyState>
-        ) : loading && items.length === 0 ? (
+        ) : view === 'loading' ? (
           <LoadingState label="찜한 공동구매를 불러오는 중입니다." />
-        ) : failedAll ? (
-          <ErrorState error={firstError} />
+        ) : view === 'error' ? (
+          <ErrorState error={firstRealError(errors)} />
         ) : (
           <GroupBuyGrid items={items} />
         )}
