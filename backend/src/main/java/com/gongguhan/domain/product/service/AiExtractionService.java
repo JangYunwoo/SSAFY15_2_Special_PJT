@@ -152,8 +152,10 @@ public class AiExtractionService {
         Long directId = result.directCategoryId();
         if (directId != null) {
             if (categoryRepository.existsById(directId)) {
+                // 신규 계약(category_id 직접 전달)에는 신뢰도가 없다. 0 으로 채우면 화면이
+                // "신뢰도 0%" 로 표시해 정상 추출을 오류처럼 보이게 한다. 모르면 null 이다.
                 return new AiField<>(String.valueOf(directId),
-                        categoryName == null ? java.math.BigDecimal.ZERO : categoryName.confidence());
+                        categoryName == null ? null : categoryName.confidence());
             }
             warnings.add("AI가 준 카테고리를 찾을 수 없습니다. 직접 선택해 주세요.");
             return null;

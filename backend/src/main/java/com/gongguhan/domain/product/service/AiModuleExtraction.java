@@ -38,8 +38,15 @@ public record AiModuleExtraction(
                 field(resultJson.description(), confidence.description()));
     }
 
+    /**
+     * AI 모듈은 현재 confidence_json 을 보내지 않는다.
+     *
+     * <p>예전에는 없으면 0 으로 채웠는데, 화면에 "신뢰도 0% · 값을 확인해 주세요" 가 떠서
+     * 정상 추출한 값을 판매자가 틀린 값으로 오해했다. 신뢰도를 "모른다" 와 "0 이다" 는
+     * 다르다. 모르면 null 로 두고, 화면이 숫자 없이 검수만 안내한다.
+     */
     private static <T> AiField<T> field(T value, BigDecimal confidence) {
-        return value == null ? null : new AiField<>(value, confidence == null ? BigDecimal.ZERO : confidence);
+        return value == null ? null : new AiField<>(value, confidence);
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
