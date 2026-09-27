@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 
-const MAX_EXTRA_IMAGES = 4
+/**
+ * 대표 1장 + 추가 3장 = 모두 4장. 정사각 칸 네 개를 한 줄로 늘어놓습니다.
+ * 다섯 칸이면 판매자센터 본문 폭에서 한 칸이 너무 작아져 사진이 알아보기 어렵습니다.
+ */
+const MAX_IMAGES = 4
 const MAX_BYTES = 10 * 1024 * 1024
 const ACCEPTED = ['image/jpeg', 'image/png']
 
@@ -14,7 +18,7 @@ interface ImageUploaderProps {
   onChange: (images: PickedImage[]) => void
 }
 
-/** 대표 이미지 1장 + 추가 이미지 최대 4장 (.upload) */
+/** 대표 이미지 1장 + 추가 이미지 최대 3장. 정사각 칸 네 개를 한 줄로 보여줍니다 (.upload-row) */
 export function ImageUploader({ images, onChange }: ImageUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string | null>(null)
@@ -46,7 +50,7 @@ export function ImageUploader({ images, onChange }: ImageUploaderProps) {
 
     if (picked.length === 0) return
     setError(null)
-    onChange([...images, ...picked].slice(0, MAX_EXTRA_IMAGES + 1))
+    onChange([...images, ...picked].slice(0, MAX_IMAGES))
   }
 
   const remove = (index: number) => {
@@ -66,31 +70,55 @@ export function ImageUploader({ images, onChange }: ImageUploaderProps) {
     event.target.value = ''
   }
 
-  const cover = images[0]
+  const openPicker = () => {
+    inputRef.current?.click()
+  }
 
   return (
     <>
-      <button
-        type="button"
-        className="upload"
-        onClick={() => {
-          inputRef.current?.click()
-        }}
-        onDragOver={(event) => {
-          event.preventDefault()
-        }}
-        onDrop={onDrop}
-      >
-        {cover === undefined ? (
-          <>
-            대표 이미지를 끌어다 놓거나 클릭해서 업로드
-            <br />
-            <span className="small">JPG · PNG · 10MB 이하 · 권장 1200×1200</span>
-          </>
-        ) : (
-          <img src={cover.previewUrl} alt="대표 이미지 미리보기" className="upload-preview" />
-        )}
-      </button>
+      <div className="upload-row">
+        {Array.from({ length: MAX_IMAGES }, (_, index) => {
+          const image = images[index]
+          const isCover = index === 0
+          return (
+            <button
+              key={index}
+              type="button"
+              className="upload upload-square"
+              aria-label={
+                image === undefined
+                  ? `${isCover ? '대표 이미지' : `추가 이미지 ${String(index)}`} 올리기`
+                  : `${isCover ? '대표 이미지' : `추가 이미지 ${String(index)}`} 지우기`
+              }
+              onClick={() => {
+                // 채워진 칸을 누르면 지웁니다. 대표를 지우면 다음 장이 대표가 됩니다.
+                if (image) remove(index)
+                else openPicker()
+              }}
+              onDragOver={(event) => {
+                event.preventDefault()
+              }}
+              onDrop={onDrop}
+            >
+              {image === undefined ? (
+                <>
+                  {isCover ? '대표 이미지' : `추가 ${String(index)}`}
+                  <span className="small">{isCover ? '필수' : '선택'}</span>
+                </>
+              ) : (
+                <>
+                  <img src={image.previewUrl} alt="" className="upload-preview" />
+                  {isCover && <span className="upload-badge">대표</span>}
+                </>
+              )}
+            </button>
+          )
+        })}
+      </div>
+      <p className="small muted mt8" style={{ marginBottom: 0 }}>
+        끌어다 놓거나 눌러서 올립니다 · JPG · PNG · 10MB 이하 · 권장 1200×1200 · 올린 사진을 누르면
+        지워집니다
+      </p>
 
       <input
         ref={inputRef}
@@ -100,34 +128,6 @@ export function ImageUploader({ images, onChange }: ImageUploaderProps) {
         hidden
         onChange={onPick}
       />
-
-      <div className="field-row mt16">
-        {Array.from({ length: MAX_EXTRA_IMAGES }, (_, index) => {
-          const image = images[index + 1]
-          return (
-            <button
-              key={index}
-              type="button"
-              className="upload"
-              style={{ height: 80 }}
-              onClick={() => {
-                if (image) remove(index + 1)
-                else inputRef.current?.click()
-              }}
-            >
-              {image === undefined ? (
-                <>
-                  추가 {index + 1}
-                  <br />
-                  <span className="small">선택</span>
-                </>
-              ) : (
-                <img src={image.previewUrl} alt="" className="upload-preview" />
-              )}
-            </button>
-          )
-        })}
-      </div>
 
       {error !== null && (
         <p className="ai-hint fail" role="alert">
